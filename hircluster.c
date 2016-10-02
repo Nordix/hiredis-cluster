@@ -2123,7 +2123,7 @@ static cluster_node *node_get_by_table(redisClusterContext *cc,
     return cc->table[slot_num];
 }
 
-static cluster_node *node_get_witch_connected(redisClusterContext *cc) {
+static cluster_node *node_get_which_connected(redisClusterContext *cc) {
     dictIterator *di;
     dictEntry *de;
     struct cluster_node *node;
@@ -2181,7 +2181,7 @@ static char *cluster_config_get(redisClusterContext *cc,
         return NULL;
     }
 
-    node = node_get_witch_connected(cc);
+    node = node_get_which_connected(cc);
     if (node == NULL) {
         __redisClusterSetError(cc, REDIS_ERR_OTHER,
                                "no reachable node in cluster");
@@ -2434,7 +2434,7 @@ retry:
         __redisClusterSetError(cc, REDIS_ERR_OTHER, "ctx get by node is null");
         return NULL;
     } else if (c->err) {
-        node = node_get_witch_connected(cc);
+        node = node_get_which_connected(cc);
         if (node == NULL) {
             __redisClusterSetError(cc, REDIS_ERR_OTHER,
                                    "no reachable node in cluster");
@@ -3373,7 +3373,7 @@ int redisClusterAppendCommandArgv(redisClusterContext *cc, int argc,
     return ret;
 }
 
-static int redisCLusterSendAll(redisClusterContext *cc) {
+static int redisClusterSendAll(redisClusterContext *cc) {
     dictIterator *di;
     dictEntry *de;
     struct cluster_node *node;
@@ -3412,7 +3412,7 @@ static int redisCLusterSendAll(redisClusterContext *cc) {
     return REDIS_OK;
 }
 
-static int redisCLusterClearAll(redisClusterContext *cc) {
+static int redisClusterClearAll(redisClusterContext *cc) {
     dictIterator *di;
     dictEntry *de;
     struct cluster_node *node;
@@ -3551,16 +3551,16 @@ void redisClusterReset(redisClusterContext *cc) {
     }
 
     if (cc->err) {
-        redisCLusterClearAll(cc);
+        redisClusterClearAll(cc);
     } else {
-        redisCLusterSendAll(cc);
+        redisClusterSendAll(cc);
 
         do {
             status = redisClusterGetReply(cc, &reply);
             if (status == REDIS_OK) {
                 freeReplyObject(reply);
             } else {
-                redisCLusterClearAll(cc);
+                redisClusterClearAll(cc);
                 break;
             }
         } while (reply != NULL);
@@ -3882,7 +3882,7 @@ static void redisClusterAsyncCallback(redisAsyncContext *ac, void *r,
 
     if (reply == NULL) {
         // Note:
-        // I can't decide witch is the best way to deal with connect
+        // I can't decide which is the best way to deal with connect
         // problem for hiredis cluster async api.
         // But now the way is : when enough null reply for a node,
         // we will update the route after the cluster node timeout.
