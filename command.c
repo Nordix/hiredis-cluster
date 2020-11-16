@@ -15,6 +15,9 @@ static int redis_argz(struct cmd *r) {
     switch (r->type) {
     case CMD_REQ_REDIS_PING:
     case CMD_REQ_REDIS_QUIT:
+    case CMD_REQ_REDIS_MULTI:
+    case CMD_REQ_REDIS_EXEC:
+    case CMD_REQ_REDIS_DISCARD:
         return 1;
 
     default:
@@ -595,6 +598,11 @@ void redis_parse_cmd(struct cmd *r) {
                     break;
                 }
 
+                if (str4icmp(m, 'e', 'x', 'e', 'c')) {
+                    r->type = CMD_REQ_REDIS_EXEC;
+                    break;
+                }
+
                 break;
 
             case 5:
@@ -685,6 +693,11 @@ void redis_parse_cmd(struct cmd *r) {
 
                 if (str5icmp(m, 'p', 'f', 'a', 'd', 'd')) {
                     r->type = CMD_REQ_REDIS_PFADD;
+                    break;
+                }
+
+                if (str5icmp(m, 'm', 'u', 'l', 't', 'i')) {
+                    r->type = CMD_REQ_REDIS_MULTI;
                     break;
                 }
 
@@ -846,6 +859,11 @@ void redis_parse_cmd(struct cmd *r) {
 
                 if (str7icmp(m, 'p', 'f', 'm', 'e', 'r', 'g', 'e')) {
                     r->type = CMD_REQ_REDIS_PFMERGE;
+                    break;
+                }
+
+                if (str7icmp(m, 'd', 'i', 's', 'c', 'a', 'r', 'd')) {
+                    r->type = CMD_REQ_REDIS_DISCARD;
                     break;
                 }
 

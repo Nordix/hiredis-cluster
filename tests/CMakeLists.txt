@@ -78,6 +78,11 @@ if(ENABLE_IPV6_TESTS)
   set_tests_properties(ct_connection_ipv6 PROPERTIES LABELS "CT")
 endif()
 
+add_executable(ct_transaction ct_transaction.c)
+target_link_libraries(ct_transaction hiredis_cluster hiredis ${SSL_LIBRARY})
+add_test(NAME ct_transaction COMMAND "$<TARGET_FILE:ct_transaction>")
+set_tests_properties(ct_transaction PROPERTIES LABELS "CT")
+
 if(ENABLE_SSL)
   # Executable: tls
   add_executable(example_tls main_tls.c)
