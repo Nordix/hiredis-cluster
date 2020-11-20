@@ -16,7 +16,10 @@ if(ENABLE_SSL)
 endif()
 
 
-find_library(EVENT_LIBRARY event HINTS /usr/lib/x86_64-linux-gnu)
+set(THREADS_PREFER_PTHREAD_FLAG ON)
+find_package(Threads REQUIRED)
+find_library(LIBEVENT_LIB REQUIRED event HINTS /usr/lib/x86_64-linux-gnu)
+find_library(LIBEVENT_PTHREAD_LIB REQUIRED event_pthreads HINTS /usr/lib/x86_64-linux-gnu)
 
 if(MSVC)
   # MS Visual: Suppress warnings
@@ -40,7 +43,7 @@ add_test(NAME example_ipv6 COMMAND "$<TARGET_FILE:example_ipv6>")
 
 # Executable: async
 add_executable(example_async main_async.c)
-target_link_libraries(example_async hiredis_cluster hiredis ${SSL_LIBRARY} ${EVENT_LIBRARY})
+target_link_libraries(example_async hiredis_cluster hiredis ${SSL_LIBRARY} ${LIBEVENT_LIB})
 add_test(NAME example_async COMMAND "$<TARGET_FILE:example_async>")
 
 add_executable(ct_commands ct_commands.c)
@@ -49,14 +52,20 @@ add_test(NAME ct_commands COMMAND "$<TARGET_FILE:ct_commands>")
 set_tests_properties(ct_commands PROPERTIES LABELS "CT")
 
 add_executable(ct_connection ct_connection.c)
-target_link_libraries(ct_connection hiredis_cluster hiredis ${SSL_LIBRARY} ${EVENT_LIBRARY})
+target_link_libraries(ct_connection hiredis_cluster hiredis ${SSL_LIBRARY} ${LIBEVENT_LIB})
 add_test(NAME ct_connection COMMAND "$<TARGET_FILE:ct_connection>")
 set_tests_properties(ct_connection PROPERTIES LABELS "CT")
 
 add_executable(ct_pipeline ct_pipeline.c)
-target_link_libraries(ct_pipeline hiredis_cluster hiredis ${SSL_LIBRARY} ${EVENT_LIBRARY})
+target_link_libraries(ct_pipeline hiredis_cluster hiredis ${SSL_LIBRARY} ${LIBEVENT_LIB})
 add_test(NAME ct_pipeline COMMAND "$<TARGET_FILE:ct_pipeline>")
 set_tests_properties(ct_pipeline PROPERTIES LABELS "CT")
+
+add_executable(ct_fakecluster ct_fakecluster.c fakecluster.c)
+target_link_libraries(ct_fakecluster PRIVATE
+  hiredis_cluster hiredis ${SSL_LIBRARY} ${LIBEVENT_LIB} ${LIBEVENT_PTHREAD_LIB} Threads::Threads)
+add_test(NAME ct_fakecluster COMMAND "$<TARGET_FILE:ct_fakecluster>")
+set_tests_properties(ct_fakecluster PROPERTIES LABELS "CT-FAKE")
 
 if(ENABLE_SSL)
   # Executable: tls
@@ -67,7 +76,7 @@ if(ENABLE_SSL)
 
   # Executable: async tls
   add_executable(example_async_tls main_async_tls.c)
-  target_link_libraries(example_async_tls hiredis_cluster hiredis ${SSL_LIBRARY} ${EVENT_LIBRARY})
+  target_link_libraries(example_async_tls hiredis_cluster hiredis ${SSL_LIBRARY} ${LIBEVENT_LIB})
   add_dependencies(example_async_tls generate_tls_configs)
   add_test(NAME example_async_tls COMMAND "$<TARGET_FILE:example_async_tls>")
 endif()
