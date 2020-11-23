@@ -1,35 +1,11 @@
 #include "hircluster.h"
+#include "test_utils.h"
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #define CLUSTER_NODE "127.0.0.1:7000"
-
-#define ASSERT_MSG(_x, _msg)                                                   \
-    if (!(_x)) {                                                               \
-        fprintf(stderr, "ERROR: %s\n", _msg);                                  \
-        assert(_x);                                                            \
-    }
-#define REPLY(_ctx, _reply)                                                    \
-    if (!(_reply)) {                                                           \
-        ASSERT_MSG(_reply, _ctx->errstr);                                      \
-    }
-#define REPLY_TYPE(_reply, _type)                                              \
-    ASSERT_MSG((_reply->type == _type), "Reply type incorrect");
-
-#define CHECK_REPLY_OK(_ctx, _reply)                                           \
-    {                                                                          \
-        REPLY(_ctx, _reply);                                                   \
-        REPLY_TYPE(_reply, REDIS_REPLY_STATUS);                                \
-        ASSERT_MSG((strcmp(_reply->str, "OK") == 0), _ctx->errstr);            \
-    }
-#define CHECK_REPLY_INT(_ctx, _reply, _value)                                  \
-    {                                                                          \
-        REPLY(_ctx, _reply);                                                   \
-        REPLY_TYPE(_reply, REDIS_REPLY_INTEGER);                               \
-        ASSERT_MSG((_reply->integer == _value), _ctx->errstr);                 \
-    }
 
 void test_exists(redisClusterContext *cc) {
     redisReply *reply;
@@ -54,19 +30,17 @@ void test_exists(redisClusterContext *cc) {
     freeReplyObject(reply);
 }
 
-int main(int argc, char **argv) {
-    UNUSED(argc);
-    UNUSED(argv);
-
+int main() {
     struct timeval timeout = {0, 500000};
 
     redisClusterContext *cc = redisClusterContextInit();
     assert(cc);
     redisClusterSetOptionAddNodes(cc, CLUSTER_NODE);
     redisClusterSetOptionConnectTimeout(cc, timeout);
-    redisClusterSetOptionRouteUseSlots(cc);
-    redisClusterConnect2(cc);
-    assert(cc->err == 0);
+
+    int status;
+    status = redisClusterConnect2(cc);
+    ASSERT_MSG(status == REDIS_OK, cc->errstr);
 
     test_exists(cc);
 

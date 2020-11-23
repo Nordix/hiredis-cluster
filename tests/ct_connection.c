@@ -1,5 +1,6 @@
 #include "adapters/libevent.h"
 #include "hircluster.h"
+#include "test_utils.h"
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -15,15 +16,15 @@ void test_password_ok() {
     assert(cc);
     redisClusterSetOptionAddNodes(cc, CLUSTER_NODE_WITH_PASSWORD);
     redisClusterSetOptionPassword(cc, CLUSTER_PASSWORD);
-    redisClusterConnect2(cc);
 
-    assert(cc->err == 0);
+    int status;
+    status = redisClusterConnect2(cc);
+    ASSERT_MSG(status == REDIS_OK, cc->errstr);
 
     // Test connection
     redisReply *reply;
     reply = (redisReply *)redisClusterCommand(cc, "SET key1 Hello");
-    assert(reply);
-    assert(strcmp(reply->str, "OK") == 0);
+    CHECK_REPLY_OK(cc, reply);
     freeReplyObject(reply);
 
     redisClusterFree(cc);
@@ -35,8 +36,11 @@ void test_password_wrong() {
     redisClusterContext *cc = redisClusterContextInit();
     assert(cc);
     redisClusterSetOptionAddNodes(cc, CLUSTER_NODE_WITH_PASSWORD);
-    redisClusterSetOptionPassword(cc, "wrongpass");
-    redisClusterConnect2(cc);
+    redisClusterSetOptionPassword(cc, "faultypass");
+
+    int status;
+    status = redisClusterConnect2(cc);
+    assert(status == REDIS_ERR);
 
     assert(cc->err == REDIS_ERR_OTHER);
     assert(strncmp(cc->errstr, "WRONGPASS", 9) == 0);
@@ -50,8 +54,11 @@ void test_password_missing() {
     redisClusterContext *cc = redisClusterContextInit();
     assert(cc);
     redisClusterSetOptionAddNodes(cc, CLUSTER_NODE_WITH_PASSWORD);
+
     // A password is not configured..
-    redisClusterConnect2(cc);
+    int status;
+    status = redisClusterConnect2(cc);
+    assert(status == REDIS_ERR);
 
     assert(cc->err == REDIS_ERR_OTHER);
     assert(strncmp(cc->errstr, "NOAUTH", 6) == 0);
@@ -86,16 +93,19 @@ void test_async_password_ok() {
     redisClusterAsyncSetDisconnectCallback(acc, callbackExpectOk);
     redisClusterSetOptionAddNodes(acc->cc, CLUSTER_NODE_WITH_PASSWORD);
     redisClusterSetOptionPassword(acc->cc, CLUSTER_PASSWORD);
-    redisClusterConnect2(acc->cc);
-
-    assert(acc->err == 0);
 
     struct event_base *base = event_base_new();
     redisClusterLibeventAttach(acc, base);
 
+    int status;
+    status = redisClusterConnect2(acc->cc);
+    assert(status == REDIS_OK);
+    assert(acc->err == 0);
+    assert(acc->cc->err == 0);
+
     // Test connection
-    int status = redisClusterAsyncCommand(acc, commandCallback,
-                                          (char *)"THE_ID", "SET key1 Hello");
+    status = redisClusterAsyncCommand(acc, commandCallback, (char *)"THE_ID",
+                                      "SET key1 Hello");
     assert(status == REDIS_OK);
 
     event_base_dispatch(base);
@@ -112,17 +122,21 @@ void test_async_password_wrong() {
     redisClusterAsyncSetConnectCallback(acc, callbackExpectOk);
     redisClusterAsyncSetDisconnectCallback(acc, callbackExpectOk);
     redisClusterSetOptionAddNodes(acc->cc, CLUSTER_NODE_WITH_PASSWORD);
-    redisClusterSetOptionPassword(acc->cc, "wrongpass");
-    redisClusterConnect2(acc->cc);
-
-    assert(acc->err == 0);
+    redisClusterSetOptionPassword(acc->cc, "faultypass");
 
     struct event_base *base = event_base_new();
     redisClusterLibeventAttach(acc, base);
 
+    int status;
+    status = redisClusterConnect2(acc->cc);
+    assert(status == REDIS_ERR);
+    assert(acc->err == REDIS_OK); // TODO: This must be wrong!
+    assert(acc->cc->err == REDIS_ERR_OTHER);
+    assert(strncmp(acc->cc->errstr, "WRONGPASS", 6) == 0);
+
     // Test connection
-    int status = redisClusterAsyncCommand(acc, commandCallback,
-                                          (char *)"THE_ID", "SET key1 Hello");
+    status = redisClusterAsyncCommand(acc, commandCallback, (char *)"THE_ID",
+                                      "SET key1 Hello");
     assert(status == REDIS_ERR);
     assert(acc->err == REDIS_ERR_OTHER);
     assert(strcmp(acc->errstr, "node get by table error") == 0);
@@ -142,16 +156,20 @@ void test_async_password_missing() {
     redisClusterAsyncSetDisconnectCallback(acc, callbackExpectOk);
     redisClusterSetOptionAddNodes(acc->cc, CLUSTER_NODE_WITH_PASSWORD);
     // Password not configured
-    redisClusterConnect2(acc->cc);
-
-    assert(acc->err == 0);
 
     struct event_base *base = event_base_new();
     redisClusterLibeventAttach(acc, base);
 
-    // Test connection
-    int status = redisClusterAsyncCommand(acc, commandCallback,
-                                          (char *)"THE_ID", "SET key1 Hello");
+    int status;
+    status = redisClusterConnect2(acc->cc);
+    assert(status == REDIS_ERR);
+    assert(acc->err == REDIS_OK); // TODO: This must be wrong!
+    assert(acc->cc->err == REDIS_ERR_OTHER);
+    assert(strncmp(acc->cc->errstr, "NOAUTH", 6) == 0);
+
+    // No connection
+    status = redisClusterAsyncCommand(acc, commandCallback, (char *)"THE_ID",
+                                      "SET key1 Hello");
     assert(status == REDIS_ERR);
     assert(acc->err == REDIS_ERR_OTHER);
     assert(strcmp(acc->errstr, "node get by table error") == 0);
