@@ -40,20 +40,10 @@ endif()
 # Debug mode for tests
 set(CMAKE_BUILD_TYPE "Debug" CACHE STRING "" FORCE)
 
-# Executable: IPv4
-add_executable(example_ipv4 main.c)
-target_link_libraries(example_ipv4 hiredis_cluster hiredis ${SSL_LIBRARY})
-add_test(NAME example_ipv4 COMMAND "$<TARGET_FILE:example_ipv4>")
-
-# Executable: IPv6
-add_executable(example_ipv6 main_ipv6.c)
-target_link_libraries(example_ipv6 hiredis_cluster hiredis ${SSL_LIBRARY})
-add_test(NAME example_ipv6 COMMAND "$<TARGET_FILE:example_ipv6>")
-
-# Executable: async
-add_executable(example_async main_async.c)
-target_link_libraries(example_async hiredis_cluster hiredis ${SSL_LIBRARY} ${EVENT_LIBRARY})
-add_test(NAME example_async COMMAND "$<TARGET_FILE:example_async>")
+add_executable(ct_async ct_async.c)
+target_link_libraries(ct_async hiredis_cluster hiredis ${SSL_LIBRARY} ${EVENT_LIBRARY})
+add_test(NAME ct_async COMMAND "$<TARGET_FILE:ct_async>")
+set_tests_properties(ct_async PROPERTIES LABELS "CT")
 
 add_executable(ct_commands ct_commands.c)
 target_link_libraries(ct_commands hiredis_cluster hiredis ${SSL_LIBRARY})
@@ -70,16 +60,18 @@ target_link_libraries(ct_pipeline hiredis_cluster hiredis ${SSL_LIBRARY} ${EVENT
 add_test(NAME ct_pipeline COMMAND "$<TARGET_FILE:ct_pipeline>")
 set_tests_properties(ct_pipeline PROPERTIES LABELS "CT")
 
+# Executable: IPv6
+add_executable(example_ipv6 main_ipv6.c)
+target_link_libraries(example_ipv6 hiredis_cluster hiredis ${SSL_LIBRARY})
+
 if(ENABLE_SSL)
   # Executable: tls
   add_executable(example_tls main_tls.c)
   target_link_libraries(example_tls hiredis_cluster hiredis ${SSL_LIBRARY})
   add_dependencies(example_tls generate_tls_configs)
-  add_test(NAME example_tls COMMAND "$<TARGET_FILE:example_tls>")
 
   # Executable: async tls
   add_executable(example_async_tls main_async_tls.c)
   target_link_libraries(example_async_tls hiredis_cluster hiredis ${SSL_LIBRARY} ${EVENT_LIBRARY})
   add_dependencies(example_async_tls generate_tls_configs)
-  add_test(NAME example_async_tls COMMAND "$<TARGET_FILE:example_async_tls>")
 endif()
