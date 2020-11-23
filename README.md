@@ -58,6 +58,15 @@ $ cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo -DENABLE_SSL=ON ..
 $ make
 ```
 
+Some tests needs a Redis cluster and that can be setup by the build targets `start`/`stop`
+The clusters will be setup using Docker and it may take a while before initiation and being able to run the tests.
+
+```sh
+$ make start
+$ make test
+$ make stop
+```
+
 ### Build options
 
 The following CMake options are available:

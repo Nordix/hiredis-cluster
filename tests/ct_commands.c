@@ -4,6 +4,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define CLUSTER_NODE "127.0.0.1:7000"
+
 #define ASSERT_MSG(_x, _msg)                                                   \
     if (!(_x)) {                                                               \
         fprintf(stderr, "ERROR: %s\n", _msg);                                  \
@@ -60,7 +62,7 @@ int main(int argc, char **argv) {
 
     redisClusterContext *cc = redisClusterContextInit();
     assert(cc);
-    redisClusterSetOptionAddNodes(cc, "127.0.0.1:30001");
+    redisClusterSetOptionAddNodes(cc, CLUSTER_NODE);
     redisClusterSetOptionConnectTimeout(cc, timeout);
     redisClusterSetOptionRouteUseSlots(cc);
     redisClusterConnect2(cc);

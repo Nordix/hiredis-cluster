@@ -7,7 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define CLUSTER_NODE "127.0.0.1:30001"
+#define CLUSTER_NODE "127.0.0.1:7000"
 
 // Test of two pipelines using sync API
 void test_pipeline() {

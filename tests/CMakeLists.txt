@@ -15,7 +15,19 @@ if(ENABLE_SSL)
   set(SSL_LIBRARY hiredis_ssl)
 endif()
 
+# Targets to setup Redis Clusters for testing
+find_program(Docker_EXECUTABLE docker)
+set(CONTAINER "bjosv/redis-cluster:latest") # When supporting password, change to: grokzen/redis-cluster:latest
+add_custom_target(start
+  COMMAND ${Docker_EXECUTABLE} run --name docker-cluster -d -p 7000-7006:7000-7006 ${CONTAINER} || (exit 0)
+  COMMAND ${Docker_EXECUTABLE} run --name docker-cluster-passw -d -e INITIAL_PORT=7100 -e PASSWORD="secretword" -p 7100-7106:7100-7106 ${CONTAINER} || (exit 0)
+)
+add_custom_target(stop
+  COMMAND ${Docker_EXECUTABLE} rm -f  docker-cluster || (exit 0)
+  COMMAND ${Docker_EXECUTABLE} rm -f  docker-cluster-passw || (exit 0)
+)
 
+# Find dependencies
 find_library(EVENT_LIBRARY event HINTS /usr/lib/x86_64-linux-gnu)
 
 if(MSVC)
