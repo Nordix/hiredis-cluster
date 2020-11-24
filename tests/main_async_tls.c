@@ -5,6 +5,8 @@
 #include "adapters/libevent.h"
 #include "hircluster.h"
 
+#define CLUSTER_NODE_TLS "127.0.0.1:7300"
+
 void getCallback(redisClusterAsyncContext *cc, void *r, void *privdata) {
     redisReply *reply = (redisReply *)r;
     if (reply == NULL) {
@@ -66,7 +68,7 @@ int main(int argc, char **argv) {
     assert(acc);
     redisClusterAsyncSetConnectCallback(acc, connectCallback);
     redisClusterAsyncSetDisconnectCallback(acc, disconnectCallback);
-    redisClusterSetOptionAddNodes(acc->cc, "127.0.0.1:31001");
+    redisClusterSetOptionAddNodes(acc->cc, CLUSTER_NODE_TLS);
     redisClusterSetOptionRouteUseSlots(acc->cc);
     redisClusterSetOptionParseSlaves(acc->cc);
     redisClusterSetOptionEnableSSL(acc->cc, ssl);
