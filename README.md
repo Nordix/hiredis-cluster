@@ -43,9 +43,9 @@ Prerequisites:
 
 * A C compiler (GCC or Clang)
 * CMake and GNU Make
-* (hiredis)[https://github.com/redis/hiredis]; downloaded automatically by
+* [hiredis](https://github.com/redis/hiredis); downloaded automatically by
   default, but see build options below
-* (libevent)[https://libevent.org/] (`libevent-dev` in Debian); can be avoided
+* [libevent](https://libevent.org/) (`libevent-dev` in Debian); can be avoided
   if building without tests (DISABLE_TESTS=ON)
 * OpenSSL (`libssl-dev` in Debian) if building with TLS support
 
@@ -58,7 +58,7 @@ $ cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo -DENABLE_SSL=ON ..
 $ make
 ```
 
-Some tests needs a Redis cluster and that can be setup by the build targets `start`/`stop`
+Some tests needs a Redis cluster and that can be setup by the make targets `start`/`stop`
 The clusters will be setup using Docker and it may take a while before initiation and being able to run the tests.
 
 ```sh
@@ -75,7 +75,7 @@ The following CMake options are available:
   * `OFF` CMake will search for an already installed hiredis (for example the
     the Debian package `libhiredis-dev`) for header files and linkage.
   * `ON` (default) hiredis will be downloaded from
-    (Github)[https://github.com/redis/hiredis], built and installed locally in
+    [Github](https://github.com/redis/hiredis), built and installed locally in
     the build folder.
 * `ENABLE_SSL`
   * `OFF` (default)
@@ -85,10 +85,13 @@ The following CMake options are available:
   * `OFF` (default)
   * `ON` Disable compilation of tests (also affect hiredis when
     `DOWNLOAD_HIREDIS=ON`).
+* `ENABLE_IPV6_TESTS`
+  * `OFF` (default)
+  * `ON` Enable IPv6 tests. Requires that IPv6 is [setup](https://docs.docker.com/config/daemon/ipv6/) in Docker.
 
 ### Build details
 
-The build uses CMake's (find_package)[https://cmake.org/cmake/help/latest/command/find_package.html#search-procedure] to search for a `hiredis` installation.
+The build uses CMake's [find_package](https://cmake.org/cmake/help/latest/command/find_package.html#search-procedure) to search for a `hiredis` installation.
 When building and installing `hiredis` a file called `hiredis-config.cmake` will be installed and this contains relevant information for users.
 
 As described in the CMake docs a specific path can be set using a flag like: `-Dhiredis_DIR:PATH=${MY_DIR}/hiredis/share/hiredis`

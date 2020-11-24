@@ -2,9 +2,10 @@ cmake_minimum_required(VERSION 3.14)
 include(GNUInstallDirs)
 project(hiredis-cluster)
 
-option(DOWNLOAD_HIREDIS "Download the dependency hiredis from GitHub" ON)
-option(ENABLE_SSL       "Enable SSL/TLS support" OFF)
-option(DISABLE_TESTS    "Disable compilation of test" OFF)
+option(DOWNLOAD_HIREDIS  "Download the dependency hiredis from GitHub" ON)
+option(ENABLE_SSL        "Enable SSL/TLS support" OFF)
+option(DISABLE_TESTS     "Disable compilation of test" OFF)
+option(ENABLE_IPV6_TESTS "Enable IPv6 tests requiring special prerequisites" OFF)
 
 macro(getVersionBit name)
   set(VERSION_REGEX "^#define ${name} (.+)$")
@@ -112,12 +113,9 @@ if(WIN32 OR MINGW)
     TARGET_LINK_LIBRARIES(hiredis_cluster PRIVATE ws2_32 hiredis::hiredis)
 endif()
 
-if (NOT DISABLE_TESTS)
+if(NOT DISABLE_TESTS)
   include(CTest)
-
-  if(BUILD_TESTING)
-    add_subdirectory(tests)
-  endif()
+  add_subdirectory(tests)
 endif()
 
 configure_file(hiredis_cluster.pc.in hiredis_cluster.pc @ONLY)
