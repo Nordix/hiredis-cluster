@@ -45,7 +45,20 @@ jobs:
       working-directory: build
       run: cmake --build . --config $BUILD_TYPE
 
-    # - name: Test
-    #   working-directory: build
-    #   shell: bash
-    #   run: ctest -C $BUILD_TYPE
+    # Run CI tests
+    - name: Setup clusters
+      shell: bash
+      working-directory: build
+      run: make start
+    - name: Wait for clusters to start..
+      uses: jakejarvis/wait-action@master
+      with:
+        time: '20s'
+    - name: Run tests
+      shell: bash
+      working-directory: build
+      run: make test
+    - name: Teardown clusters
+      working-directory: build
+      shell: bash
+      run: make stop
