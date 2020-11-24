@@ -2,6 +2,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#define CLUSTER_NODE_TLS "127.0.0.1:7300"
+
 int main(int argc, char **argv) {
     UNUSED(argc);
     UNUSED(argv);
@@ -20,7 +22,7 @@ int main(int argc, char **argv) {
     struct timeval timeout = {1, 500000}; // 1.5s
 
     redisClusterContext *cc = redisClusterContextInit();
-    redisClusterSetOptionAddNodes(cc, "127.0.0.1:31001");
+    redisClusterSetOptionAddNodes(cc, CLUSTER_NODE_TLS);
     redisClusterSetOptionConnectTimeout(cc, timeout);
     redisClusterSetOptionRouteUseSlots(cc);
     redisClusterSetOptionParseSlaves(cc);

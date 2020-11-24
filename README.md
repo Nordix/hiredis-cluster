@@ -1,12 +1,15 @@
 # Hiredis-cluster
 
-Hiredis-cluster is a C client library for cluster deployments of the [Redis](http://redis.io/) database.
+Hiredis-cluster is a C client library for cluster deployments of the
+[Redis](http://redis.io/) database.
 
-Hiredis-cluster is using [Hiredis](https://github.com/redis/hiredis) for the connections to each Redis node.
+Hiredis-cluster is using [Hiredis](https://github.com/redis/hiredis) for the
+connections to each Redis node.
 
 Hiredis-cluster is a fork of Hiredis-vip, with the following improvements:
 
-* The C library `hiredis` is an external dependency rather than a builtin part of the cluster client, meaning that the latest `hiredis` can be used.
+* The C library `hiredis` is an external dependency rather than a builtin part
+  of the cluster client, meaning that the latest `hiredis` can be used.
 * Support for SSL/TLS introduced in Redis 6
 * Support for IPv6
 * Using CMake as build system
@@ -49,22 +52,14 @@ Prerequisites:
   if building without tests (DISABLE_TESTS=ON)
 * OpenSSL (`libssl-dev` in Debian) if building with TLS support
 
-Hiredis-cluster will be built as a shared library and the test suites will additionally depend on the shared library libhiredis.so,
-and libhiredis_ssl.so when SSL is enabled.
+Hiredis-cluster will be built as a shared library and the test suites will
+additionally depend on the shared library libhiredis.so, and libhiredis_ssl.so
+when SSL is enabled.
 
 ```sh
 $ mkdir build; cd build
 $ cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo -DENABLE_SSL=ON ..
 $ make
-```
-
-Some tests needs a Redis cluster and that can be setup by the make targets `start`/`stop`
-The clusters will be setup using Docker and it may take a while before initiation and being able to run the tests.
-
-```sh
-$ make start
-$ make test
-$ make stop
 ```
 
 ### Build options
@@ -87,24 +82,41 @@ The following CMake options are available:
     `DOWNLOAD_HIREDIS=ON`).
 * `ENABLE_IPV6_TESTS`
   * `OFF` (default)
-  * `ON` Enable IPv6 tests. Requires that IPv6 is [setup](https://docs.docker.com/config/daemon/ipv6/) in Docker.
+  * `ON` Enable IPv6 tests. Requires that IPv6 is
+    [setup](https://docs.docker.com/config/daemon/ipv6/) in Docker.
 
 ### Build details
 
-The build uses CMake's [find_package](https://cmake.org/cmake/help/latest/command/find_package.html#search-procedure) to search for a `hiredis` installation.
-When building and installing `hiredis` a file called `hiredis-config.cmake` will be installed and this contains relevant information for users.
+The build uses CMake's [find_package](https://cmake.org/cmake/help/latest/command/find_package.html#search-procedure)
+to search for a `hiredis` installation. When building and installing `hiredis` a
+file called `hiredis-config.cmake` will be installed and this contains relevant information for users.
 
-As described in the CMake docs a specific path can be set using a flag like: `-Dhiredis_DIR:PATH=${MY_DIR}/hiredis/share/hiredis`
+As described in the CMake docs a specific path can be set using a flag like:
+`-Dhiredis_DIR:PATH=${MY_DIR}/hiredis/share/hiredis`
 
 ### Running the tests
 
-The tests and examples binaries are located under `build/tests` after building
-using the instructions above. Then run `make start` (WIP) to start a Redis
-cluster and then `make test`. If you want to set up the Redis cluster manually,
-it should run on localhost, where one of the nodes listens on port 30001 and has
-TLS disabled. It should accept both IPv4 and IPv6 for all tests to pass. For the
-TLS tests, one node is to listen on port 31001 and all nodes has to have TLS
-enabled.
+Some tests needs a Redis cluster and that can be setup by the make targets
+`start`/`stop`. The clusters will be setup using Docker and it may take a while
+for them to be ready and accepting requests. Run `make start` to start the
+clusters and then wait a few seconds before running `make test`.
+To stop the running cluster containers run `make stop`.
+
+```sh
+$ make start
+$ make test
+$ make stop
+```
+
+If you want to set up the Redis clusters manually they should run on localhost
+using following access ports:
+
+| Cluster type                                        | Access port |
+| ----------------------------------                  | -------:    |
+| IPv4                                                | 7000        |
+| IPv4, authentication needed, password: `secretword` | 7100        |
+| IPv6                                                | 7200        |
+| IPv4, using TLS/SSL                                 | 7300        |
 
 ## Quick usage
 
