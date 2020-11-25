@@ -48,6 +48,8 @@ endif()
 
 # Debug mode for tests
 set(CMAKE_BUILD_TYPE "Debug" CACHE STRING "" FORCE)
+# Make sure ctest gives the output when tests fail
+list(APPEND CMAKE_CTEST_ARGUMENTS "--output-on-failure")
 
 add_executable(ct_async ct_async.c)
 target_link_libraries(ct_async hiredis_cluster hiredis ${SSL_LIBRARY} ${EVENT_LIBRARY})
