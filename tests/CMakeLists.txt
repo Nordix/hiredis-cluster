@@ -89,3 +89,13 @@ if(ENABLE_SSL)
   target_link_libraries(example_async_tls hiredis_cluster hiredis ${SSL_LIBRARY} ${EVENT_LIBRARY})
   add_dependencies(example_async_tls generate_tls_configs)
 endif()
+
+# Tests using simulated redis node
+add_executable(clusterclient clusterclient.c)
+target_link_libraries(clusterclient hiredis_cluster hiredis ${SSL_LIBRARY})
+add_test(NAME set-get-test
+  COMMAND "${CMAKE_SOURCE_DIR}/tests/scripts/set-get-test.sh" "$<TARGET_FILE:clusterclient>"
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/tests/scripts/")
+add_test(NAME ask-redirect-test
+  COMMAND "${CMAKE_SOURCE_DIR}/tests/scripts/ask-redirect-test.sh" "$<TARGET_FILE:clusterclient>"
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/tests/scripts/")
