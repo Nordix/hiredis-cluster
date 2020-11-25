@@ -118,6 +118,15 @@ if(NOT DISABLE_TESTS)
   add_subdirectory(tests)
 endif()
 
+# Code formatting target
+find_program(CLANG_FORMAT "clang-format")
+file(GLOB_RECURSE FILES_TO_FORMAT
+  ${PROJECT_SOURCE_DIR}/*.[ch]
+)
+add_custom_target(format
+  COMMAND ${CLANG_FORMAT} -i ${FILES_TO_FORMAT}
+)
+
 configure_file(hiredis_cluster.pc.in hiredis_cluster.pc @ONLY)
 
 install(TARGETS hiredis_cluster
