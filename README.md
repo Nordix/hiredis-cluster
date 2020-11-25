@@ -84,6 +84,10 @@ The following CMake options are available:
   * `OFF` (default)
   * `ON` Enable IPv6 tests. Requires that IPv6 is
     [setup](https://docs.docker.com/config/daemon/ipv6/) in Docker.
+* `USE_SANITIZER`
+   Compile with a sanitizer. Options depends on
+   [compiler](https://gcc.gnu.org/onlinedocs/gcc/Instrumentation-Options.html#index-fsanitize_003daddress),
+   but usually: `address`, `thread`, `undefined`, `leak`
 
 ### Build details
 

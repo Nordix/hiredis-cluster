@@ -22,6 +22,11 @@ getVersionBit(HIREDIS_CLUSTER_SONAME)
 set(VERSION "${HIREDIS_CLUSTER_MAJOR}.${HIREDIS_CLUSTER_MINOR}.${HIREDIS_CLUSTER_PATCH}")
 message("Detected version: ${VERSION}")
 
+# Build using a sanitizer
+if(USE_SANITIZER)
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fno-omit-frame-pointer -fsanitize=${USE_SANITIZER}")
+endif()
+
 project(hiredis-cluster
   VERSION "${VERSION}"
   LANGUAGES C)
