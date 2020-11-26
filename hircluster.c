@@ -2867,19 +2867,23 @@ static void *command_post_fragment(redisClusterContext *cc, struct cmd *command,
         sub_command = list_node->value;
         reply = sub_command->reply;
         if (reply == NULL) {
+            listReleaseIterator(list_iter);
             return NULL;
         } else if (reply->type == REDIS_REPLY_ERROR) {
+            listReleaseIterator(list_iter);
             return reply;
         }
 
         if (command->type == CMD_REQ_REDIS_MGET) {
             if (reply->type != REDIS_REPLY_ARRAY) {
                 __redisClusterSetError(cc, REDIS_ERR_OTHER, "reply type error");
+                listReleaseIterator(list_iter);
                 return NULL;
             }
         } else if (command->type == CMD_REQ_REDIS_DEL) {
             if (reply->type != REDIS_REPLY_INTEGER) {
                 __redisClusterSetError(cc, REDIS_ERR_OTHER, "reply type error");
+                listReleaseIterator(list_iter);
                 return NULL;
             }
 
@@ -2887,6 +2891,7 @@ static void *command_post_fragment(redisClusterContext *cc, struct cmd *command,
         } else if (command->type == CMD_REQ_REDIS_EXISTS) {
             if (reply->type != REDIS_REPLY_INTEGER) {
                 __redisClusterSetError(cc, REDIS_ERR_OTHER, "reply type error");
+                listReleaseIterator(list_iter);
                 return NULL;
             }
 
@@ -2895,12 +2900,14 @@ static void *command_post_fragment(redisClusterContext *cc, struct cmd *command,
             if (reply->type != REDIS_REPLY_STATUS || reply->len != 2 ||
                 strcmp(reply->str, REDIS_STATUS_OK) != 0) {
                 __redisClusterSetError(cc, REDIS_ERR_OTHER, "reply type error");
+                listReleaseIterator(list_iter);
                 return NULL;
             }
         } else {
             NOT_REACHED();
         }
     }
+    listReleaseIterator(list_iter);
 
     reply = hi_calloc(1, sizeof(*reply));
 
@@ -3449,7 +3456,7 @@ int redisClusterGetReply(redisClusterContext *cc, void **reply) {
     struct cmd *command, *sub_command;
     hilist *commands = NULL;
     listNode *list_command, *list_sub_command;
-    listIter *list_iter;
+    listIter *list_iter = NULL;
     int slot_num;
     void *sub_reply;
 
@@ -3462,7 +3469,7 @@ int redisClusterGetReply(redisClusterContext *cc, void **reply) {
     *reply = NULL;
 
     if (cc->requests == NULL)
-        return REDIS_ERR;
+        return REDIS_ERR; // No queued requests
 
     list_command = listFirst(cc->requests);
 
@@ -3515,6 +3522,7 @@ int redisClusterGetReply(redisClusterContext *cc, void **reply) {
 
         sub_command->reply = sub_reply;
     }
+    listReleaseIterator(list_iter);
 
     *reply = command_post_fragment(cc, command, commands);
     if (*reply == NULL) {
@@ -3525,6 +3533,10 @@ int redisClusterGetReply(redisClusterContext *cc, void **reply) {
     return REDIS_OK;
 
 error:
+
+    if (list_iter != NULL) {
+        listReleaseIterator(list_iter);
+    }
 
     listDelNode(cc->requests, list_command);
     return REDIS_ERR;

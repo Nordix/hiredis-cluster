@@ -85,9 +85,14 @@ The following CMake options are available:
   * `ON` Enable IPv6 tests. Requires that IPv6 is
     [setup](https://docs.docker.com/config/daemon/ipv6/) in Docker.
 * `USE_SANITIZER`
-   Compile with a sanitizer. Options depends on
-   [compiler](https://gcc.gnu.org/onlinedocs/gcc/Instrumentation-Options.html#index-fsanitize_003daddress),
-   but usually: `address`, `thread`, `undefined`, `leak`
+   Compile using a specific sanitizer that detect issues. The value of this
+   option specifies which sanitizer to activate, but it depends on support in the
+   [compiler](https://gcc.gnu.org/onlinedocs/gcc/Instrumentation-Options.html#index-fsanitize_003daddress).
+   Common option values are: `address`, `thread`, `undefined`, `leak`
+
+Options needs to be set with the `-D` flag when generating makefiles, e.g.
+
+`cmake -DENABLE_SSL=ON -DUSE_SANITIZER=address ..`
 
 ### Build details
 

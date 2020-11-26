@@ -36,4 +36,11 @@
         ASSERT_MSG((strcmp(_reply->str, _str) == 0), _ctx->errstr);            \
     }
 
+#define CHECK_REPLY_ARRAY(_ctx, _reply, _num_of_elements)                      \
+    {                                                                          \
+        CHECK_REPLY(_ctx, _reply);                                             \
+        CHECK_REPLY_TYPE(_reply, REDIS_REPLY_ARRAY);                           \
+        ASSERT_MSG(_reply->elements == _num_of_elements, _ctx->errstr);        \
+    }
+
 #endif

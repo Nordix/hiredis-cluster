@@ -15,49 +15,13 @@ jobs:
     - name: Run clang-format style check (.c and .h)
       uses: jidicula/clang-format-action@master
 
-  sanitizers:
-    name: Test with -fsanitizer=${{ matrix.sanitizer }}
+  build:
+    name: Build [${{ matrix.compiler }}, sanitizer="${{ matrix.sanitizer }}"]
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        sanitizer: [thread, undefined] # LEAK TO BE CORRECTED: leak, address
-    steps:
-    - name: Prepare
-      run: sudo apt install libevent-dev
-    - uses: actions/checkout@v2
-    - name: Create build folder
-      run: cmake -E make_directory build
-    - name: Generate makefiles
-      shell: bash
-      working-directory: build
-      run: cmake $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DENABLE_SSL=ON -DUSE_SANITIZER=${{ matrix.sanitizer }} ..
-    - name: Build
-      shell: bash
-      working-directory: build
-      run: VERBOSE=1 make
-    - name: Setup clusters
-      shell: bash
-      working-directory: build
-      run: make start
-    - name: Wait for clusters to start..
-      uses: jakejarvis/wait-action@master
-      with:
-        time: '20s'
-    - name: Run tests
-      shell: bash
-      working-directory: build
-      run: make CTEST_OUTPUT_ON_FAILURE=1 test
-    - name: Teardown clusters
-      working-directory: build
-      shell: bash
-      run: make stop
-
-  build:
-    name: Build with ${{ matrix.compiler }}
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
+        sanitizer: ["", thread, undefined, leak, address]
         compiler: [gcc, clang]
     steps:
     - name: Prepare
@@ -66,16 +30,16 @@ jobs:
     - name: Create build folder
       run: cmake -E make_directory build
     - name: Generate makefiles
+      shell: bash
       env:
         CC: ${{ matrix.compiler }}
         CXX: ${{ matrix.compiler }}
-      shell: bash
       working-directory: build
-      run: cmake $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DENABLE_SSL=ON ..
+      run: cmake $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DENABLE_SSL=ON -DUSE_SANITIZER=${{ matrix.sanitizer }} ..
     - name: Build
       shell: bash
       working-directory: build
-      run: cmake --build . --config $BUILD_TYPE
+      run: VERBOSE=1 make
     - name: Setup clusters
       shell: bash
       working-directory: build
