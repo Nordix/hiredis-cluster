@@ -30,6 +30,48 @@ void test_exists(redisClusterContext *cc) {
     freeReplyObject(reply);
 }
 
+void test_mset(redisClusterContext *cc) {
+    redisReply *reply;
+    reply = (redisReply *)redisClusterCommand(
+        cc, "MSET key1 mset1 key2 mset2 key3 mset3");
+    CHECK_REPLY_OK(cc, reply);
+    freeReplyObject(reply);
+
+    reply = (redisReply *)redisClusterCommand(cc, "GET key1");
+    CHECK_REPLY_STR(cc, reply, "mset1");
+    freeReplyObject(reply);
+
+    reply = (redisReply *)redisClusterCommand(cc, "GET key2");
+    CHECK_REPLY_STR(cc, reply, "mset2");
+    freeReplyObject(reply);
+
+    reply = (redisReply *)redisClusterCommand(cc, "GET key3");
+    CHECK_REPLY_STR(cc, reply, "mset3");
+    freeReplyObject(reply);
+}
+
+void test_mget(redisClusterContext *cc) {
+    redisReply *reply;
+    reply = (redisReply *)redisClusterCommand(cc, "SET key1 mget1");
+    CHECK_REPLY_OK(cc, reply);
+    freeReplyObject(reply);
+
+    reply = (redisReply *)redisClusterCommand(cc, "SET key2 mget2");
+    CHECK_REPLY_OK(cc, reply);
+    freeReplyObject(reply);
+
+    reply = (redisReply *)redisClusterCommand(cc, "SET key3 mget3");
+    CHECK_REPLY_OK(cc, reply);
+    freeReplyObject(reply);
+
+    reply = (redisReply *)redisClusterCommand(cc, "MGET key1 key2 key3");
+    CHECK_REPLY_ARRAY(cc, reply, 3);
+    CHECK_REPLY_STR(cc, reply->element[0], "mget1");
+    CHECK_REPLY_STR(cc, reply->element[1], "mget2");
+    CHECK_REPLY_STR(cc, reply->element[2], "mget3");
+    freeReplyObject(reply);
+}
+
 int main() {
     struct timeval timeout = {0, 500000};
 
@@ -43,6 +85,8 @@ int main() {
     ASSERT_MSG(status == REDIS_OK, cc->errstr);
 
     test_exists(cc);
+    test_mset(cc);
+    test_mget(cc);
 
     redisClusterFree(cc);
     return 0;

@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.14)
 include(GNUInstallDirs)
 project(hiredis-cluster)
 
+# Options
 option(DOWNLOAD_HIREDIS  "Download the dependency hiredis from GitHub" ON)
 option(ENABLE_SSL        "Enable SSL/TLS support" OFF)
 option(DISABLE_TESTS     "Disable compilation of test" OFF)
