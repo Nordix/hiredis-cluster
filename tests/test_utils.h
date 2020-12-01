@@ -43,4 +43,18 @@
         ASSERT_MSG(_reply->elements == _num_of_elements, _ctx->errstr);        \
     }
 
+#define CHECK_REPLY_NIL(_ctx, _reply)                                          \
+    {                                                                          \
+        CHECK_REPLY(_ctx, _reply);                                             \
+        CHECK_REPLY_TYPE(_reply, REDIS_REPLY_NIL);                             \
+    }
+
+#define CHECK_REPLY_ERROR(_ctx, _reply, _str)                                  \
+    {                                                                          \
+        CHECK_REPLY(_ctx, _reply);                                             \
+        CHECK_REPLY_TYPE(_reply, REDIS_REPLY_ERROR);                           \
+        ASSERT_MSG((strncmp(_reply->str, _str, strlen(_str)) == 0),            \
+                   _ctx->errstr);                                              \
+    }
+
 #endif
