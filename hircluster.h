@@ -109,6 +109,7 @@ typedef struct redisClusterContext {
 
 } redisClusterContext;
 
+/* Synchronous API */
 redisClusterContext *redisClusterConnect(const char *addrs, int flags);
 redisClusterContext *redisClusterConnectWithTimeout(const char *addrs,
                                                     const struct timeval tv,
@@ -203,6 +204,7 @@ typedef struct redisClusterAsyncContext {
 
 } redisClusterAsyncContext;
 
+/* Async API */
 redisClusterAsyncContext *redisClusterAsyncContextInit(void);
 redisClusterAsyncContext *redisClusterAsyncConnect(const char *addrs,
                                                    int flags);

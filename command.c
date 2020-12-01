@@ -381,6 +381,7 @@ void redis_parse_cmd(struct cmd *r) {
             break;
 
         case SW_REQ_TYPE_LEN:
+            // Parse length of request/command
             if (token == NULL) {
                 if (ch != '$') {
                     goto error;
@@ -393,7 +394,7 @@ void redis_parse_cmd(struct cmd *r) {
                 if (rlen == 0 || rnarg == 0) {
                     goto error;
                 }
-                rnarg--;
+                rnarg--; // Remove command from argument counter
                 token = NULL;
                 state = SW_REQ_TYPE_LEN_LF;
             } else {
@@ -415,6 +416,7 @@ void redis_parse_cmd(struct cmd *r) {
             break;
 
         case SW_REQ_TYPE:
+            // Parse request/command type
             if (token == NULL) {
                 token = p;
             }
@@ -1188,7 +1190,7 @@ void redis_parse_cmd(struct cmd *r) {
                 if ((p - token) <= 1 || rnarg == 0) {
                     goto error;
                 }
-                rnarg--;
+                rnarg--; // Remove first argument from argument counter
                 token = NULL;
 
                 /*
@@ -1230,8 +1232,9 @@ void redis_parse_cmd(struct cmd *r) {
             break;
 
         case SW_ARG1:
-            m = p + rlen;
+            m = p + rlen; // Move forward given length ($ in protocol)
             if (m >= cmd_end) {
+                // Moving past the end, not good..
                 // rlen -= (uint32_t)(b->last - p);
                 // m = b->last - 1;
                 // p = m;
@@ -1251,6 +1254,9 @@ void redis_parse_cmd(struct cmd *r) {
             break;
 
         case SW_ARG1_LF:
+            // Check that the command parser has enough
+            // arguments left to be acceptable
+            // rnarg is the number of arguments after the first argument
             switch (ch) {
             case LF:
                 if (redis_arg1(r)) {
@@ -1274,6 +1280,9 @@ void redis_parse_cmd(struct cmd *r) {
                     }
                     state = SW_ARGN_LEN;
                 } else if (redis_argeval(r)) {
+                    // hiredis-cluster needs atleast one key in eval
+                    // to know which instance to use. Normally one argument
+                    // should be accepted (i.e rnarg < 1)
                     if (rnarg < 2) {
                         goto error;
                     }
