@@ -2377,8 +2377,8 @@ static cluster_node *node_get_by_ask_error_reply(redisClusterContext *cc,
                 dictAdd(cc->nodes, sdsnewlen(node->addr, sdslen(node->addr)),
                         node);
 
-                part = NULL;
-                ip_port = NULL;
+                part[1] = NULL;
+                ip_port[0] = NULL;
             } else {
                 node = de->val;
 
