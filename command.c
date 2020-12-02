@@ -303,10 +303,10 @@ void redis_parse_cmd(struct cmd *r) {
         SW_START,
         SW_NARG,
         SW_NARG_LF,
-        SW_REQ_TYPE_LEN,
-        SW_REQ_TYPE_LEN_LF,
-        SW_REQ_TYPE,
-        SW_REQ_TYPE_LF,
+        SW_CMD_TYPE_LEN,
+        SW_CMD_TYPE_LEN_LF,
+        SW_CMD_TYPE,
+        SW_CMD_TYPE_LF,
         SW_KEY_LEN,
         SW_KEY_LEN_LF,
         SW_KEY,
@@ -348,7 +348,6 @@ void redis_parse_cmd(struct cmd *r) {
                     goto error;
                 }
                 token = p;
-                /* req_start <- p */
                 r->narg_start = p;
                 rnarg = 0;
                 state = SW_NARG;
@@ -371,7 +370,7 @@ void redis_parse_cmd(struct cmd *r) {
         case SW_NARG_LF:
             switch (ch) {
             case LF:
-                state = SW_REQ_TYPE_LEN;
+                state = SW_CMD_TYPE_LEN;
                 break;
 
             default:
@@ -380,8 +379,7 @@ void redis_parse_cmd(struct cmd *r) {
 
             break;
 
-        case SW_REQ_TYPE_LEN:
-            // Parse length of request/command
+        case SW_CMD_TYPE_LEN:
             if (token == NULL) {
                 if (ch != '$') {
                     goto error;
@@ -394,19 +392,19 @@ void redis_parse_cmd(struct cmd *r) {
                 if (rlen == 0 || rnarg == 0) {
                     goto error;
                 }
-                rnarg--; // Remove command from argument counter
+                rnarg--;
                 token = NULL;
-                state = SW_REQ_TYPE_LEN_LF;
+                state = SW_CMD_TYPE_LEN_LF;
             } else {
                 goto error;
             }
 
             break;
 
-        case SW_REQ_TYPE_LEN_LF:
+        case SW_CMD_TYPE_LEN_LF:
             switch (ch) {
             case LF:
-                state = SW_REQ_TYPE;
+                state = SW_CMD_TYPE;
                 break;
 
             default:
@@ -415,17 +413,13 @@ void redis_parse_cmd(struct cmd *r) {
 
             break;
 
-        case SW_REQ_TYPE:
-            // Parse request/command type
+        case SW_CMD_TYPE:
             if (token == NULL) {
                 token = p;
             }
 
             m = token + rlen;
             if (m >= cmd_end) {
-                // m = cmd_end - 1;
-                // p = m;
-                // break;
                 goto error;
             }
 
@@ -1027,10 +1021,10 @@ void redis_parse_cmd(struct cmd *r) {
                 goto error;
             }
 
-            state = SW_REQ_TYPE_LF;
+            state = SW_CMD_TYPE_LF;
             break;
 
-        case SW_REQ_TYPE_LF:
+        case SW_CMD_TYPE_LF:
             switch (ch) {
             case LF:
                 if (redis_argz(r)) {
@@ -1090,9 +1084,6 @@ void redis_parse_cmd(struct cmd *r) {
 
             m = token + rlen;
             if (m >= cmd_end) {
-                // m = b->last - 1;
-                // p = m;
-                // break;
                 goto error;
             }
 
@@ -1112,7 +1103,6 @@ void redis_parse_cmd(struct cmd *r) {
                 }
                 kpos->start = m;
                 kpos->end = p;
-                // kpos->v_len = 0;
 
                 state = SW_KEY_LF;
             }
@@ -1190,7 +1180,7 @@ void redis_parse_cmd(struct cmd *r) {
                 if ((p - token) <= 1 || rnarg == 0) {
                     goto error;
                 }
-                rnarg--; // Remove first argument from argument counter
+                rnarg--;
                 token = NULL;
 
                 /*
@@ -1232,13 +1222,9 @@ void redis_parse_cmd(struct cmd *r) {
             break;
 
         case SW_ARG1:
-            m = p + rlen; // Move forward given length ($ in protocol)
+            m = p + rlen;
             if (m >= cmd_end) {
                 // Moving past the end, not good..
-                // rlen -= (uint32_t)(b->last - p);
-                // m = b->last - 1;
-                // p = m;
-                // break;
                 goto error;
             }
 
@@ -1280,9 +1266,14 @@ void redis_parse_cmd(struct cmd *r) {
                     }
                     state = SW_ARGN_LEN;
                 } else if (redis_argeval(r)) {
-                    // hiredis-cluster needs atleast one key in eval
-                    // to know which instance to use. Normally one argument
-                    // should be accepted (i.e rnarg < 1)
+                    // EVAL command layout:
+                    // eval <script> <no of keys> <keys..> <args..>
+                    //              ^
+                    // The Redis docs specifies that EVAL dont require a key
+                    // (i.e rnarg < 1) but also that a key would be
+                    // required for it to work in Redis Cluster.
+                    // Hiredis-cluster requires at least one key in eval to know
+                    // which instance to use.
                     if (rnarg < 2) {
                         goto error;
                     }
