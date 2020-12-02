@@ -8,8 +8,13 @@
     }
 
 #define CHECK_REPLY(_ctx, _reply)                                              \
-    if (!(_reply)) {                                                           \
-        ASSERT_MSG(_reply, _ctx->errstr);                                      \
+    if ((_reply) == NULL) {                                                    \
+        fprintf(stderr, "ERROR: reply=NULL  =>  ");                            \
+        if ((_ctx) != NULL) {                                                  \
+            ASSERT_MSG(_reply, _ctx->errstr);                                  \
+        } else {                                                               \
+            ASSERT_MSG(_reply, "context is NULL");                             \
+        }                                                                      \
     }
 
 #define CHECK_REPLY_TYPE(_reply, _type)                                        \
@@ -20,6 +25,13 @@
         CHECK_REPLY(_ctx, _reply);                                             \
         CHECK_REPLY_TYPE(_reply, REDIS_REPLY_STATUS);                          \
         ASSERT_MSG((strcmp(_reply->str, "OK") == 0), _ctx->errstr);            \
+    }
+
+#define CHECK_REPLY_QUEUED(_ctx, _reply)                                       \
+    {                                                                          \
+        CHECK_REPLY(_ctx, _reply);                                             \
+        CHECK_REPLY_TYPE(_reply, REDIS_REPLY_STATUS);                          \
+        ASSERT_MSG((strcmp(_reply->str, "QUEUED") == 0), _ctx->errstr);        \
     }
 
 #define CHECK_REPLY_INT(_ctx, _reply, _value)                                  \

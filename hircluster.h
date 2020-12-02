@@ -106,6 +106,7 @@ typedef struct redisClusterContext {
 #ifdef SSL_SUPPORT
     redisSSLContext *ssl;
 #endif
+    int transaction_slot;
 
 } redisClusterContext;
 

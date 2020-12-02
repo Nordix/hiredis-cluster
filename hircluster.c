@@ -41,6 +41,9 @@
 
 #define CLUSTER_DEFAULT_MAX_REDIRECT_COUNT 5
 
+#define TRANSACTION_NONE -2
+#define TRANSACTION_STARTED -1
+
 typedef struct cluster_async_data {
     redisClusterAsyncContext *acc;
     struct cmd *command;
@@ -1625,7 +1628,7 @@ redisClusterContext *redisClusterContextInit(void) {
     cc->ssl = NULL;
 #endif
     cc->password[0] = '\0';
-
+    cc->transaction_slot = TRANSACTION_NONE;
     return cc;
 }
 
@@ -3013,9 +3016,6 @@ static int command_format_by_slot(redisClusterContext *cc, struct cmd *command,
     key_count = hiarray_n(command->keys);
 
     if (key_count <= 0) {
-        __redisClusterSetError(
-            cc, REDIS_ERR_OTHER,
-            "No keys in command(must have keys for redis cluster mode)");
         goto done;
     } else if (key_count == 1) {
         kp = hiarray_get(command->keys, 0);
@@ -3241,15 +3241,75 @@ int redisClusterAppendFormattedCommand(redisClusterContext *cc, char *cmd,
     slot_num = command_format_by_slot(cc, command, commands);
 
     if (slot_num < 0) {
-        goto error;
+        if (command->type == CMD_REQ_REDIS_MULTI) {
+            // This cmd will not be sent until we get a slot from next cmd
+            if (cc->transaction_slot != TRANSACTION_NONE) {
+                __redisClusterSetError(cc, REDIS_ERR_OTHER,
+                                       "Transaction already started");
+                goto error;
+            }
+            cc->transaction_slot = TRANSACTION_STARTED;
+            command->cmd = strdup(cmd); // Keep copy of the command to send
+            goto done;
+        } else if (command->type == CMD_REQ_REDIS_EXEC ||
+                   command->type == CMD_REQ_REDIS_DISCARD) {
+            if (cc->transaction_slot == TRANSACTION_NONE) {
+                __redisClusterSetError(cc, REDIS_ERR_OTHER,
+                                       "Transaction not started");
+                goto error;
+            }
+            command->slot_num = cc->transaction_slot;
+            cc->transaction_slot = TRANSACTION_NONE;
+        } else {
+            __redisClusterSetError(
+                cc, REDIS_ERR_OTHER,
+                "No keys in command(must have keys for redis cluster mode)");
+            goto error;
+        }
     } else if (slot_num >= REDIS_CLUSTER_SLOTS) {
         __redisClusterSetError(cc, REDIS_ERR_OTHER, "slot_num is out of range");
         goto error;
     }
 
+    if (cc->transaction_slot >= 0 && cc->transaction_slot != slot_num) {
+        __redisClusterSetError(cc, REDIS_ERR_OTHER,
+                               "Only same slot transactions supported");
+        goto error;
+    }
+
+    if (cc->transaction_slot == TRANSACTION_STARTED) {
+        // Previous command was MULTI, use current slot as transaction slot
+        listNode *prev_command = listLast(cc->requests);
+        if (prev_command == NULL) {
+            __redisClusterSetError(cc, REDIS_ERR_OTHER,
+                                   "Transaction failure while handling MULTI");
+            goto error;
+        }
+        // Update slot for command MULTI before sending it
+        struct cmd *multi_command = NULL;
+        multi_command = prev_command->value;
+        if (multi_command->type != CMD_REQ_REDIS_MULTI) {
+            __redisClusterSetError(cc, REDIS_ERR_OTHER,
+                                   "Transaction failure while handling MULTI");
+            goto error;
+        }
+        multi_command->slot_num = slot_num;
+        cc->transaction_slot = slot_num;
+
+        // Send MULTI command to correct slot first
+        if (__redisClusterAppendCommand(cc, multi_command) != REDIS_OK) {
+            __redisClusterSetError(cc, REDIS_ERR_OTHER,
+                                   "Transaction failure while sending MULTI");
+            goto error;
+        }
+        free(multi_command->cmd);
+        multi_command->cmd = NULL;
+    }
+
     // all keys belong to one slot
     if (listLength(commands) == 0) {
         if (__redisClusterAppendCommand(cc, command) == REDIS_OK) {
+            command->cmd = NULL;
             goto done;
         } else {
             goto error;
@@ -3268,14 +3328,9 @@ int redisClusterAppendFormattedCommand(redisClusterContext *cc, char *cmd,
             goto error;
         }
     }
+    command->cmd = NULL;
 
 done:
-
-    if (command->cmd != NULL) {
-        command->cmd = NULL;
-    } else {
-        goto error;
-    }
 
     if (commands != NULL) {
         if (listLength(commands) > 0) {
@@ -3491,6 +3546,8 @@ int redisClusterGetReply(redisClusterContext *cc, void **reply) {
         listDelNode(cc->requests, list_command);
         return __redisClusterGetReply(cc, slot_num, reply);
     }
+
+    // The command was sent to many slots
 
     commands = command->sub_commands;
     if (commands == NULL) {
