@@ -258,19 +258,6 @@ void *_hi_calloc(size_t nmemb, size_t size, const char *name, int line) {
     return _hi_zalloc(nmemb * size, name, line);
 }
 
-void *_hi_realloc(void *ptr, size_t size, const char *name, int line) {
-    void *p;
-
-    ASSERT(size != 0);
-
-    p = realloc(ptr, size);
-
-    if (name == NULL && line == 1) {
-    }
-
-    return p;
-}
-
 void hi_stacktrace(int skip_count) {
     if (skip_count > 0) {
     }
