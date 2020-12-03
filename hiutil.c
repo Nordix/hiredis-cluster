@@ -1,22 +1,24 @@
-#include "win32.h"
 #include <errno.h>
 #include <fcntl.h>
+#include <hiredis/alloc.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/types.h>
 
 #ifndef WIN32
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <sys/time.h>
 #endif
-#include "hiutil.h"
-#include <sys/types.h>
 
 #ifdef HI_HAVE_BACKTRACE
 #include <execinfo.h>
 #endif
+
+#include "hiutil.h"
+#include "win32.h"
 
 #ifndef WIN32
 int hi_set_blocking(int sd) {
@@ -269,15 +271,6 @@ void *_hi_realloc(void *ptr, size_t size, const char *name, int line) {
     return p;
 }
 
-void _hi_free(void *ptr, const char *name, int line) {
-    ASSERT(ptr != NULL);
-
-    if (name == NULL && line == 1) {
-    }
-
-    free(ptr);
-}
-
 void hi_stacktrace(int skip_count) {
     if (skip_count > 0) {
     }
@@ -299,7 +292,7 @@ void hi_stacktrace(int skip_count) {
         printf("[%d] %s\n", j, symbols[i]);
     }
 
-    free(symbols);
+    hi_free(symbols);
 #endif
 }
 

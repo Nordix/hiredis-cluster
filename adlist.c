@@ -27,10 +27,11 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
+#include <hiredis/alloc.h>
+#include <stdlib.h>
 
 #include "adlist.h"
 #include "hiutil.h"
-#include <stdlib.h>
 
 /* Create a new list. The created list can be freed with
  * AlFreeList(), but private value of every node need to be freed
