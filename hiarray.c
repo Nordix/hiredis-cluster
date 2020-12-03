@@ -1,3 +1,4 @@
+#include <hiredis/alloc.h>
 #include <stdlib.h>
 
 #include "hiarray.h"
@@ -49,9 +50,8 @@ int hiarray_init(struct hiarray *a, uint32_t n, size_t size) {
 void hiarray_deinit(struct hiarray *a) {
     ASSERT(a->nelem == 0);
 
-    if (a->elem != NULL) {
-        hi_free(a->elem);
-    }
+    hi_free(a->elem);
+    a->elem = NULL;
 }
 
 uint32_t hiarray_idx(struct hiarray *a, void *elem) {

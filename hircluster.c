@@ -1,6 +1,7 @@
 
 #include <ctype.h>
 #include <errno.h>
+#include <hiredis/alloc.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -283,9 +284,8 @@ static void cluster_node_deinit(cluster_node *node) {
     node->role = REDIS_ROLE_NULL;
     node->myself = 0;
 
-    if (node->con != NULL) {
-        redisFree(node->con);
-    }
+    redisFree(node->con);
+    node->con = NULL;
 
     if (node->acon != NULL) {
         redisAsyncFree(node->acon);
@@ -453,10 +453,8 @@ static int authenticate(redisClusterContext *cc, redisContext *c) {
     return REDIS_OK;
 
 error:
-    if (reply != NULL) {
-        freeReplyObject(reply);
-        reply = NULL;
-    }
+    freeReplyObject(reply);
+
     return REDIS_ERR;
 }
 
@@ -505,6 +503,7 @@ static cluster_node *node_get_with_slots(redisClusterContext *cc,
         node->slots = listCreate();
         if (node->slots == NULL) {
             hi_free(node);
+            node = NULL;
             __redisClusterSetError(cc, REDIS_ERR_OTHER,
                                    "slots for node listCreate error");
             goto error;
@@ -525,9 +524,7 @@ static cluster_node *node_get_with_slots(redisClusterContext *cc,
 
 error:
 
-    if (node != NULL) {
-        hi_free(node);
-    }
+    hi_free(node);
 
     return NULL;
 }
@@ -1447,9 +1444,7 @@ static int cluster_update_route_by_addr(redisClusterContext *cc, const char *ip,
 
     freeReplyObject(reply);
 
-    if (c != NULL) {
-        redisFree(c);
-    }
+    redisFree(c);
 
     return REDIS_OK;
 
@@ -1480,14 +1475,9 @@ error:
         dictRelease(nodes);
     }
 
-    if (reply != NULL) {
-        freeReplyObject(reply);
-        reply = NULL;
-    }
+    freeReplyObject(reply);
 
-    if (c != NULL) {
-        redisFree(c);
-    }
+    redisFree(c);
 
     return REDIS_ERR;
 }
@@ -1635,11 +1625,13 @@ void redisClusterFree(redisClusterContext *cc) {
         return;
 
     if (cc->connect_timeout) {
-        free(cc->connect_timeout);
+        hi_free(cc->connect_timeout);
+        cc->connect_timeout = NULL;
     }
 
     if (cc->command_timeout) {
-        free(cc->command_timeout);
+        hi_free(cc->command_timeout);
+        cc->command_timeout = NULL;
     }
 
     memset(cc->table, 0, REDIS_CLUSTER_SLOTS * sizeof(cluster_node *));
@@ -1658,7 +1650,7 @@ void redisClusterFree(redisClusterContext *cc) {
         listRelease(cc->requests);
     }
 
-    free(cc);
+    hi_free(cc);
 }
 
 /* Connect to a Redis cluster. On error the field error in the returned
@@ -2155,7 +2147,7 @@ static cluster_node *node_get_which_connected(redisClusterContext *cc) {
             dictReleaseIterator(di);
 
             return node;
-        } else if (reply != NULL) {
+        } else {
             freeReplyObject(reply);
             reply = NULL;
         }
@@ -2236,17 +2228,13 @@ static char *cluster_config_get(redisClusterContext *cc,
     *config_value_len = sub_reply->len;
     sub_reply->str = NULL;
 
-    if (reply != NULL) {
-        freeReplyObject(reply);
-    }
+    freeReplyObject(reply);
 
     return config_value;
 
 error:
 
-    if (reply != NULL) {
-        freeReplyObject(reply);
-    }
+    freeReplyObject(reply);
 
     return NULL;
 }
@@ -3168,7 +3156,7 @@ void *redisClustervCommand(redisClusterContext *cc, const char *format,
 
     reply = redisClusterFormattedCommand(cc, cmd, len);
 
-    free(cmd);
+    hi_free(cmd);
 
     return reply;
 }
@@ -3198,7 +3186,7 @@ void *redisClusterCommandArgv(redisClusterContext *cc, int argc,
 
     reply = redisClusterFormattedCommand(cc, cmd, len);
 
-    free(cmd);
+    hi_free(cmd);
 
     return reply;
 }
@@ -3332,7 +3320,7 @@ int redisClustervAppendCommand(redisClusterContext *cc, const char *format,
 
     ret = redisClusterAppendFormattedCommand(cc, cmd, len);
 
-    free(cmd);
+    hi_free(cmd);
 
     return ret;
 }
@@ -3368,7 +3356,7 @@ int redisClusterAppendCommandArgv(redisClusterContext *cc, int argc,
 
     ret = redisClusterAppendFormattedCommand(cc, cmd, len);
 
-    free(cmd);
+    hi_free(cmd);
 
     return ret;
 }
@@ -3655,12 +3643,9 @@ static void cluster_async_data_free(cluster_async_data *cad) {
         return;
     }
 
-    if (cad->command != NULL) {
-        command_destroy(cad->command);
-    }
+    command_destroy(cad->command);
 
     hi_free(cad);
-    cad = NULL;
 }
 
 static void unlinkAsyncContextAndNode(void *data) {
@@ -3931,7 +3916,8 @@ static void redisClusterAsyncCallback(redisAsyncContext *ac, void *r,
 
             cluster_timeout =
                 hi_atoi(cluster_timeout_str, cluster_timeout_str_len);
-            free(cluster_timeout_str);
+            hi_free(cluster_timeout_str);
+
             if (cluster_timeout <= 0) {
                 __redisClusterAsyncSetError(
                     acc, REDIS_ERR_OTHER,
@@ -4032,9 +4018,7 @@ done:
         memset(acc->errstr, '\0', strlen(acc->errstr));
     }
 
-    if (cad != NULL) {
-        cluster_async_data_free(cad);
-    }
+    cluster_async_data_free(cad);
 
     return;
 
@@ -4050,9 +4034,7 @@ retry:
 
 error:
 
-    if (cad != NULL) {
-        cluster_async_data_free(cad);
-    }
+    cluster_async_data_free(cad);
 }
 
 int redisClusterAsyncFormattedCommand(redisClusterAsyncContext *acc,
@@ -4169,9 +4151,7 @@ int redisClusterAsyncFormattedCommand(redisClusterAsyncContext *acc,
 
 error:
 
-    if (command != NULL) {
-        command_destroy(command);
-    }
+    command_destroy(command);
 
     if (commands != NULL) {
         listRelease(commands);
@@ -4203,7 +4183,7 @@ int redisClustervAsyncCommand(redisClusterAsyncContext *acc,
 
     ret = redisClusterAsyncFormattedCommand(acc, fn, privdata, cmd, len);
 
-    free(cmd);
+    hi_free(cmd);
 
     return ret;
 }
@@ -4237,7 +4217,7 @@ int redisClusterAsyncCommandArgv(redisClusterAsyncContext *acc,
 
     ret = redisClusterAsyncFormattedCommand(acc, fn, privdata, cmd, len);
 
-    free(cmd);
+    hi_free(cmd);
 
     return ret;
 }

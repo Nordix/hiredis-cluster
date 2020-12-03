@@ -32,11 +32,11 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-
-#include "dict.h"
 #include <assert.h>
 #include <limits.h>
 #include <stdlib.h>
+
+#include "dict.h"
 
 /* -------------------------- private prototypes ---------------------------- */
 
@@ -124,7 +124,8 @@ static int dictExpand(dict *ht, unsigned long size) {
         }
     }
     assert(ht->used == 0);
-    free(ht->table);
+    hi_free(ht->table);
+    ht->table = NULL;
 
     /* Remap the new hashtable in the old */
     *ht = n;
@@ -167,13 +168,15 @@ static int _dictClear(dict *ht) {
             nextHe = he->next;
             dictFreeEntryKey(ht, he);
             dictFreeEntryVal(ht, he);
-            free(he);
+            hi_free(he);
             ht->used--;
             he = nextHe;
         }
     }
     /* Free the table and the allocated cache structure */
-    free(ht->table);
+    hi_free(ht->table);
+    ht->table = NULL;
+
     /* Re-initialize the table */
     _dictReset(ht);
     return DICT_OK; /* never fails */
@@ -182,7 +185,7 @@ static int _dictClear(dict *ht) {
 /* Clear & Release the hash table */
 static void dictRelease(dict *ht) {
     _dictClear(ht);
-    free(ht);
+    hi_free(ht);
 }
 
 static dictEntry *dictFind(dict *ht, const void *key) {
@@ -231,7 +234,7 @@ static dictEntry *dictNext(dictIterator *iter) {
     return NULL;
 }
 
-static void dictReleaseIterator(dictIterator *iter) { free(iter); }
+static void dictReleaseIterator(dictIterator *iter) { hi_free(iter); }
 
 /* ------------------------- private functions ------------------------------ */
 

@@ -1,5 +1,6 @@
 #include <ctype.h>
 #include <errno.h>
+#include <hiredis/alloc.h>
 
 #include "command.h"
 #include "hiarray.h"
@@ -1655,15 +1656,18 @@ void command_destroy(struct cmd *command) {
 
     if (command->cmd != NULL) {
         hi_free(command->cmd);
+        command->cmd = NULL;
     }
 
     if (command->errstr != NULL) {
         hi_free(command->errstr);
+        command->errstr = NULL;
     }
 
     if (command->keys != NULL) {
         command->keys->nelem = 0;
         hiarray_destroy(command->keys);
+        command->keys = NULL;
     }
 
     if (command->frag_seq != NULL) {
@@ -1671,9 +1675,7 @@ void command_destroy(struct cmd *command) {
         command->frag_seq = NULL;
     }
 
-    if (command->reply != NULL) {
-        freeReplyObject(command->reply);
-    }
+    freeReplyObject(command->reply);
 
     if (command->sub_commands != NULL) {
         listRelease(command->sub_commands);
