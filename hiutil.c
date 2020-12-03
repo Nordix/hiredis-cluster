@@ -230,17 +230,6 @@ int _uint_len(uint32_t num) {
     return n;
 }
 
-void *_hi_zalloc(size_t size) {
-    void *p;
-
-    p = hi_malloc(size);
-    if (p != NULL) {
-        memset(p, 0, size);
-    }
-
-    return p;
-}
-
 void hi_stacktrace(int skip_count) {
     if (skip_count > 0) {
     }
