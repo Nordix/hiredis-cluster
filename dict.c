@@ -96,7 +96,9 @@ static int dictExpand(dict *ht, unsigned long size) {
     _dictInit(&n, ht->type, ht->privdata);
     n.size = realsize;
     n.sizemask = realsize - 1;
-    n.table = calloc(realsize, sizeof(dictEntry *));
+    n.table = hi_calloc(realsize, sizeof(dictEntry *));
+    if (n.table == NULL)
+        return DICT_ERR;
 
     /* Copy all the elements from the old to the new table:
      * note that if the old hash table is empty ht->size is zero,

@@ -1588,7 +1588,7 @@ int test_cluster_update_route(redisClusterContext *cc) {
 redisClusterContext *redisClusterContextInit(void) {
     redisClusterContext *cc;
 
-    cc = calloc(1, sizeof(redisClusterContext));
+    cc = hi_calloc(1, sizeof(redisClusterContext));
     if (cc == NULL)
         return NULL;
 
@@ -2898,7 +2898,6 @@ static void *command_post_fragment(redisClusterContext *cc, struct cmd *command,
     listReleaseIterator(list_iter);
 
     reply = hi_calloc(1, sizeof(*reply));
-
     if (reply == NULL) {
         __redisClusterSetError(cc, REDIS_ERR_OOM, "Out of memory");
         return NULL;

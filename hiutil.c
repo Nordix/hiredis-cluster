@@ -254,10 +254,6 @@ void *_hi_zalloc(size_t size, const char *name, int line) {
     return p;
 }
 
-void *_hi_calloc(size_t nmemb, size_t size, const char *name, int line) {
-    return _hi_zalloc(nmemb * size, name, line);
-}
-
 void hi_stacktrace(int skip_count) {
     if (skip_count > 0) {
     }
