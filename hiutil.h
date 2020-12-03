@@ -154,17 +154,11 @@ int hi_valid_port(int n);
 int _uint_len(uint32_t num);
 
 /*
- * Memory allocation and free wrappers.
- *
- * These wrappers enables us to loosely detect double free, dangling
- * pointer access and zero-byte alloc.
+ * Memory allocation wrapper.
  */
-#define hi_alloc(_s) _hi_alloc((size_t)(_s), __FILE__, __LINE__)
+#define hi_zalloc(_s) _hi_zalloc((size_t)(_s))
 
-#define hi_zalloc(_s) _hi_zalloc((size_t)(_s), __FILE__, __LINE__)
-
-void *_hi_alloc(size_t size, const char *name, int line);
-void *_hi_zalloc(size_t size, const char *name, int line);
+void *_hi_zalloc(size_t size);
 
 #ifndef WIN32
 /*

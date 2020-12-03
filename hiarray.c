@@ -9,12 +9,12 @@ struct hiarray *hiarray_create(uint32_t n, size_t size) {
 
     ASSERT(n != 0 && size != 0);
 
-    a = hi_alloc(sizeof(*a));
+    a = hi_malloc(sizeof(*a));
     if (a == NULL) {
         return NULL;
     }
 
-    a->elem = hi_alloc(n * size);
+    a->elem = hi_malloc(n * size);
     if (a->elem == NULL) {
         hi_free(a);
         return NULL;
@@ -35,7 +35,7 @@ void hiarray_destroy(struct hiarray *a) {
 int hiarray_init(struct hiarray *a, uint32_t n, size_t size) {
     ASSERT(n != 0 && size != 0);
 
-    a->elem = hi_alloc(n * size);
+    a->elem = hi_malloc(n * size);
     if (a->elem == NULL) {
         return HI_ENOMEM;
     }

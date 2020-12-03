@@ -70,7 +70,9 @@ static void _dictReset(dict *ht) {
 
 /* Create a new hash table */
 static dict *dictCreate(dictType *type, void *privDataPtr) {
-    dict *ht = malloc(sizeof(*ht));
+    dict *ht = hi_malloc(sizeof(*ht));
+    if (ht == NULL)
+        return NULL;
     _dictInit(ht, type, privDataPtr);
     return ht;
 }
@@ -145,7 +147,9 @@ static int dictAdd(dict *ht, void *key, void *val) {
         return DICT_ERR;
 
     /* Allocates the memory and stores key */
-    entry = malloc(sizeof(*entry));
+    entry = hi_malloc(sizeof(*entry));
+    if (entry == NULL)
+        return DICT_ERR;
     entry->next = ht->table[index];
     ht->table[index] = entry;
 
@@ -207,7 +211,9 @@ static dictEntry *dictFind(dict *ht, const void *key) {
 }
 
 static dictIterator *dictGetIterator(dict *ht) {
-    dictIterator *iter = malloc(sizeof(*iter));
+    dictIterator *iter = hi_malloc(sizeof(*iter));
+    if (iter == NULL)
+        return NULL;
 
     iter->ht = ht;
     iter->index = -1;

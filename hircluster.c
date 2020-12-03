@@ -331,7 +331,7 @@ static int cluster_slot_init(cluster_slot *slot, cluster_node *node) {
 static cluster_slot *cluster_slot_create(cluster_node *node) {
     cluster_slot *slot;
 
-    slot = hi_alloc(sizeof(*slot));
+    slot = hi_malloc(sizeof(*slot));
     if (slot == NULL) {
         return NULL;
     }
@@ -393,7 +393,7 @@ static copen_slot *cluster_open_slot_create(uint32_t slot_num, int migrate,
                                             cluster_node *node) {
     copen_slot *oslot;
 
-    oslot = hi_alloc(sizeof(*oslot));
+    oslot = hi_malloc(sizeof(*oslot));
     if (oslot == NULL) {
         return NULL;
     }
@@ -491,7 +491,7 @@ static cluster_node *node_get_with_slots(redisClusterContext *cc,
         goto error;
     }
 
-    node = hi_alloc(sizeof(cluster_node));
+    node = hi_malloc(sizeof(cluster_node));
     if (node == NULL) {
         __redisClusterSetError(cc, REDIS_ERR_OOM, "Out of memory");
         goto error;
@@ -543,7 +543,7 @@ static cluster_node *node_get_with_nodes(redisClusterContext *cc,
         return NULL;
     }
 
-    node = hi_alloc(sizeof(cluster_node));
+    node = hi_malloc(sizeof(cluster_node));
     if (node == NULL) {
         __redisClusterSetError(cc, REDIS_ERR_OOM, "Out of memory");
         return NULL;
@@ -1719,7 +1719,10 @@ redisClusterContext *redisClusterConnectWithTimeout(const char *addrs,
     }
 
     if (cc->connect_timeout == NULL) {
-        cc->connect_timeout = malloc(sizeof(struct timeval));
+        cc->connect_timeout = hi_malloc(sizeof(struct timeval));
+        if (cc->connect_timeout == NULL) {
+            return NULL;
+        }
     }
 
     memcpy(cc->connect_timeout, &tv, sizeof(struct timeval));
@@ -1801,7 +1804,7 @@ int redisClusterSetOptionAddNode(redisClusterContext *cc, const char *addr) {
             return REDIS_ERR;
         }
 
-        node = hi_alloc(sizeof(cluster_node));
+        node = hi_malloc(sizeof(cluster_node));
         if (node == NULL) {
             sdsfree(ip);
             __redisClusterSetError(cc, REDIS_ERR_OTHER,
@@ -1945,7 +1948,10 @@ int redisClusterSetOptionConnectTimeout(redisClusterContext *cc,
     }
 
     if (cc->connect_timeout == NULL) {
-        cc->connect_timeout = malloc(sizeof(struct timeval));
+        cc->connect_timeout = hi_malloc(sizeof(struct timeval));
+        if (cc->connect_timeout == NULL) {
+            return REDIS_ERR;
+        }
     }
 
     memcpy(cc->connect_timeout, &tv, sizeof(struct timeval));
@@ -1961,7 +1967,10 @@ int redisClusterSetOptionTimeout(redisClusterContext *cc,
     }
 
     if (cc->command_timeout == NULL) {
-        cc->command_timeout = malloc(sizeof(struct timeval));
+        cc->command_timeout = hi_malloc(sizeof(struct timeval));
+        if (cc->command_timeout == NULL) {
+            return REDIS_ERR;
+        }
         memcpy(cc->command_timeout, &tv, sizeof(struct timeval));
     } else if (cc->command_timeout->tv_sec != tv.tv_sec ||
                cc->command_timeout->tv_usec != tv.tv_usec) {
@@ -2349,7 +2358,7 @@ static cluster_node *node_get_by_ask_error_reply(redisClusterContext *cc,
         if (ip_port != NULL && ip_port_len == 2) {
             de = dictFind(cc->nodes, part[2]);
             if (de == NULL) {
-                node = hi_alloc(sizeof(cluster_node));
+                node = hi_malloc(sizeof(cluster_node));
                 if (node == NULL) {
                     __redisClusterSetError(cc, REDIS_ERR_OOM, "Out of memory");
 
@@ -2561,7 +2570,7 @@ static int command_pre_fragment(redisClusterContext *cc, struct cmd *command,
         goto done;
     }
 
-    command->frag_seq = hi_alloc(key_count * sizeof(*command->frag_seq));
+    command->frag_seq = hi_malloc(key_count * sizeof(*command->frag_seq));
     if (command->frag_seq == NULL) {
         __redisClusterSetError(cc, REDIS_ERR_OOM, "Out of memory");
         goto done;
@@ -2951,7 +2960,7 @@ static void *command_post_fragment(redisClusterContext *cc, struct cmd *command,
     } else if (command->type == CMD_REQ_REDIS_MSET) {
         reply->type = REDIS_REPLY_STATUS;
         uint32_t str_len = strlen(REDIS_STATUS_OK);
-        reply->str = hi_alloc((str_len + 1) * sizeof(char *));
+        reply->str = hi_malloc((str_len + 1) * sizeof(char *));
         if (reply->str == NULL) {
             freeReplyObject(reply);
             __redisClusterSetError(cc, REDIS_ERR_OOM, "Out of memory");
@@ -3598,7 +3607,7 @@ redisClusterAsyncInitialize(redisClusterContext *cc) {
         return NULL;
     }
 
-    acc = hi_alloc(sizeof(redisClusterAsyncContext));
+    acc = hi_malloc(sizeof(redisClusterAsyncContext));
     if (acc == NULL)
         return NULL;
 
@@ -3623,7 +3632,7 @@ redisClusterAsyncInitialize(redisClusterContext *cc) {
 static cluster_async_data *cluster_async_data_get(void) {
     cluster_async_data *cad;
 
-    cad = hi_alloc(sizeof(cluster_async_data));
+    cad = hi_malloc(sizeof(cluster_async_data));
     if (cad == NULL) {
         return NULL;
     }
@@ -4071,7 +4080,7 @@ int redisClusterAsyncFormattedCommand(redisClusterAsyncContext *acc,
         goto error;
     }
 
-    command->cmd = malloc(len * sizeof(*command->cmd));
+    command->cmd = hi_malloc(len * sizeof(*command->cmd));
     if (command->cmd == NULL) {
         __redisClusterAsyncSetError(acc, REDIS_ERR_OOM, "Out of memory");
         goto error;
