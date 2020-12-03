@@ -166,12 +166,9 @@ int _uint_len(uint32_t num);
 #define hi_calloc(_n, _s)                                                      \
     _hi_calloc((size_t)(_n), (size_t)(_s), __FILE__, __LINE__)
 
-#define hi_realloc(_p, _s) _hi_realloc(_p, (size_t)(_s), __FILE__, __LINE__)
-
 void *_hi_alloc(size_t size, const char *name, int line);
 void *_hi_zalloc(size_t size, const char *name, int line);
 void *_hi_calloc(size_t nmemb, size_t size, const char *name, int line);
-void *_hi_realloc(void *ptr, size_t size, const char *name, int line);
 
 #define hi_strndup(_s, _n) strndup((char *)(_s), (size_t)(_n));
 
