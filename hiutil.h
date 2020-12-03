@@ -153,13 +153,6 @@ int hi_valid_port(int n);
 
 int _uint_len(uint32_t num);
 
-/*
- * Memory allocation wrapper.
- */
-#define hi_zalloc(_s) _hi_zalloc((size_t)(_s))
-
-void *_hi_zalloc(size_t size);
-
 #ifndef WIN32
 /*
  * Wrappers to send or receive n byte message on a blocking
