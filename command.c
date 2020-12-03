@@ -1606,7 +1606,9 @@ error:
     r->result = CMD_PARSE_ERROR;
     errno = EINVAL;
     if (r->errstr == NULL) {
-        r->errstr = hi_alloc(100 * sizeof(*r->errstr));
+        r->errstr = hi_malloc(100 * sizeof(*r->errstr));
+        if (r->errstr == NULL)
+            return;
     }
 
     len = _scnprintf(
@@ -1618,7 +1620,7 @@ error:
 
 struct cmd *command_get() {
     struct cmd *command;
-    command = hi_alloc(sizeof(struct cmd));
+    command = hi_malloc(sizeof(struct cmd));
     if (command == NULL) {
         return NULL;
     }

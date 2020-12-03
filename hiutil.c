@@ -230,23 +230,10 @@ int _uint_len(uint32_t num) {
     return n;
 }
 
-void *_hi_alloc(size_t size, const char *name, int line) {
+void *_hi_zalloc(size_t size) {
     void *p;
 
-    ASSERT(size != 0);
-
-    p = malloc(size);
-
-    if (name == NULL && line == 1) {
-    }
-
-    return p;
-}
-
-void *_hi_zalloc(size_t size, const char *name, int line) {
-    void *p;
-
-    p = _hi_alloc(size, name, line);
+    p = hi_malloc(size);
     if (p != NULL) {
         memset(p, 0, size);
     }
