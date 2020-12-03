@@ -8,10 +8,6 @@
 #define inline __inline
 #endif
 
-#ifndef strdup
-#define strdup _strdup
-#endif
-
 #ifndef strcasecmp
 #define strcasecmp _stricmp
 #endif
