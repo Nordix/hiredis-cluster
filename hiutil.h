@@ -166,8 +166,6 @@ int _uint_len(uint32_t num);
 void *_hi_alloc(size_t size, const char *name, int line);
 void *_hi_zalloc(size_t size, const char *name, int line);
 
-#define hi_strndup(_s, _n) strndup((char *)(_s), (size_t)(_n));
-
 #ifndef WIN32
 /*
  * Wrappers to send or receive n byte message on a blocking
