@@ -700,8 +700,7 @@ static int cluster_master_slave_mapping_with_name(redisClusterContext *cc,
             if (node->slaves == NULL) {
                 node->slaves = listCreate();
                 if (node->slaves == NULL) {
-                    __redisClusterSetError(cc, REDIS_ERR_OOM, "Out of memory");
-                    return REDIS_ERR;
+                    goto oom;
                 }
 
                 node->slaves->free = listClusterNodeDestructor;
@@ -725,8 +724,7 @@ static int cluster_master_slave_mapping_with_name(redisClusterContext *cc,
             if (node_old->slaves == NULL) {
                 node_old->slaves = listCreate();
                 if (node_old->slaves == NULL) {
-                    __redisClusterSetError(cc, REDIS_ERR_OOM, "Out of memory");
-                    return REDIS_ERR;
+                    goto oom;
                 }
 
                 node_old->slaves->free = listClusterNodeDestructor;
@@ -739,6 +737,10 @@ static int cluster_master_slave_mapping_with_name(redisClusterContext *cc,
     }
 
     return REDIS_OK;
+
+oom:
+    __redisClusterSetError(cc, REDIS_ERR_OOM, "Out of memory");
+    return REDIS_ERR;
 }
 
 /**
@@ -764,8 +766,7 @@ dict *parse_cluster_slots(redisClusterContext *cc, redisReply *reply,
 
     nodes = dictCreate(&clusterNodesDictType, NULL);
     if (nodes == NULL) {
-        __redisClusterSetError(cc, REDIS_ERR_OOM, "out of memory");
-        goto error;
+        goto oom;
     }
 
     if (reply->type != REDIS_REPLY_ARRAY || reply->elements <= 0) {
@@ -786,9 +787,7 @@ dict *parse_cluster_slots(redisClusterContext *cc, redisReply *reply,
 
         slot = cluster_slot_create(NULL);
         if (slot == NULL) {
-            __redisClusterSetError(cc, REDIS_ERR_OOM,
-                                   "Slot create failed: out of memory.");
-            goto error;
+            goto oom;
         }
 
         // one slots region
@@ -859,10 +858,7 @@ dict *parse_cluster_slots(redisClusterContext *cc, redisReply *reply,
                         master = dictGetEntryVal(den);
                         ret = cluster_slot_ref_node(slot, master);
                         if (ret != REDIS_OK) {
-                            __redisClusterSetError(
-                                cc, REDIS_ERR_OOM,
-                                "Slot ref node failed: out of memory.");
-                            goto error;
+                            goto oom;
                         }
 
                         slot = NULL;
@@ -890,10 +886,7 @@ dict *parse_cluster_slots(redisClusterContext *cc, redisReply *reply,
 
                     ret = cluster_slot_ref_node(slot, master);
                     if (ret != REDIS_OK) {
-                        __redisClusterSetError(
-                            cc, REDIS_ERR_OOM,
-                            "Slot ref node failed: out of memory.");
-                        goto error;
+                        goto oom;
                     }
 
                     slot = NULL;
@@ -907,10 +900,8 @@ dict *parse_cluster_slots(redisClusterContext *cc, redisReply *reply,
                     if (master->slaves == NULL) {
                         master->slaves = listCreate();
                         if (master->slaves == NULL) {
-                            __redisClusterSetError(cc, REDIS_ERR_OOM,
-                                                   "Out of memory");
                             cluster_node_deinit(slave);
-                            goto error;
+                            goto oom;
                         }
 
                         master->slaves->free = listClusterNodeDestructor;
@@ -923,6 +914,10 @@ dict *parse_cluster_slots(redisClusterContext *cc, redisReply *reply,
     }
 
     return nodes;
+
+oom:
+    __redisClusterSetError(cc, REDIS_ERR_OOM, "Out of memory");
+    // passthrough
 
 error:
 
@@ -959,8 +954,7 @@ dict *parse_cluster_nodes(redisClusterContext *cc, char *str, int str_len,
 
     nodes = dictCreate(&clusterNodesDictType, NULL);
     if (nodes == NULL) {
-        __redisClusterSetError(cc, REDIS_ERR_OOM, "out of memory");
-        goto error;
+        goto oom;
     }
 
     start = str;
@@ -1168,9 +1162,7 @@ dict *parse_cluster_nodes(redisClusterContext *cc, char *str, int str_len,
 
                     slot = cluster_slot_create(master);
                     if (slot == NULL) {
-                        __redisClusterSetError(cc, REDIS_ERR_OOM,
-                                               "Out of memory");
-                        goto error;
+                        goto oom;
                     }
 
                     slot->start = (uint32_t)slot_start;
@@ -1218,6 +1210,10 @@ dict *parse_cluster_nodes(redisClusterContext *cc, char *str, int str_len,
     }
 
     return nodes;
+
+oom:
+    __redisClusterSetError(cc, REDIS_ERR_OOM, "Out of memory");
+    // passthrough
 
 error:
 
@@ -1365,9 +1361,7 @@ static int cluster_update_route_by_addr(redisClusterContext *cc, const char *ip,
 
     slots = hiarray_create(dictSize(nodes), sizeof(cluster_slot *));
     if (slots == NULL) {
-        __redisClusterSetError(cc, REDIS_ERR_OTHER,
-                               "Slots array create failed: out of memory");
-        goto error;
+        goto oom;
     }
 
     dit = dictGetIterator(nodes);
@@ -1378,7 +1372,7 @@ static int cluster_update_route_by_addr(redisClusterContext *cc, const char *ip,
     while ((den = dictNext(dit))) {
         master = dictGetEntryVal(den);
         if (master->role != REDIS_ROLE_MASTER) {
-            __redisClusterSetError(cc, REDIS_ERR_OOM,
+            __redisClusterSetError(cc, REDIS_ERR_OTHER,
                                    "Node role must be master");
             goto error;
         }
@@ -1424,6 +1418,7 @@ static int cluster_update_route_by_addr(redisClusterContext *cc, const char *ip,
         }
     }
 
+    // Move all hiredis contexts in cc->nodes to nodes
     cluster_nodes_swap_ctx(cc->nodes, nodes);
     if (cc->nodes != NULL) {
         dictRelease(cc->nodes);
@@ -1469,12 +1464,10 @@ error:
         if (nodes == cc->nodes) {
             cc->nodes = NULL;
         }
-
         dictRelease(nodes);
     }
 
     freeReplyObject(reply);
-
     redisFree(c);
 
     return REDIS_ERR;
@@ -1983,7 +1976,7 @@ int redisClusterSetOptionTimeout(redisClusterContext *cc,
     if (cc->command_timeout == NULL) {
         cc->command_timeout = hi_malloc(sizeof(struct timeval));
         if (cc->command_timeout == NULL) {
-            return REDIS_ERR;
+            goto oom;
         }
         memcpy(cc->command_timeout, &tv, sizeof(struct timeval));
     } else if (cc->command_timeout->tv_sec != tv.tv_sec ||
@@ -2388,7 +2381,6 @@ static cluster_node *node_get_by_ask_error_reply(redisClusterContext *cc,
                 node = hi_malloc(sizeof(cluster_node));
                 if (node == NULL) {
                     __redisClusterSetError(cc, REDIS_ERR_OOM, "Out of memory");
-
                     goto done;
                 }
 
@@ -2922,7 +2914,6 @@ static void *command_post_fragment(redisClusterContext *cc, struct cmd *command,
                 listReleaseIterator(list_iter);
                 return NULL;
             }
-
             count += reply->integer;
         } else if (command->type == CMD_REQ_REDIS_EXISTS) {
             if (reply->type != REDIS_REPLY_INTEGER) {
@@ -2930,7 +2921,6 @@ static void *command_post_fragment(redisClusterContext *cc, struct cmd *command,
                 listReleaseIterator(list_iter);
                 return NULL;
             }
-
             count += reply->integer;
         } else if (command->type == CMD_REQ_REDIS_MSET) {
             if (reply->type != REDIS_REPLY_STATUS || reply->len != 2 ||
@@ -2947,8 +2937,7 @@ static void *command_post_fragment(redisClusterContext *cc, struct cmd *command,
 
     reply = hi_calloc(1, sizeof(*reply));
     if (reply == NULL) {
-        __redisClusterSetError(cc, REDIS_ERR_OOM, "Out of memory");
-        return NULL;
+        goto oom;
     }
 
     if (command->type == CMD_REQ_REDIS_MGET) {
@@ -2962,9 +2951,7 @@ static void *command_post_fragment(redisClusterContext *cc, struct cmd *command,
         reply->elements = key_count;
         reply->element = hi_calloc(key_count, sizeof(*reply));
         if (reply->element == NULL) {
-            freeReplyObject(reply);
-            __redisClusterSetError(cc, REDIS_ERR_OOM, "Out of memory");
-            return NULL;
+            goto oom;
         }
 
         for (i = key_count - 1; i >= 0; i--) {       /* for each key */
@@ -3001,9 +2988,7 @@ static void *command_post_fragment(redisClusterContext *cc, struct cmd *command,
         uint32_t str_len = strlen(REDIS_STATUS_OK);
         reply->str = hi_malloc((str_len + 1) * sizeof(char *));
         if (reply->str == NULL) {
-            freeReplyObject(reply);
-            __redisClusterSetError(cc, REDIS_ERR_OOM, "Out of memory");
-            return NULL;
+            goto oom;
         }
 
         reply->len = str_len;
@@ -3101,8 +3086,7 @@ void *redisClusterFormattedCommand(redisClusterContext *cc, char *cmd,
 
     command = command_get();
     if (command == NULL) {
-        __redisClusterSetError(cc, REDIS_ERR_OOM, "Out of memory");
-        return NULL;
+        goto oom;
     }
 
     command->cmd = cmd;
@@ -3110,8 +3094,7 @@ void *redisClusterFormattedCommand(redisClusterContext *cc, char *cmd,
 
     commands = listCreate();
     if (commands == NULL) {
-        __redisClusterSetError(cc, REDIS_ERR_OOM, "Out of memory");
-        goto error;
+        goto oom;
     }
 
     commands->free = listCommandFree;
@@ -3254,17 +3237,14 @@ int redisClusterAppendFormattedCommand(redisClusterContext *cc, char *cmd,
     if (cc->requests == NULL) {
         cc->requests = listCreate();
         if (cc->requests == NULL) {
-            __redisClusterSetError(cc, REDIS_ERR_OOM, "Out of memory");
-            goto error;
+            goto oom;
         }
-
         cc->requests->free = listCommandFree;
     }
 
     command = command_get();
     if (command == NULL) {
-        __redisClusterSetError(cc, REDIS_ERR_OOM, "Out of memory");
-        goto error;
+        goto oom;
     }
 
     command->cmd = cmd;
@@ -3272,8 +3252,7 @@ int redisClusterAppendFormattedCommand(redisClusterContext *cc, char *cmd,
 
     commands = listCreate();
     if (commands == NULL) {
-        __redisClusterSetError(cc, REDIS_ERR_OOM, "Out of memory");
-        goto error;
+        goto oom;
     }
 
     commands->free = listCommandFree;
@@ -3352,7 +3331,6 @@ error:
     /* Attention: mybe here we must pop the
       sub_commands that had append to the nodes.
       But now we do not handle it. */
-
     return REDIS_ERR;
 }
 
@@ -4134,22 +4112,19 @@ int redisClusterAsyncFormattedCommand(redisClusterAsyncContext *acc,
 
     command = command_get();
     if (command == NULL) {
-        __redisClusterAsyncSetError(acc, REDIS_ERR_OOM, "Out of memory");
-        goto error;
+        goto oom;
     }
 
     command->cmd = hi_malloc(len * sizeof(*command->cmd));
     if (command->cmd == NULL) {
-        __redisClusterAsyncSetError(acc, REDIS_ERR_OOM, "Out of memory");
-        goto error;
+        goto oom;
     }
     memcpy(command->cmd, cmd, len);
     command->clen = len;
 
     commands = listCreate();
     if (commands == NULL) {
-        __redisClusterAsyncSetError(acc, REDIS_ERR_OOM, "Out of memory");
-        goto error;
+        goto oom;
     }
 
     commands->free = listCommandFree;
@@ -4194,7 +4169,6 @@ int redisClusterAsyncFormattedCommand(redisClusterAsyncContext *acc,
 
     cad = cluster_async_data_get();
     if (cad == NULL) {
-        __redisClusterAsyncSetError(acc, REDIS_ERR_OOM, "Out of memory");
         goto error;
     }
 
@@ -4214,6 +4188,10 @@ int redisClusterAsyncFormattedCommand(redisClusterAsyncContext *acc,
     }
 
     return REDIS_OK;
+
+oom:
+    __redisClusterAsyncSetError(acc, REDIS_ERR_OOM, "Out of memory");
+    // passthrough
 
 error:
 
