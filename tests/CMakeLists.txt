@@ -98,9 +98,31 @@ endif()
 # Tests using simulated redis node
 add_executable(clusterclient clusterclient.c)
 target_link_libraries(clusterclient hiredis_cluster hiredis ${SSL_LIBRARY})
+add_executable(clusterclient_async clusterclient_async.c)
+target_link_libraries(clusterclient_async hiredis_cluster hiredis ${SSL_LIBRARY} ${EVENT_LIBRARY})
 add_test(NAME set-get-test
-  COMMAND "${CMAKE_SOURCE_DIR}/tests/scripts/set-get-test.sh" "$<TARGET_FILE:clusterclient>"
-  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/tests/scripts/")
+         COMMAND "${CMAKE_SOURCE_DIR}/tests/scripts/set-get-test.sh"
+                 "$<TARGET_FILE:clusterclient>"
+         WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/tests/scripts/")
+add_test(NAME set-get-test-async
+         COMMAND "${CMAKE_SOURCE_DIR}/tests/scripts/set-get-test.sh"
+         "$<TARGET_FILE:clusterclient_async>"
+         WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/tests/scripts/")
 add_test(NAME ask-redirect-test
-  COMMAND "${CMAKE_SOURCE_DIR}/tests/scripts/ask-redirect-test.sh" "$<TARGET_FILE:clusterclient>"
-  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/tests/scripts/")
+         COMMAND "${CMAKE_SOURCE_DIR}/tests/scripts/ask-redirect-test.sh"
+         "$<TARGET_FILE:clusterclient>"
+         WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/tests/scripts/")
+add_test(NAME ask-redirect-test-async
+         COMMAND "${CMAKE_SOURCE_DIR}/tests/scripts/ask-redirect-test.sh"
+                 "$<TARGET_FILE:clusterclient_async>"
+         WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/tests/scripts/")
+add_test(NAME moved-redirect-test
+         COMMAND "${CMAKE_SOURCE_DIR}/tests/scripts/moved-redirect-test.sh"
+                 "$<TARGET_FILE:clusterclient>"
+                 WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/tests/scripts/")
+# The test "moved-redirect-test-async" below triggers a warning when running
+# with santitizers. TODO: Fix this problem and uncomment the test case below.
+# add_test(NAME moved-redirect-test-async
+#          COMMAND "${CMAKE_SOURCE_DIR}/tests/scripts/moved-redirect-test.sh"
+#          "$<TARGET_FILE:clusterclient_async>"
+#          WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/tests/scripts/")

@@ -11,9 +11,11 @@ syncpid=$!
 
 # Start simulated server
 timeout 5s ./simulated-redis.pl -p 7400 -d --sigcont $syncpid <<'EOF' &
+EXPECT CONNECT
 EXPECT ["CLUSTER", "SLOTS"]
 SEND [[0, 16383, ["127.0.0.1", 7400, "nodeid123"]]]
-EXPECT RECONNECT
+EXPECT CLOSE
+EXPECT CONNECT
 EXPECT ["SET", "foo", "bar"]
 SEND +OK
 EXPECT ["GET", "foo"]

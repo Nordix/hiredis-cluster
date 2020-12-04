@@ -32,8 +32,10 @@ while ($_ = shift) {
         map { print "$_\n" }
             "Usage: $0 [ OPTIONS ]",
             "",
-            "Acts as a Redis node, communicating with a single client according to",
-            "expected traffic provided as events on stdin.",
+            "Acts as a Redis node, communicating with clients according to",
+            "expected traffic provided as events on stdin. Multiple connections",
+            "are accepted, but data can only be sent to and received from the",
+            "last accepted client, referred to as \"the client\" below.",
             "",
             "Options:",
             "",
@@ -46,11 +48,11 @@ while ($_ = shift) {
             "Expected traffic is to be provided on stdin, one event per line,",
             "where the following events are accepted:",
             "",
-            "  SEND response          Send response to the client.",
-            "  EXPECT command         Receive expected command from the client.",
-            "  CLOSE                  Close the connection to the client.",
+            "  EXPECT CONNECT         Wait for a client to connect.",
             "  EXPECT CLOSE           Wait for the client to close the connection.",
-            "  EXPECT RECONNECT       Wait for the client to close and reconnect.",
+            "  EXPECT command         Receive expected command from the client.",
+            "  SEND response          Send response to the client.",
+            "  CLOSE                  Close the connection to the client.",
             "  SLEEP n                Sleep n seconds.",
             "",
             "The command and response in the events above is provided in a subset",
@@ -72,9 +74,8 @@ while ($_ = shift) {
     }
 }
 
-my $listener;   # Listener socket
-my $connection; # Connection socket
-
+# Listener socket. Close it on SIGTERM, etc. and at normal exit.
+my $listener;
 END {
     close $listener if $listener;
 }
@@ -89,15 +90,17 @@ listen($listener, 5)
     or die "listen: $!\n";
 print "(port $port) Listening.\n" if $debug;
 kill $sig, $sig_pid if $sig_pid;
-my $peer_addr = accept($connection, $listener);
-my($client_port, $client_addr) = sockaddr_in($peer_addr);
-my $name = gethostbyaddr($client_addr, AF_INET);
-print "(port $port) Connection from $name [", inet_ntoa($client_addr), "]",
-    " on client port $client_port.\n" if $debug;
+
+# Accept multiple connections, but only the last one is used.
+my @connections = ();
+my $connection; # Active connection = the last element of @connections
 
 # Loop over events on stdin.
 while (<>) {
-    next if /^#/; # skip commented-out events
+    s/#.*//; # trim trailing comments
+    s/^\s+//; # trim leading whitespace
+    s/\s+$//; # trim trailing whitespace
+    next if /^$/; # skip empty lines
     print "(port $port) $_" if $debug;
     if (/^SEND (.*)/) {
         my $data = $1;
@@ -114,6 +117,8 @@ while (<>) {
         flush $connection;
     } elsif (/^CLOSE$/) {
         close $connection;
+        pop @connections;
+        $connection = $connections[-1];
     } elsif (/^EXPECT CLOSE$/) {
         my $buffer;
         my $bytes_read = read $connection, $buffer, 1;
@@ -121,17 +126,15 @@ while (<>) {
             if $bytes_read;
         print "(port $port) Client disconnected.\n" if $debug;
         close $connection;
-    } elsif (/^EXPECT RECONNECT$/) {
-        my $buffer;
-        my $bytes_read = read $connection, $buffer, 1;
-        die "(port $port) Data received from peer when reconnect is expected.\n"
-            if $bytes_read;
-        close $connection;
-        print "(port $port) Client disconnected.\n" if $debug;
+        pop @connections;
+        $connection = $connections[-1];
+    } elsif (/^EXPECT CONNECT$/) {
+        undef $connection;
         my $peer_addr = accept($connection, $listener);
+        push @connections, $connection;
         my($client_port, $client_addr) = sockaddr_in($peer_addr);
         my $name = gethostbyaddr($client_addr, AF_INET);
-        print "(port $port) Reconnect from $name [", inet_ntoa($client_addr),
+        print "(port $port) Connection from $name [", inet_ntoa($client_addr),
             "] on client port $client_port.\n" if $debug;
     } elsif (/^EXPECT ([\[\"].*)/) {
         my $expected = eval $1;
