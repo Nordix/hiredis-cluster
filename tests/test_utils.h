@@ -57,4 +57,10 @@
                    _ctx->errstr);                                              \
     }
 
+#define ASSERT_STR_EQ(_s1, _s2)                                                \
+    { assert(strcmp(_s1, _s2) == 0); }
+
+#define ASSERT_STR_STARTS_WITH(_s1, _s2)                                       \
+    { assert(strncmp(_s1, _s2, strlen(_s2)) == 0); }
+
 #endif

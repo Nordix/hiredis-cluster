@@ -78,6 +78,11 @@ if(ENABLE_IPV6_TESTS)
   set_tests_properties(ct_connection_ipv6 PROPERTIES LABELS "CT")
 endif()
 
+add_executable(ct_out_of_memory_handling ct_out_of_memory_handling.c)
+target_link_libraries(ct_out_of_memory_handling hiredis_cluster hiredis ${SSL_LIBRARY})
+add_test(NAME ct_out_of_memory_handling COMMAND "$<TARGET_FILE:ct_out_of_memory_handling>")
+set_tests_properties(ct_out_of_memory_handling PROPERTIES LABELS "CT")
+
 if(ENABLE_SSL)
   # Executable: tls
   add_executable(example_tls main_tls.c)
