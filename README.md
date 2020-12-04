@@ -15,7 +15,7 @@ Hiredis-cluster is a fork of Hiredis-vip, with the following improvements:
 * Using CMake as build system
 * Code style guide (using clang-format)
 * Improved testing
-* Memory leak corrections
+* Memory leak corrections and allocation failure handling
 
 ## Features
 

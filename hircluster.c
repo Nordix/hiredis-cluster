@@ -858,7 +858,7 @@ dict *parse_cluster_slots(redisClusterContext *cc, redisReply *reply,
                         master = dictGetEntryVal(den);
                         ret = cluster_slot_ref_node(slot, master);
                         if (ret != REDIS_OK) {
-                            goto oom;
+                            goto error;
                         }
 
                         slot = NULL;
@@ -886,7 +886,7 @@ dict *parse_cluster_slots(redisClusterContext *cc, redisReply *reply,
 
                     ret = cluster_slot_ref_node(slot, master);
                     if (ret != REDIS_OK) {
-                        goto oom;
+                        goto error;
                     }
 
                     slot = NULL;
@@ -1767,6 +1767,7 @@ int redisClusterSetOptionAddNode(redisClusterContext *cc, const char *addr) {
     if (cc->nodes == NULL) {
         cc->nodes = dictCreate(&clusterNodesDictType, NULL);
         if (cc->nodes == NULL) {
+            __redisClusterSetError(cc, REDIS_ERR_OOM, "Out of memory");
             return REDIS_ERR;
         }
     }
@@ -1955,6 +1956,7 @@ int redisClusterSetOptionConnectTimeout(redisClusterContext *cc,
     if (cc->connect_timeout == NULL) {
         cc->connect_timeout = hi_malloc(sizeof(struct timeval));
         if (cc->connect_timeout == NULL) {
+            __redisClusterSetError(cc, REDIS_ERR_OOM, "Out of memory");
             return REDIS_ERR;
         }
     }
@@ -4169,7 +4171,7 @@ int redisClusterAsyncFormattedCommand(redisClusterAsyncContext *acc,
 
     cad = cluster_async_data_get();
     if (cad == NULL) {
-        goto error;
+        goto oom;
     }
 
     cad->acc = acc;
