@@ -3,7 +3,7 @@
 # Usage: $0 /path/to/clusterclient-binary
 
 clientprog=${1:-./clusterclient}
-testname=ask-redirect-test
+testname=moved-redirect-test
 
 # Sync processes waiting for CONT signals.
 perl -we 'use sigtrap "handler", sub{exit}, "CONT"; sleep 1; die "timeout"' &
@@ -12,23 +12,25 @@ perl -we 'use sigtrap "handler", sub{exit}, "CONT"; sleep 1; die "timeout"' &
 syncpid2=$!;
 
 # Start simulated redis node #1
-timeout 5s ./simulated-redis.pl -p 7401 -d --sigcont $syncpid1 <<'EOF' &
+timeout 5s ./simulated-redis.pl -p 7403 -d --sigcont $syncpid1 <<'EOF' &
 EXPECT CONNECT
 EXPECT ["CLUSTER", "SLOTS"]
-SEND [[0, 16383, ["127.0.0.1", 7401, "nodeid123"]]]
+SEND [[0, 16383, ["127.0.0.1", 7403, "nodeid7403"]]]
 EXPECT CLOSE
 EXPECT CONNECT
 EXPECT ["GET", "foo"]
-SEND -ASK 12182 127.0.0.1:7402
+SEND -MOVED 12182 127.0.0.1:7404
+EXPECT CONNECT
+EXPECT ["CLUSTER", "SLOTS"]
+SEND [[0, 16383, ["127.0.0.1", 7404, "nodeid7404"]]]
+EXPECT CLOSE
 EXPECT CLOSE
 EOF
 server1=$!
 
 # Start simulated redis node #2
-timeout 5s ./simulated-redis.pl -p 7402 -d --sigcont $syncpid2 <<'EOF' &
+timeout 5s ./simulated-redis.pl -p 7404 -d --sigcont $syncpid2 <<'EOF' &
 EXPECT CONNECT
-EXPECT ["ASKING"]
-SEND +OK
 EXPECT ["GET", "foo"]
 SEND "bar"
 EXPECT CLOSE
@@ -39,7 +41,7 @@ server2=$!
 wait $syncpid1 $syncpid2;
 
 # Run client
-echo 'GET foo' | timeout 3s "$clientprog" 127.0.0.1:7401 > "$testname.out"
+echo 'GET foo' | timeout 3s "$clientprog" 127.0.0.1:7403 > "$testname.out"
 clientexit=$?
 
 # Wait for servers to exit
