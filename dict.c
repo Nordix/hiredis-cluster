@@ -32,6 +32,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
+
 #include <assert.h>
 #include <limits.h>
 #include <stdlib.h>
@@ -73,6 +74,7 @@ static dict *dictCreate(dictType *type, void *privDataPtr) {
     dict *ht = hi_malloc(sizeof(*ht));
     if (ht == NULL)
         return NULL;
+
     _dictInit(ht, type, privDataPtr);
     return ht;
 }
@@ -129,7 +131,6 @@ static int dictExpand(dict *ht, unsigned long size) {
     }
     assert(ht->used == 0);
     hi_free(ht->table);
-    ht->table = NULL;
 
     /* Remap the new hashtable in the old */
     *ht = n;
@@ -150,6 +151,7 @@ static int dictAdd(dict *ht, void *key, void *val) {
     entry = hi_malloc(sizeof(*entry));
     if (entry == NULL)
         return DICT_ERR;
+
     entry->next = ht->table[index];
     ht->table[index] = entry;
 
@@ -181,8 +183,6 @@ static int _dictClear(dict *ht) {
     }
     /* Free the table and the allocated cache structure */
     hi_free(ht->table);
-    ht->table = NULL;
-
     /* Re-initialize the table */
     _dictReset(ht);
     return DICT_OK; /* never fails */
