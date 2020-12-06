@@ -1100,7 +1100,7 @@ void redis_parse_cmd(struct cmd *r) {
 
                 kpos = hiarray_push(r->keys);
                 if (kpos == NULL) {
-                    goto enomem;
+                    goto oom;
                 }
                 kpos->start = m;
                 kpos->end = p;
@@ -1590,15 +1590,12 @@ void redis_parse_cmd(struct cmd *r) {
 done:
 
     ASSERT(r->type > CMD_UNKNOWN && r->type < CMD_SENTINEL);
-
     r->result = CMD_PARSE_OK;
-
     return;
 
-enomem:
+oom:
 
     r->result = CMD_PARSE_ENOMEM;
-
     return;
 
 error:
@@ -1607,8 +1604,10 @@ error:
     errno = EINVAL;
     if (r->errstr == NULL) {
         r->errstr = hi_malloc(100 * sizeof(*r->errstr));
-        if (r->errstr == NULL)
+        if (r->errstr == NULL) {
+            r->result = CMD_PARSE_ENOMEM;
             return;
+        }
     }
 
     len = _scnprintf(
