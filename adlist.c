@@ -281,6 +281,9 @@ listNode *listSearchKey(hilist *list, void *key) {
     listNode *node;
 
     iter = listGetIterator(list, AL_START_HEAD);
+    if (iter == NULL) {
+        return NULL;
+    }
     while ((node = listNext(iter)) != NULL) {
         if (list->match) {
             if (list->match(node->value, key)) {

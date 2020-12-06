@@ -350,7 +350,10 @@ static cluster_slot *cluster_slot_create(cluster_node *node) {
             node->slots->free = listClusterSlotDestructor;
         }
 
-        listAddNodeTail(node->slots, slot);
+        if (listAddNodeTail(node->slots, slot) == NULL) {
+            cluster_slot_destroy(slot);
+            return NULL;
+        }
     }
 
     return slot;
@@ -374,7 +377,9 @@ static int cluster_slot_ref_node(cluster_slot *slot, cluster_node *node) {
         node->slots->free = listClusterSlotDestructor;
     }
 
-    listAddNodeTail(node->slots, slot);
+    if (listAddNodeTail(node->slots, slot) == NULL) {
+        return REDIS_ERR;
+    }
     slot->node = node;
 
     return REDIS_OK;
@@ -493,8 +498,7 @@ static cluster_node *node_get_with_slots(redisClusterContext *cc,
 
     node = hi_malloc(sizeof(cluster_node));
     if (node == NULL) {
-        __redisClusterSetError(cc, REDIS_ERR_OOM, "Out of memory");
-        goto error;
+        goto oom;
     }
 
     cluster_node_init(node);
@@ -502,11 +506,7 @@ static cluster_node *node_get_with_slots(redisClusterContext *cc,
     if (role == REDIS_ROLE_MASTER) {
         node->slots = listCreate();
         if (node->slots == NULL) {
-            hi_free(node);
-            node = NULL;
-            __redisClusterSetError(cc, REDIS_ERR_OTHER,
-                                   "slots for node listCreate error");
-            goto error;
+            goto oom;
         }
 
         node->slots->free = listClusterSlotDestructor;
@@ -522,10 +522,12 @@ static cluster_node *node_get_with_slots(redisClusterContext *cc,
 
     return node;
 
+oom:
+    __redisClusterSetError(cc, REDIS_ERR_OOM, "Out of memory");
+    // passthrough
+
 error:
-
     hi_free(node);
-
     return NULL;
 }
 
@@ -545,17 +547,14 @@ static cluster_node *node_get_with_nodes(redisClusterContext *cc,
 
     node = hi_malloc(sizeof(cluster_node));
     if (node == NULL) {
-        __redisClusterSetError(cc, REDIS_ERR_OOM, "Out of memory");
-        return NULL;
+        goto oom;
     }
     cluster_node_init(node);
 
     if (role == REDIS_ROLE_MASTER) {
         node->slots = listCreate();
         if (node->slots == NULL) {
-            __redisClusterSetError(cc, REDIS_ERR_OTHER,
-                                   "slots for node listCreate error");
-            goto error;
+            goto oom;
         }
 
         node->slots->free = listClusterSlotDestructor;
@@ -591,15 +590,20 @@ static cluster_node *node_get_with_nodes(redisClusterContext *cc,
 
     return node;
 
-error:
+oom:
+    __redisClusterSetError(cc, REDIS_ERR_OOM, "Out of memory");
+    // passthrough
 
-    if (node->slots) {
-        listRelease(node->slots);
+error:
+    if (node) {
+        if (node->slots) {
+            listRelease(node->slots);
+        }
+        if (node->host) {
+            sdsfree(node->host);
+        }
+        hi_free(node);
     }
-    if (node->host) {
-        sdsfree(node->host);
-    }
-    hi_free(node);
     return NULL;
 }
 
@@ -671,6 +675,9 @@ static int cluster_master_slave_mapping_with_name(redisClusterContext *cc,
 
     if (*nodes == NULL) {
         *nodes = dictCreate(&clusterNodesRefDictType, NULL);
+        if (*nodes == NULL) {
+            goto oom;
+        }
     }
 
     di = dictFind(*nodes, master_name);
@@ -678,9 +685,7 @@ static int cluster_master_slave_mapping_with_name(redisClusterContext *cc,
         ret =
             dictAdd(*nodes, sdsnewlen(master_name, sdslen(master_name)), node);
         if (ret != DICT_OK) {
-            __redisClusterSetError(cc, REDIS_ERR_OTHER,
-                                   "the address already exists in the nodes");
-            return REDIS_ERR;
+            goto oom;
         }
 
     } else {
@@ -710,16 +715,20 @@ static int cluster_master_slave_mapping_with_name(redisClusterContext *cc,
                 node_old->slaves->free = NULL;
                 while (listLength(node_old->slaves) > 0) {
                     lnode = listFirst(node_old->slaves);
-                    listAddNodeHead(node->slaves, lnode->value);
+                    if (listAddNodeHead(node->slaves, lnode->value) == NULL) {
+                        goto oom;
+                    }
                     listDelNode(node_old->slaves, lnode);
                 }
                 listRelease(node_old->slaves);
                 node_old->slaves = NULL;
             }
 
-            listAddNodeHead(node->slaves, node_old);
-
+            if (listAddNodeHead(node->slaves, node_old) == NULL) {
+                goto oom;
+            }
             dictSetHashVal(*nodes, di, node);
+
         } else if (node->role == REDIS_ROLE_SLAVE) {
             if (node_old->slaves == NULL) {
                 node_old->slaves = listCreate();
@@ -729,8 +738,10 @@ static int cluster_master_slave_mapping_with_name(redisClusterContext *cc,
 
                 node_old->slaves->free = listClusterNodeDestructor;
             }
+            if (listAddNodeTail(node_old->slaves, node) == NULL) {
+                goto oom;
+            }
 
-            listAddNodeTail(node_old->slaves, node);
         } else {
             NOT_REACHED();
         }
@@ -851,14 +862,14 @@ dict *parse_cluster_slots(redisClusterContext *cc, redisReply *reply,
                     address = sdscatfmt(address, ":%i", elem_port->integer);
 
                     den = dictFind(nodes, address);
-                    // master already exits, break to the next slots region.
+                    // master already exists, break to the next slots region.
                     if (den != NULL) {
                         sdsfree(address);
 
                         master = dictGetEntryVal(den);
                         ret = cluster_slot_ref_node(slot, master);
                         if (ret != REDIS_OK) {
-                            goto error;
+                            goto error; // or possibly OOM
                         }
 
                         slot = NULL;
@@ -876,17 +887,14 @@ dict *parse_cluster_slots(redisClusterContext *cc, redisReply *reply,
                                   sdsnewlen(master->addr, sdslen(master->addr)),
                                   master);
                     if (ret != DICT_OK) {
-                        __redisClusterSetError(
-                            cc, REDIS_ERR_OTHER,
-                            "The address already exists in the nodes");
                         cluster_node_deinit(master);
                         hi_free(master);
-                        goto error;
+                        goto oom;
                     }
 
                     ret = cluster_slot_ref_node(slot, master);
                     if (ret != REDIS_OK) {
-                        goto error;
+                        goto error; // or possibly OOM
                     }
 
                     slot = NULL;
@@ -901,13 +909,18 @@ dict *parse_cluster_slots(redisClusterContext *cc, redisReply *reply,
                         master->slaves = listCreate();
                         if (master->slaves == NULL) {
                             cluster_node_deinit(slave);
+                            hi_free(slave);
                             goto oom;
                         }
 
                         master->slaves->free = listClusterNodeDestructor;
                     }
 
-                    listAddNodeTail(master->slaves, slave);
+                    if (listAddNodeTail(master->slaves, slave) == NULL) {
+                        cluster_node_deinit(slave);
+                        hi_free(slave);
+                        goto oom;
+                    }
                 }
             }
         }
@@ -1016,6 +1029,7 @@ dict *parse_cluster_nodes(redisClusterContext *cc, char *str, int str_len,
                               sdsnewlen(master->addr, sdslen(master->addr)),
                               master);
                 if (ret != DICT_OK) {
+                    // Key already exists, but possibly an OOM error
                     __redisClusterSetError(
                         cc, REDIS_ERR_OTHER,
                         "The address already exists in the nodes");
@@ -1746,7 +1760,7 @@ int redisClusterSetOptionAddNode(redisClusterContext *cc, const char *addr) {
     dictEntry *node_entry;
     cluster_node *node;
     sds ip;
-    int port;
+    int port, ret;
     sds addr_sds = NULL;
 
     if (cc == NULL) {
@@ -1756,8 +1770,7 @@ int redisClusterSetOptionAddNode(redisClusterContext *cc, const char *addr) {
     if (cc->nodes == NULL) {
         cc->nodes = dictCreate(&clusterNodesDictType, NULL);
         if (cc->nodes == NULL) {
-            __redisClusterSetError(cc, REDIS_ERR_OOM, "Out of memory");
-            return REDIS_ERR;
+            goto oom;
         }
     }
 
@@ -1820,11 +1833,18 @@ int redisClusterSetOptionAddNode(redisClusterContext *cc, const char *addr) {
 
         node->host = ip;
         node->port = port;
-
-        dictAdd(cc->nodes, sdsnewlen(node->addr, sdslen(node->addr)), node);
+        ret =
+            dictAdd(cc->nodes, sdsnewlen(node->addr, sdslen(node->addr)), node);
+        if (ret != DICT_OK) {
+            goto oom;
+        }
     }
 
     return REDIS_OK;
+
+oom:
+    __redisClusterSetError(cc, REDIS_ERR_OOM, "Out of memory");
+    return REDIS_ERR;
 }
 
 int redisClusterSetOptionAddNodes(redisClusterContext *cc, const char *addrs) {
@@ -2348,7 +2368,7 @@ static int __redisClusterGetReply(redisClusterContext *cc, int slot_num,
 static cluster_node *node_get_by_ask_error_reply(redisClusterContext *cc,
                                                  redisReply *reply) {
     sds *part = NULL, *ip_port = NULL;
-    int part_len = 0, ip_port_len;
+    int part_len = 0, ip_port_len, ret;
     dictEntry *de;
     cluster_node *node = NULL;
 
@@ -2381,8 +2401,12 @@ static cluster_node *node_get_by_ask_error_reply(redisClusterContext *cc,
                 node->port = hi_atoi(ip_port[1], sdslen(ip_port[1]));
                 node->role = REDIS_ROLE_MASTER;
 
-                dictAdd(cc->nodes, sdsnewlen(node->addr, sdslen(node->addr)),
-                        node);
+                ret = dictAdd(cc->nodes,
+                              sdsnewlen(node->addr, sdslen(node->addr)), node);
+                if (ret != DICT_OK) {
+                    __redisClusterSetError(cc, REDIS_ERR_OOM, "Out of memory");
+                    goto done;
+                }
 
                 part[1] = NULL;
                 ip_port[0] = NULL;
@@ -2827,13 +2851,11 @@ static int command_pre_fragment(redisClusterContext *cc, struct cmd *command,
             NOT_REACHED();
         }
 
-        // printf("len : %d\n", sub_command->clen);
-        // print_string_with_length_fix_CRLF(sub_command->cmd,
-        // sub_command->clen);
-
         sub_command->type = command->type;
 
-        listAddNodeTail(commands, sub_command);
+        if (listAddNodeTail(commands, sub_command) == NULL) {
+            goto oom;
+        }
     }
 
 done:
@@ -3244,33 +3266,29 @@ int redisClusterAppendFormattedCommand(redisClusterContext *cc, char *cmd,
         goto error;
     }
 
-    // all keys belong to one slot
+    // Append command(s)
     if (listLength(commands) == 0) {
-        if (__redisClusterAppendCommand(cc, command) == REDIS_OK) {
-            goto done;
-        } else {
+        // All keys belong to one slot
+        if (__redisClusterAppendCommand(cc, command) != REDIS_OK) {
             goto error;
         }
-    }
+    } else {
+        // Keys belongs to different slots
+        ASSERT(listLength(commands) != 1);
 
-    ASSERT(listLength(commands) != 1);
+        list_iter = listGetIterator(commands, AL_START_HEAD);
+        if (list_iter == NULL) {
+            goto oom;
+        }
 
-    list_iter = listGetIterator(commands, AL_START_HEAD);
-    if (list_iter == NULL) {
-        goto oom;
-    }
+        while ((list_node = listNext(list_iter)) != NULL) {
+            sub_command = list_node->value;
 
-    while ((list_node = listNext(list_iter)) != NULL) {
-        sub_command = list_node->value;
-
-        if (__redisClusterAppendCommand(cc, sub_command) == REDIS_OK) {
-            continue;
-        } else {
-            goto error;
+            if (__redisClusterAppendCommand(cc, sub_command) != REDIS_OK) {
+                goto error;
+            }
         }
     }
-
-done:
 
     if (command->cmd != NULL) {
         command->cmd = NULL;
@@ -3283,12 +3301,16 @@ done:
             command->sub_commands = commands;
         } else {
             listRelease(commands);
+            commands = NULL;
         }
     }
 
     listReleaseIterator(list_iter);
-    listAddNodeTail(cc->requests, command);
+    list_iter = NULL;
 
+    if (listAddNodeTail(cc->requests, command) == NULL) {
+        goto oom;
+    }
     return REDIS_OK;
 
 oom:
