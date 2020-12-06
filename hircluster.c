@@ -3029,8 +3029,7 @@ static int command_format_by_slot(redisClusterContext *cc, struct cmd *command,
 
     redis_parse_cmd(command);
     if (command->result == CMD_PARSE_ENOMEM) {
-        __redisClusterSetError(cc, REDIS_ERR_PROTOCOL,
-                               "Parse command error: out of memory");
+        __redisClusterSetError(cc, REDIS_ERR_OOM, "Out of memory");
         goto done;
     } else if (command->result != CMD_PARSE_OK) {
         __redisClusterSetError(cc, REDIS_ERR_PROTOCOL, command->errstr);
