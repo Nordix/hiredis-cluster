@@ -35,7 +35,6 @@ static inline uint32_t hiarray_n(const struct hiarray *a) { return a->nelem; }
 
 struct hiarray *hiarray_create(uint32_t n, size_t size);
 void hiarray_destroy(struct hiarray *a);
-int hiarray_init(struct hiarray *a, uint32_t n, size_t size);
 void hiarray_deinit(struct hiarray *a);
 
 uint32_t hiarray_idx(struct hiarray *a, void *elem);

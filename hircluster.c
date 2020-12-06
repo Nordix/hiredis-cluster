@@ -1089,22 +1089,15 @@ dict *parse_cluster_nodes(redisClusterContext *cc, char *str, int str_len,
                                     master->migrating =
                                         hiarray_create(1, sizeof(oslot));
                                     if (master->migrating == NULL) {
-                                        __redisClusterSetError(
-                                            cc, REDIS_ERR_OTHER,
-                                            "create migrating array error");
                                         cluster_open_slot_destroy(oslot);
-                                        goto error;
+                                        goto oom;
                                     }
                                 }
 
                                 oslot_elem = hiarray_push(master->migrating);
                                 if (oslot_elem == NULL) {
-                                    __redisClusterSetError(
-                                        cc, REDIS_ERR_OTHER,
-                                        "Push migrating array error: out of "
-                                        "memory");
                                     cluster_open_slot_destroy(oslot);
-                                    goto error;
+                                    goto oom;
                                 }
 
                                 *oslot_elem = oslot;
@@ -1124,22 +1117,15 @@ dict *parse_cluster_nodes(redisClusterContext *cc, char *str, int str_len,
                                     master->importing =
                                         hiarray_create(1, sizeof(oslot));
                                     if (master->importing == NULL) {
-                                        __redisClusterSetError(
-                                            cc, REDIS_ERR_OTHER,
-                                            "create migrating array error");
                                         cluster_open_slot_destroy(oslot);
-                                        goto error;
+                                        goto oom;
                                     }
                                 }
 
                                 oslot_elem = hiarray_push(master->importing);
                                 if (oslot_elem == NULL) {
-                                    __redisClusterSetError(
-                                        cc, REDIS_ERR_OTHER,
-                                        "push migrating array error: out of "
-                                        "memory");
                                     cluster_open_slot_destroy(oslot);
-                                    goto error;
+                                    goto oom;
                                 }
 
                                 *oslot_elem = oslot;
@@ -1395,6 +1381,9 @@ static int cluster_update_route_by_addr(redisClusterContext *cc, const char *ip,
             }
 
             slot_elem = hiarray_push(slots);
+            if (slot_elem == NULL) {
+                goto oom;
+            }
             *slot_elem = slot;
         }
 
@@ -2587,15 +2576,13 @@ static int command_pre_fragment(redisClusterContext *cc, struct cmd *command,
 
     sub_commands = hi_malloc(REDIS_CLUSTER_SLOTS * sizeof(*sub_commands));
     if (sub_commands == NULL) {
-        __redisClusterSetError(cc, REDIS_ERR_OOM, "Out of memory");
-        goto done;
+        goto oom;
     }
     memset(sub_commands, 0, REDIS_CLUSTER_SLOTS * sizeof(*sub_commands));
 
     command->frag_seq = hi_malloc(key_count * sizeof(*command->frag_seq));
     if (command->frag_seq == NULL) {
-        __redisClusterSetError(cc, REDIS_ERR_OOM, "Out of memory");
-        goto done;
+        goto oom;
     }
 
     // Fill sub_command with key, slot and command length (clen, only keylength)
@@ -2613,9 +2600,7 @@ static int command_pre_fragment(redisClusterContext *cc, struct cmd *command,
         if (sub_commands[slot_num] == NULL) {
             sub_commands[slot_num] = command_get();
             if (sub_commands[slot_num] == NULL) {
-                __redisClusterSetError(cc, REDIS_ERR_OOM, "Out of memory");
-                slot_num = -1;
-                goto done;
+                goto oom;
             }
         }
 
@@ -2625,9 +2610,7 @@ static int command_pre_fragment(redisClusterContext *cc, struct cmd *command,
 
         sub_kp = hiarray_push(sub_command->keys);
         if (sub_kp == NULL) {
-            __redisClusterSetError(cc, REDIS_ERR_OOM, "Out of memory");
-            slot_num = -1;
-            goto done;
+            goto oom;
         }
 
         sub_kp->start = kp->start;
@@ -2686,9 +2669,7 @@ static int command_pre_fragment(redisClusterContext *cc, struct cmd *command,
             sub_command->cmd =
                 hi_malloc(sub_command->clen * sizeof(*sub_command->cmd));
             if (sub_command->cmd == NULL) {
-                __redisClusterSetError(cc, REDIS_ERR_OOM, "Out of memory");
-                slot_num = -1;
-                goto done;
+                goto oom;
             }
             memset(sub_command->cmd, 0,
                    sub_command->clen * sizeof(*sub_command->cmd));
@@ -2730,9 +2711,7 @@ static int command_pre_fragment(redisClusterContext *cc, struct cmd *command,
             sub_command->cmd =
                 hi_malloc(sub_command->clen * sizeof(*sub_command->cmd));
             if (sub_command->cmd == NULL) {
-                __redisClusterSetError(cc, REDIS_ERR_OOM, "Out of memory");
-                slot_num = -1;
-                goto done;
+                goto oom;
             }
             memset(sub_command->cmd, 0,
                    sub_command->clen * sizeof(*sub_command->cmd));
@@ -2774,9 +2753,7 @@ static int command_pre_fragment(redisClusterContext *cc, struct cmd *command,
             sub_command->cmd =
                 hi_malloc(sub_command->clen * sizeof(*sub_command->cmd));
             if (sub_command->cmd == NULL) {
-                __redisClusterSetError(cc, REDIS_ERR_OOM, "Out of memory");
-                slot_num = -1;
-                goto done;
+                goto oom;
             }
             memset(sub_command->cmd, 0,
                    sub_command->clen * sizeof(*sub_command->cmd));
@@ -2820,9 +2797,7 @@ static int command_pre_fragment(redisClusterContext *cc, struct cmd *command,
             sub_command->cmd =
                 hi_malloc(sub_command->clen * sizeof(*sub_command->cmd));
             if (sub_command->cmd == NULL) {
-                __redisClusterSetError(cc, REDIS_ERR_OOM, "Out of memory");
-                slot_num = -1;
-                goto done;
+                goto oom;
             }
             memset(sub_command->cmd, 0,
                    sub_command->clen * sizeof(*sub_command->cmd));
@@ -2863,9 +2838,7 @@ static int command_pre_fragment(redisClusterContext *cc, struct cmd *command,
 
 done:
 
-    if (sub_commands != NULL) {
-        hi_free(sub_commands);
-    }
+    hi_free(sub_commands);
 
     if (slot_num >= 0 && commands != NULL && listLength(commands) == 1) {
         listNode *list_node = listFirst(commands);
@@ -2877,8 +2850,12 @@ done:
 
         command->slot_num = slot_num;
     }
-
     return slot_num;
+
+oom:
+    __redisClusterSetError(cc, REDIS_ERR_OOM, "Out of memory");
+    hi_free(sub_commands);
+    return -1; // failing slot_num
 }
 
 static void *command_post_fragment(redisClusterContext *cc, struct cmd *command,

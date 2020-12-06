@@ -12,7 +12,6 @@ typedef SSIZE_T ssize_t;
 #define HI_OK 0
 #define HI_ERROR -1
 #define HI_EAGAIN -2
-#define HI_ENOMEM -3
 
 typedef int rstatus_t; /* return type */
 
