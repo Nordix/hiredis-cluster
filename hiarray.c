@@ -32,21 +32,6 @@ void hiarray_destroy(struct hiarray *a) {
     hi_free(a);
 }
 
-int hiarray_init(struct hiarray *a, uint32_t n, size_t size) {
-    ASSERT(n != 0 && size != 0);
-
-    a->elem = hi_malloc(n * size);
-    if (a->elem == NULL) {
-        return HI_ENOMEM;
-    }
-
-    a->nelem = 0;
-    a->size = size;
-    a->nalloc = n;
-
-    return HI_OK;
-}
-
 void hiarray_deinit(struct hiarray *a) {
     ASSERT(a->nelem == 0);
 
