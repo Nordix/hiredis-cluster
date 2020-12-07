@@ -1,3 +1,17 @@
+### 0.5.0 - Dec 07, 2020
+
+* Renamed to [hiredis-cluster](https://github.com/Nordix/hiredis-cluster)
+* The C library `hiredis` is an external dependency rather than a builtin part
+  of the cluster client, meaning that `hiredis` v1.0.0 or later can be used.
+* Support for SSL/TLS introduced in Redis 6
+* Support for IPv6
+* Support authentication using AUTH
+* Handle variable number of keys in command EXISTS
+* Improved CMake build
+* Code style guide (using clang-format)
+* Improved testing
+* Memory leak corrections and allocation failure handling
+
 ### 0.4.0 - Jan 24, 2019
 
 * Updated underlying hiredis version to 0.14.0
