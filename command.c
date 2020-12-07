@@ -1588,25 +1588,17 @@ void redis_parse_cmd(struct cmd *r) {
     return;
 
 done:
-
     ASSERT(r->type > CMD_UNKNOWN && r->type < CMD_SENTINEL);
     r->result = CMD_PARSE_OK;
     return;
 
-oom:
-
-    r->result = CMD_PARSE_ENOMEM;
-    return;
-
 error:
-
     r->result = CMD_PARSE_ERROR;
     errno = EINVAL;
     if (r->errstr == NULL) {
         r->errstr = hi_malloc(100 * sizeof(*r->errstr));
         if (r->errstr == NULL) {
-            r->result = CMD_PARSE_ENOMEM;
-            return;
+            goto oom;
         }
     }
 
@@ -1615,6 +1607,10 @@ error:
         "Parse command error. Cmd type: %d, state: %d, break position: %d.",
         r->type, state, (int)(p - r->cmd));
     r->errstr[len] = '\0';
+    return;
+
+oom:
+    r->result = CMD_PARSE_ENOMEM;
 }
 
 struct cmd *command_get() {
