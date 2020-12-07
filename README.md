@@ -12,6 +12,7 @@ Hiredis-cluster is a fork of Hiredis-vip, with the following improvements:
   of the cluster client, meaning that the latest `hiredis` can be used.
 * Support for SSL/TLS introduced in Redis 6
 * Support for IPv6
+* Support authentication using AUTH
 * Using CMake as build system
 * Code style guide (using clang-format)
 * Improved testing
@@ -306,13 +307,30 @@ callbacks have been executed. After this, the disconnection callback is executed
 There are a few hooks that need to be set on the cluster context object after it is created.
 See the `adapters/` directory for bindings to *ae* and *libevent*.
 
-## AUTHORS
+### Allocator injection
 
-This fork is based on the heronr fork (https://github.com/heronr/hiredis-vip)
-and uses hiredis (https://github.com/redis/hiredis).
+Hiredis-cluster uses hiredis allocation structure with configurable allocation and deallocation functions. By default they just point to libc (`malloc`, `calloc`, `realloc`, etc).
 
-Hiredis-vip was originally created by vipshop (https://github.com/vipshop/hiredis-vip).
+#### Overriding
 
-The Redis Cluster client library part in hiredis-vip was written by deep (https://github.com/deep011).
+If you have your own allocator or if you expect an abort in out-of-memory cases,
+you can configure the used functions in the following way:
 
-Hiredis-vip is released under the BSD license.
+```c
+hiredisAllocFuncs myfuncs = {
+    .mallocFn = my_malloc,
+    .callocFn = my_calloc,
+    .reallocFn = my_realloc,
+    .strdupFn = my_strdup,
+    .freeFn = my_free,
+};
+
+// Override allocators (function returns current allocators if needed)
+hiredisAllocFuncs orig = hiredisSetAllocators(&myfuncs);
+```
+
+To reset the allocators to their default libc functions simply call:
+
+```c
+hiredisResetAllocators();
+```
