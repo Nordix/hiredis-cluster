@@ -891,7 +891,7 @@ dict *parse_cluster_slots(redisClusterContext *cc, redisReply *reply,
                         master = dictGetEntryVal(den);
                         ret = cluster_slot_ref_node(slot, master);
                         if (ret != REDIS_OK) {
-                            goto error; // or possibly OOM
+                            goto oom;
                         }
 
                         slot = NULL;
@@ -906,6 +906,8 @@ dict *parse_cluster_slots(redisClusterContext *cc, redisReply *reply,
 
                     sds key = sdsnewlen(master->addr, sdslen(master->addr));
                     if (key == NULL) {
+                        cluster_node_deinit(master);
+                        hi_free(master);
                         goto oom;
                     }
 
@@ -919,7 +921,7 @@ dict *parse_cluster_slots(redisClusterContext *cc, redisReply *reply,
 
                     ret = cluster_slot_ref_node(slot, master);
                     if (ret != REDIS_OK) {
-                        goto error; // or possibly OOM
+                        goto oom;
                     }
 
                     slot = NULL;
@@ -1003,8 +1005,11 @@ dict *parse_cluster_nodes(redisClusterContext *cc, char *str, int str_len,
             len = line_end - line_start;
 
             part = sdssplitlen(line_start, len + 1, " ", 1, &count_part);
+            if (part == NULL) {
+                goto oom;
+            }
 
-            if (part == NULL || count_part < 8) {
+            if (count_part < 8) {
                 __redisClusterSetError(cc, REDIS_ERR_OTHER,
                                        "split cluster nodes error");
                 goto error;
@@ -1049,6 +1054,8 @@ dict *parse_cluster_nodes(redisClusterContext *cc, char *str, int str_len,
 
                 sds key = sdsnewlen(master->addr, sdslen(master->addr));
                 if (key == NULL) {
+                    cluster_node_deinit(master);
+                    hi_free(master);
                     goto oom;
                 }
 
@@ -1080,13 +1087,11 @@ dict *parse_cluster_nodes(redisClusterContext *cc, char *str, int str_len,
                 for (k = 8; k < count_part; k++) {
                     slot_start_end = sdssplitlen(part[k], sdslen(part[k]), "-",
                                                  1, &count_slot_start_end);
-
                     if (slot_start_end == NULL) {
-                        __redisClusterSetError(
-                            cc, REDIS_ERR_OTHER,
-                            "split slot start end error(NULL)");
-                        goto error;
-                    } else if (count_slot_start_end == 1) {
+                        goto oom;
+                    }
+
+                    if (count_slot_start_end == 1) {
                         slot_start = hi_atoi(slot_start_end[0],
                                              sdslen(slot_start_end[0]));
                         slot_end = slot_start;
@@ -1287,10 +1292,9 @@ static int cluster_update_route_by_addr(redisClusterContext *cc, const char *ip,
     }
 
     if (c == NULL) {
-        __redisClusterSetError(cc, REDIS_ERR_OTHER,
-                               "Init redis context error(return NULL)");
-        goto error;
-    } else if (c->err) {
+        goto oom;
+    }
+    if (c->err) {
         __redisClusterSetError(cc, c->err, c->errstr);
         goto error;
     }
@@ -1875,7 +1879,12 @@ int redisClusterSetOptionAddNodes(redisClusterContext *cc, const char *addrs) {
 
     address = sdssplitlen(addrs, strlen(addrs), CLUSTER_ADDRESS_SEPARATOR,
                           strlen(CLUSTER_ADDRESS_SEPARATOR), &address_count);
-    if (address == NULL || address_count <= 0) {
+    if (address == NULL) {
+        __redisClusterSetError(cc, REDIS_ERR_OOM, "Out of memory");
+        return REDIS_ERR;
+    }
+
+    if (address_count <= 0) {
         __redisClusterSetError(cc, REDIS_ERR_OTHER,
                                "servers address is error(correct is like: "
                                "127.0.0.1:1234,127.0.0.2:5678)");
@@ -2109,11 +2118,11 @@ redisContext *ctx_get_by_node(redisClusterContext *cc, cluster_node *node) {
                 }
             }
 #endif
-            authenticate(cc, c); // err and errstr handled in function
-
             if (cc->command_timeout && c->err == 0) {
                 redisSetTimeout(c, *cc->command_timeout);
             }
+
+            authenticate(cc, c); // err and errstr handled in function
         }
 
         return c;
@@ -2130,7 +2139,18 @@ redisContext *ctx_get_by_node(redisClusterContext *cc, cluster_node *node) {
         c = redisConnect(node->host, node->port);
     }
 
-    if (cc->command_timeout && c != NULL && c->err == 0) {
+    if (c == NULL) {
+        __redisClusterSetError(cc, REDIS_ERR_OOM, "Out of memory");
+        return NULL;
+    }
+
+    if (c->err) {
+        __redisClusterSetError(cc, c->err, c->errstr);
+        redisFree(c);
+        return NULL;
+    }
+
+    if (cc->command_timeout) {
         redisSetTimeout(c, *cc->command_timeout);
     }
 
@@ -2237,6 +2257,9 @@ static char *cluster_config_get(redisClusterContext *cc,
     }
 
     c = ctx_get_by_node(cc, node);
+    if (c == NULL) {
+        goto error;
+    }
 
     reply = redisCommand(c, "config get %s", config_name);
     if (reply == NULL) {
@@ -2319,7 +2342,6 @@ static int __redisClusterAppendCommand(redisClusterContext *cc,
 
     c = ctx_get_by_node(cc, node);
     if (c == NULL) {
-        __redisClusterSetError(cc, REDIS_ERR_OTHER, "ctx get by node is null");
         return REDIS_ERR;
     } else if (c->err) {
         __redisClusterSetError(cc, c->err, c->errstr);
@@ -2355,7 +2377,6 @@ static int __redisClusterGetReply(redisClusterContext *cc, int slot_num,
 
     c = ctx_get_by_node(cc, node);
     if (c == NULL) {
-        __redisClusterSetError(cc, REDIS_ERR_OOM, "Out of memory");
         return REDIS_ERR;
     } else if (c->err) {
         if (cc->need_update_route == 0) {
@@ -2398,11 +2419,17 @@ static cluster_node *node_get_by_ask_error_reply(redisClusterContext *cc,
     }
 
     part = sdssplitlen(reply->str, reply->len, " ", 1, &part_len);
+    if (part == NULL) {
+        goto oom;
+    }
 
-    if (part != NULL && part_len == 3) {
+    if (part_len == 3) {
         ip_port = sdssplitlen(part[2], sdslen(part[2]), ":", 1, &ip_port_len);
+        if (ip_port == NULL) {
+            goto oom;
+        }
 
-        if (ip_port != NULL && ip_port_len == 2) {
+        if (ip_port_len == 2) {
             de = dictFind(cc->nodes, part[2]);
             if (de == NULL) {
                 node = hi_malloc(sizeof(cluster_node));
@@ -2477,7 +2504,6 @@ retry:
 
     c = ctx_get_by_node(cc, node);
     if (c == NULL) {
-        __redisClusterSetError(cc, REDIS_ERR_OTHER, "ctx get by node is null");
         return NULL;
     } else if (c->err) {
         node = node_get_which_connected(cc);
@@ -2496,8 +2522,6 @@ retry:
 
         c = ctx_get_by_node(cc, node);
         if (c == NULL) {
-            __redisClusterSetError(cc, REDIS_ERR_OTHER,
-                                   "ctx get by node error");
             return NULL;
         } else if (c->err) {
             __redisClusterSetError(cc, c->err, c->errstr);
@@ -2556,8 +2580,6 @@ ask_retry:
 
             c = ctx_get_by_node(cc, node);
             if (c == NULL) {
-                __redisClusterSetError(cc, REDIS_ERR_OTHER,
-                                       "ctx get by node error");
                 return NULL;
             } else if (c->err) {
                 __redisClusterSetError(cc, c->err, c->errstr);
