@@ -101,9 +101,9 @@ typedef struct dictIterator {
     } while (0)
 
 #define dictCompareHashKeys(ht, key1, key2)                                    \
-    (((ht)->type->keyCompare)                                                  \
-         ? (ht)->type->keyCompare((ht)->privdata, key1, key2)                  \
-         : (key1) == (key2))
+    (((ht)->type->keyCompare) ?                                                \
+         (ht)->type->keyCompare((ht)->privdata, key1, key2) :                  \
+         (key1) == (key2))
 
 #define dictHashKey(ht, key) (ht)->type->hashFunction(key)
 
