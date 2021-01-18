@@ -1,6 +1,14 @@
 name: CI
 
-on: [push, pull_request]
+on:
+  push:
+  pull_request:
+    branches:
+      # Branches from forks have the form 'user:branch-name' so we only run
+      # this job on pull_request events for branches that look like fork
+      # branches. Without this we would end up running this job twice for non
+      # forked PRs, once for the push and then once for opening the PR.
+      - '**:**'
 
 env:
   # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
@@ -13,19 +21,50 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: Run clang-format style check (.c and .h)
-      uses: jidicula/clang-format-action@master
+      uses: jidicula/clang-format-action@v3.0.0
 
   build:
-    name: Build [${{ matrix.compiler }}, sanitizer="${{ matrix.sanitizer }}"]
+    name: Build [${{ matrix.compiler }}, cmake-${{ matrix.cmake-version }} sanitizer="${{ matrix.sanitizer }}"]
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
+        compiler: [gcc-9, clang-10]
+        cmake-version: [3.19]
         sanitizer: ["", thread, undefined, leak, address]
-        compiler: [gcc, clang]
+        include:
+          - compiler: gcc-4.8
+            cmake-version: 3.11
+            sanitizer: ""
+          - compiler: gcc-5
+            cmake-version: 3.12
+            sanitizer: ""
+          - compiler: gcc-6
+            cmake-version: 3.13
+            sanitizer: ""
+          - compiler: gcc-7
+            cmake-version: 3.14
+            sanitizer: ""
+          - compiler: gcc-8
+            cmake-version: 3.15
+            sanitizer: ""
+          - compiler: clang-3.9
+            cmake-version: 3.16
+            sanitizer: ""
+          - compiler: clang-7
+            cmake-version: 3.17
+            sanitizer: ""
+          - compiler: clang-9
+            cmake-version: 3.18
+            sanitizer: ""
+
     steps:
     - name: Prepare
-      run: sudo apt install libevent-dev
+      run: sudo apt install libevent-dev ${{ matrix.compiler }}
+    - name: Setup cmake
+      uses: jwlawson/actions-setup-cmake@v1.6
+      with:
+        cmake-version: ${{ matrix.cmake-version }}
     - uses: actions/checkout@v2
     - name: Create build folder
       run: cmake -E make_directory build
@@ -33,7 +72,6 @@ jobs:
       shell: bash
       env:
         CC: ${{ matrix.compiler }}
-        CXX: ${{ matrix.compiler }}
       working-directory: build
       run: cmake $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DENABLE_SSL=ON -DUSE_SANITIZER=${{ matrix.sanitizer }} ..
     - name: Build
@@ -45,7 +83,7 @@ jobs:
       working-directory: build
       run: make start
     - name: Wait for clusters to start..
-      uses: jakejarvis/wait-action@master
+      uses: kibertoad/wait-action@1.0.1
       with:
         time: '20s'
     - name: Run tests

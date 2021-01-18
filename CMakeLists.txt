@@ -23,14 +23,16 @@ getVersionBit(HIREDIS_CLUSTER_SONAME)
 set(VERSION "${HIREDIS_CLUSTER_MAJOR}.${HIREDIS_CLUSTER_MINOR}.${HIREDIS_CLUSTER_PATCH}")
 message("Detected version: ${VERSION}")
 
+project(hiredis-cluster
+  VERSION "${VERSION}"
+  LANGUAGES C)
+
+set(CMAKE_C_STANDARD 99)
+
 # Build using a sanitizer
 if(USE_SANITIZER)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fno-omit-frame-pointer -fsanitize=${USE_SANITIZER}")
 endif()
-
-project(hiredis-cluster
-  VERSION "${VERSION}"
-  LANGUAGES C)
 
 SET(hiredis_cluster_sources
     adlist.c
@@ -140,32 +142,35 @@ add_custom_target(format
 configure_file(hiredis_cluster.pc.in hiredis_cluster.pc @ONLY)
 
 install(TARGETS hiredis_cluster
-        EXPORT hiredis_cluster-targets)
+  EXPORT hiredis_cluster-targets
+  RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+  LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+  ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
 
 install(FILES hircluster.h adlist.h hiarray.h
-    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/hiredis_cluster)
+  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/hiredis_cluster)
 
 install(DIRECTORY adapters
-    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/hiredis_cluster)
+  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/hiredis_cluster)
 
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/hiredis_cluster.pc
-    DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig)
+  DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig)
 
 export(EXPORT hiredis_cluster-targets
-       FILE ${CMAKE_CURRENT_BINARY_DIR}/hiredis_cluster-targets.cmake
-       NAMESPACE hiredis_cluster::)
+  FILE ${CMAKE_CURRENT_BINARY_DIR}/hiredis_cluster-targets.cmake
+  NAMESPACE hiredis_cluster::)
 
 set(CMAKE_CONF_INSTALL_DIR share/hiredis_cluster)
 set(INCLUDE_INSTALL_DIR include)
 include(CMakePackageConfigHelpers)
 configure_package_config_file(hiredis_cluster-config.cmake.in ${CMAKE_CURRENT_BINARY_DIR}/hiredis_cluster-config.cmake
-                              INSTALL_DESTINATION ${CMAKE_CONF_INSTALL_DIR}
-                              PATH_VARS INCLUDE_INSTALL_DIR)
+  INSTALL_DESTINATION ${CMAKE_CONF_INSTALL_DIR}
+  PATH_VARS INCLUDE_INSTALL_DIR)
 
 install(EXPORT hiredis_cluster-targets
-        FILE hiredis_cluster-targets.cmake
-        NAMESPACE hiredis_cluster::
-        DESTINATION ${CMAKE_CONF_INSTALL_DIR})
+  FILE hiredis_cluster-targets.cmake
+  NAMESPACE hiredis_cluster::
+  DESTINATION ${CMAKE_CONF_INSTALL_DIR})
 
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/hiredis_cluster-config.cmake
-        DESTINATION ${CMAKE_CONF_INSTALL_DIR})
+  DESTINATION ${CMAKE_CONF_INSTALL_DIR})
