@@ -13,7 +13,7 @@ Hiredis-cluster is a fork of Hiredis-vip, with the following improvements:
 * Support for SSL/TLS introduced in Redis 6
 * Support for IPv6
 * Support authentication using AUTH
-* Using CMake (3.11+) as build system
+* Uses CMake (3.11+) as the primary build system, but optionally Make can be used directly
 * Code style guide (using clang-format)
 * Improved testing
 * Memory leak corrections and allocation failure handling
@@ -103,6 +103,16 @@ file called `hiredis-config.cmake` will be installed and this contains relevant 
 
 As described in the CMake docs a specific path can be set using a flag like:
 `-Dhiredis_DIR:PATH=${MY_DIR}/hiredis/share/hiredis`
+
+### Alternative build using Makefile directly
+
+When a simpler build setup is preferred a provided Makefile can be used directly
+when building. A benefit of this, instead of using CMake, is that it also provides
+a static library, a similar limitation exists in the CMake files in hiredis v1.0.0.
+
+The only option that exists in the Makefile is to enable SSL/TLS support via `USE_SSL=1`
+
+See `examples/using_make/build.sh` for an example build.
 
 ### Running the tests
 
