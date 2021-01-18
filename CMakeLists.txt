@@ -1,6 +1,6 @@
-cmake_minimum_required(VERSION 3.14)
-include(GNUInstallDirs)
+cmake_minimum_required(VERSION 3.11)
 project(hiredis-cluster)
+include(GNUInstallDirs)
 
 # Options
 option(DOWNLOAD_HIREDIS  "Download the dependency hiredis from GitHub" ON)
@@ -79,7 +79,11 @@ if(DOWNLOAD_HIREDIS)
   # Disable tests in hiredis
   set(DISABLE_TESTS_OLD ${DISABLE_TESTS})
   set(DISABLE_TESTS ON CACHE INTERNAL "")
-  FetchContent_MakeAvailable(hiredis)
+  FetchContent_GetProperties(hiredis)
+  if(NOT hiredis_POPULATED)
+    FetchContent_Populate(hiredis)
+    add_subdirectory(${hiredis_SOURCE_DIR} ${hiredis_BINARY_DIR})
+  endif()
   set(DISABLE_TESTS ${DISABLE_TESTS_OLD} CACHE INTERNAL "")
 
   # Create an empty *-config.cmake for find_package

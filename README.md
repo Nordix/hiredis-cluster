@@ -13,7 +13,7 @@ Hiredis-cluster is a fork of Hiredis-vip, with the following improvements:
 * Support for SSL/TLS introduced in Redis 6
 * Support for IPv6
 * Support authentication using AUTH
-* Using CMake as build system
+* Using CMake (3.11+) as build system
 * Code style guide (using clang-format)
 * Improved testing
 * Memory leak corrections and allocation failure handling
