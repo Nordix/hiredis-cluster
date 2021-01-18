@@ -1,3 +1,6 @@
+### 0.Y.Z - Y D, 2021
+* Minimum required version of CMake changed to 3.11 (from 3.14)
+
 ### 0.5.0 - Dec 07, 2020
 
 * Renamed to [hiredis-cluster](https://github.com/Nordix/hiredis-cluster)
