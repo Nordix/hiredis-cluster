@@ -47,7 +47,7 @@ void disconnectCallback(const redisAsyncContext *ac, int status) {
 int main(int argc, char **argv) {
     printf("Connecting...\n");
     redisClusterAsyncContext *cc =
-        redisClusterAsyncConnect("127.0.0.1:30001", HIRCLUSTER_FLAG_NULL);
+        redisClusterAsyncConnect("127.0.0.1:7000", HIRCLUSTER_FLAG_NULL);
     if (cc && cc->err) {
         printf("Error: %s\n", cc->errstr);
         return 1;
