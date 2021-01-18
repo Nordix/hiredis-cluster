@@ -1,5 +1,6 @@
 ### 0.Y.Z - Y D, 2021
 * Minimum required version of CMake changed to 3.11 (from 3.14)
+* Improved examples
 
 ### 0.5.0 - Dec 07, 2020
 
