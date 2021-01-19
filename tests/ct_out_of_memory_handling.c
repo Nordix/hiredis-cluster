@@ -61,6 +61,11 @@ void prepare_allocation_test_async(redisClusterAsyncContext *acc,
 // It will start by triggering an allocation fault, and the next iteration
 // will start with an successfull allocation and then a failing one,
 // next iteration 2 successful and one failing allocation, and so on..
+//
+// Tip: When this testcase fails after code changes in the library,
+//      use gdb to find out which iteration that fails (print i)
+//      Update i in for-loop and the prepare_allocation_test(_, x) in
+//      the test section just after.
 void test_alloc_failure_handling() {
     int result;
     hiredisAllocFuncs ha = {
@@ -129,13 +134,13 @@ void test_alloc_failure_handling() {
 
     // Connect
     {
-        for (int i = 0; i < 130; ++i) {
+        for (int i = 0; i < 128; ++i) {
             prepare_allocation_test(cc, i);
             result = redisClusterConnect2(cc);
             assert(result == REDIS_ERR);
         }
 
-        prepare_allocation_test(cc, 130);
+        prepare_allocation_test(cc, 128);
         result = redisClusterConnect2(cc);
         assert(result == REDIS_OK);
     }
@@ -335,13 +340,13 @@ void test_alloc_failure_handling_async() {
 
     // Connect
     {
-        for (int i = 0; i < 129; ++i) {
+        for (int i = 0; i < 127; ++i) {
             prepare_allocation_test(acc->cc, i);
             result = redisClusterConnect2(acc->cc);
             assert(result == REDIS_ERR);
         }
 
-        prepare_allocation_test(acc->cc, 129);
+        prepare_allocation_test(acc->cc, 127);
         result = redisClusterConnect2(acc->cc);
         assert(result == REDIS_OK);
     }
