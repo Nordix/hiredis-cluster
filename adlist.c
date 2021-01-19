@@ -236,7 +236,7 @@ listNode *listNext(listIter *iter) {
  * The original list both on success or error is never modified. */
 hilist *listDup(hilist *orig) {
     hilist *copy;
-    listIter *iter;
+    listIter iter;
     listNode *node;
 
     if ((copy = listCreate()) == NULL)
@@ -244,26 +244,23 @@ hilist *listDup(hilist *orig) {
     copy->dup = orig->dup;
     copy->free = orig->free;
     copy->match = orig->match;
-    iter = listGetIterator(orig, AL_START_HEAD);
-    while ((node = listNext(iter)) != NULL) {
+    listRewind(orig, &iter);
+    while ((node = listNext(&iter)) != NULL) {
         void *value;
 
         if (copy->dup) {
             value = copy->dup(node->value);
             if (value == NULL) {
                 listRelease(copy);
-                listReleaseIterator(iter);
                 return NULL;
             }
         } else
             value = node->value;
         if (listAddNodeTail(copy, value) == NULL) {
             listRelease(copy);
-            listReleaseIterator(iter);
             return NULL;
         }
     }
-    listReleaseIterator(iter);
     return copy;
 }
 
@@ -277,27 +274,21 @@ hilist *listDup(hilist *orig) {
  * (search starts from head). If no matching node exists
  * NULL is returned. */
 listNode *listSearchKey(hilist *list, void *key) {
-    listIter *iter;
+    listIter iter;
     listNode *node;
 
-    iter = listGetIterator(list, AL_START_HEAD);
-    if (iter == NULL) {
-        return NULL;
-    }
-    while ((node = listNext(iter)) != NULL) {
+    listRewind(list, &iter);
+    while ((node = listNext(&iter)) != NULL) {
         if (list->match) {
             if (list->match(node->value, key)) {
-                listReleaseIterator(iter);
                 return node;
             }
         } else {
             if (key == node->value) {
-                listReleaseIterator(iter);
                 return node;
             }
         }
     }
-    listReleaseIterator(iter);
     return NULL;
 }
 
