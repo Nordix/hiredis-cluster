@@ -62,9 +62,15 @@ jobs:
     - name: Prepare
       run: sudo apt install libevent-dev ${{ matrix.compiler }}
     - name: Setup cmake
-      uses: jwlawson/actions-setup-cmake@v1.6
-      with:
-        cmake-version: ${{ matrix.cmake-version }}
+      # Temporary disabled due to actions-setup-cmake/issues/21
+      # uses: jwlawson/actions-setup-cmake@v1.6
+      # with:
+      #   cmake-version: ${{ matrix.cmake-version }}
+      run: |
+        wget https://cmake.org/files/v${{ matrix.cmake-version }}/cmake-${{ matrix.cmake-version }}.0-Linux-x86_64.sh -O /tmp/cmake.sh
+        sudo sh /tmp/cmake.sh --prefix=/usr/local/ --exclude-subdir
+        # Make sure we use correct version
+        cmake --version | grep -c ${{ matrix.cmake-version }}.0
     - uses: actions/checkout@v2
     - name: Create build folder
       run: cmake -E make_directory build
