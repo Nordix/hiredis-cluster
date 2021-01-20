@@ -85,6 +85,12 @@ The following CMake options are available:
   * `OFF` (default)
   * `ON` Enable IPv6 tests. Requires that IPv6 is
     [setup](https://docs.docker.com/config/daemon/ipv6/) in Docker.
+* `ENABLE_COVERAGE`
+  * `OFF` (default)
+  * `ON` Compile using build flags that enables the GNU coverage tool `gcov`
+    to provide test coverage information. This CMake option also enables a new
+    build target `coverage` to generate a test coverage report using
+    [gcovr](https://gcovr.com/en/stable/index.html).
 * `USE_SANITIZER`
    Compile using a specific sanitizer that detect issues. The value of this
    option specifies which sanitizer to activate, but it depends on support in the
