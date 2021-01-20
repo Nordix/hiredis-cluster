@@ -7,6 +7,7 @@ option(DOWNLOAD_HIREDIS  "Download the dependency hiredis from GitHub" ON)
 option(ENABLE_SSL        "Enable SSL/TLS support" OFF)
 option(DISABLE_TESTS     "Disable compilation of test" OFF)
 option(ENABLE_IPV6_TESTS "Enable IPv6 tests requiring special prerequisites" OFF)
+option(ENABLE_COVERAGE   "Enable test coverage reporting" OFF)
 
 macro(getVersionBit name)
   set(VERSION_REGEX "^#define ${name} (.+)$")
@@ -31,7 +32,12 @@ set(CMAKE_C_STANDARD 99)
 
 # Build using a sanitizer
 if(USE_SANITIZER)
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fno-omit-frame-pointer -fsanitize=${USE_SANITIZER}")
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fno-omit-frame-pointer -fsanitize=${USE_SANITIZER}")
+endif()
+
+if(ENABLE_COVERAGE)
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} --coverage -O0" )
+  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} --coverage" )
 endif()
 
 SET(hiredis_cluster_sources
@@ -138,6 +144,18 @@ file(GLOB_RECURSE FILES_TO_FORMAT
 add_custom_target(format
   COMMAND ${CLANG_FORMAT} -i ${FILES_TO_FORMAT}
 )
+
+# Code coverage target
+if(ENABLE_COVERAGE)
+  find_program(GCOVR "gcovr")
+
+  add_custom_command(OUTPUT _run_gcovr
+    POST_BUILD
+    COMMAND ${GCOVR} -r ${CMAKE_SOURCE_DIR} --object-dir=${CMAKE_BINARY_DIR} --html-details coverage.html
+    COMMAND echo "Coverage report generated: ${CMAKE_BINARY_DIR}/coverage.html"
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+  add_custom_target (coverage DEPENDS _run_gcovr)
+endif()
 
 configure_file(hiredis_cluster.pc.in hiredis_cluster.pc @ONLY)
 

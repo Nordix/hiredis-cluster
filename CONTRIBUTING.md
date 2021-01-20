@@ -23,6 +23,23 @@ source code by running the following make target in your build directory:
 $ make format
 ```
 
+### Test coverage
+
+Make sure changes are covered by tests.
+Code coverage instrumentation can be enabled using a build option and
+a detailed html report can be viewed using following example:
+
+```sh
+$ mkdir -p build; cd build
+$ cmake -DENABLE_COVERAGE=ON ..
+$ make all test coverage
+$ xdg-open ./coverage.html
+```
+
+The report generation requires that [gcovr](https://gcovr.com/en/stable/index.html)
+is installed in your path. Any reporting tool of choice can be used, as long as
+it reads .gcda and .gcno files created during the test run.
+
 ## Submitting changes
 
 * Run the formatter before committing when contributing to this project (`make format`).
