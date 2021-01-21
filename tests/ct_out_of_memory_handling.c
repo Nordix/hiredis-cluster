@@ -1,6 +1,8 @@
+#include "adapters/libevent.h"
 #include "hircluster.h"
 #include "test_utils.h"
 #include <assert.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -47,12 +49,19 @@ void prepare_allocation_test(redisClusterContext *cc,
     memset(cc->errstr, '\0', strlen(cc->errstr));
 }
 
+void prepare_allocation_test_async(redisClusterAsyncContext *acc,
+                                   int _successfulAllocations) {
+    successfulAllocations = _successfulAllocations;
+    acc->err = 0;
+    memset(acc->errstr, '\0', strlen(acc->errstr));
+}
+
 // Test of allocation handling
 // The testcase will trigger allocation failures during API calls.
 // It will start by triggering an allocation fault, and the next iteration
 // will start with an successfull allocation and then a failing one,
 // next iteration 2 successful and one failing allocation, and so on..
-void test_cluster_communication() {
+void test_alloc_failure_handling() {
     int result;
     hiredisAllocFuncs ha = {
         .mallocFn = hi_malloc_fail,
@@ -242,9 +251,161 @@ void test_cluster_communication() {
     hiredisResetAllocators();
 }
 
+//------------------------------------------------------------------------------
+// Async API
+//------------------------------------------------------------------------------
+
+typedef struct ExpectedResult {
+    int type;
+    char *str;
+    bool disconnect;
+} ExpectedResult;
+
+// Callback for Redis connects and disconnects
+void callbackExpectOk(const redisAsyncContext *ac, int status) {
+    UNUSED(ac);
+    assert(status == REDIS_OK);
+}
+
+// Callback for async commands, verifies the redisReply
+void commandCallback(redisClusterAsyncContext *cc, void *r, void *privdata) {
+    redisReply *reply = (redisReply *)r;
+    ExpectedResult *expect = (ExpectedResult *)privdata;
+    assert(reply != NULL);
+    assert(reply->type == expect->type);
+    assert(strcmp(reply->str, expect->str) == 0);
+
+    if (expect->disconnect) {
+        redisClusterAsyncDisconnect(cc);
+    }
+}
+
+// Test of allocation handling in async context
+// The testcase will trigger allocation failures during API calls.
+// It will start by triggering an allocation fault, and the next iteration
+// will start with an successfull allocation and then a failing one,
+// next iteration 2 successful and one failing allocation, and so on..
+void test_alloc_failure_handling_async() {
+    int result;
+    hiredisAllocFuncs ha = {
+        .mallocFn = hi_malloc_fail,
+        .callocFn = hi_calloc_fail,
+        .reallocFn = hi_realloc_fail,
+        .strdupFn = strdup,
+        .freeFn = free,
+    };
+    // Override allocators
+    hiredisSetAllocators(&ha);
+
+    // Context init
+    redisClusterAsyncContext *acc;
+    {
+        for (int i = 0; i < 2; ++i) {
+            successfulAllocations = 0;
+            acc = redisClusterAsyncContextInit();
+            assert(acc == NULL);
+        }
+        successfulAllocations = 2;
+        acc = redisClusterAsyncContextInit();
+        assert(acc);
+    }
+
+    // Set callbacks
+    {
+        prepare_allocation_test_async(acc, 0);
+        result = redisClusterAsyncSetConnectCallback(acc, callbackExpectOk);
+        assert(result == REDIS_OK);
+        result = redisClusterAsyncSetDisconnectCallback(acc, callbackExpectOk);
+        assert(result == REDIS_OK);
+    }
+
+    // Add nodes
+    {
+        for (int i = 0; i < 9; ++i) {
+            prepare_allocation_test(acc->cc, i);
+            result = redisClusterSetOptionAddNodes(acc->cc, CLUSTER_NODE);
+            assert(result == REDIS_ERR);
+            ASSERT_STR_EQ(acc->cc->errstr, "Out of memory");
+        }
+
+        prepare_allocation_test(acc->cc, 9);
+        result = redisClusterSetOptionAddNodes(acc->cc, CLUSTER_NODE);
+        assert(result == REDIS_OK);
+    }
+
+    // Connect
+    {
+        for (int i = 0; i < 132; ++i) {
+            prepare_allocation_test(acc->cc, i);
+            result = redisClusterConnect2(acc->cc);
+            assert(result == REDIS_ERR);
+        }
+
+        prepare_allocation_test(acc->cc, 132);
+        result = redisClusterConnect2(acc->cc);
+        assert(result == REDIS_OK);
+    }
+
+    struct event_base *base = event_base_new();
+    assert(base);
+
+    successfulAllocations = 0;
+    result = redisClusterLibeventAttach(acc, base);
+    assert(result == REDIS_OK);
+
+    // Async command 1
+    ExpectedResult r1 = {.type = REDIS_REPLY_STATUS, .str = "OK"};
+    {
+        const char *cmd1 = "SET foo one";
+
+        for (int i = 0; i < 38; ++i) {
+            prepare_allocation_test_async(acc, i);
+            result = redisClusterAsyncCommand(acc, commandCallback, &r1, cmd1);
+            assert(result == REDIS_ERR);
+            if (i < 18 || i > 36) {
+                ASSERT_STR_EQ(acc->errstr, "Out of memory");
+            } else {
+                ASSERT_STR_EQ(acc->errstr, "actx get by node error");
+            }
+        }
+
+        prepare_allocation_test_async(acc, 38);
+        result = redisClusterAsyncCommand(acc, commandCallback, &r1, cmd1);
+        ASSERT_MSG(result == REDIS_OK, acc->errstr);
+    }
+
+    // Async command 2
+    ExpectedResult r2 = {
+        .type = REDIS_REPLY_STRING, .str = "one", .disconnect = true};
+    {
+        const char *cmd2 = "GET foo";
+
+        for (int i = 0; i < 15; ++i) {
+            prepare_allocation_test_async(acc, i);
+            result = redisClusterAsyncCommand(acc, commandCallback, &r2, cmd2);
+            assert(result == REDIS_ERR);
+            ASSERT_STR_EQ(acc->errstr, "Out of memory");
+        }
+
+        /* TODO: check failure in hiredis
+           An alloc failing in async.c:249 triggers assert in async.c:566
+           Use prepare_allocation_test_async(acc, 15); */
+
+        prepare_allocation_test_async(acc, 16);
+        result = redisClusterAsyncCommand(acc, commandCallback, &r2, cmd2);
+        ASSERT_MSG(result == REDIS_OK, acc->errstr);
+    }
+
+    prepare_allocation_test_async(acc, 7);
+    event_base_dispatch(base);
+    redisClusterAsyncFree(acc);
+    event_base_free(base);
+}
+
 int main() {
 
-    test_cluster_communication();
+    test_alloc_failure_handling();
+    test_alloc_failure_handling_async();
 
     return 0;
 }

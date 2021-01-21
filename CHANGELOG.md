@@ -3,6 +3,7 @@
 * Re-added the Makefile for symmetry with hiredis, which also enables
   support for statically-linked libraries.
 * Improved examples
+* Corrected crashes and leaks in OOM scenarios
 
 ### 0.5.0 - Dec 07, 2020
 

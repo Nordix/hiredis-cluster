@@ -79,7 +79,7 @@ if(ENABLE_IPV6_TESTS)
 endif()
 
 add_executable(ct_out_of_memory_handling ct_out_of_memory_handling.c)
-target_link_libraries(ct_out_of_memory_handling hiredis_cluster hiredis ${SSL_LIBRARY})
+target_link_libraries(ct_out_of_memory_handling hiredis_cluster hiredis ${SSL_LIBRARY} ${EVENT_LIBRARY})
 add_test(NAME ct_out_of_memory_handling COMMAND "$<TARGET_FILE:ct_out_of_memory_handling>")
 set_tests_properties(ct_out_of_memory_handling PROPERTIES LABELS "CT")
 
