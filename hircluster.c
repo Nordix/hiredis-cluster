@@ -2893,6 +2893,7 @@ static int command_pre_fragment(redisClusterContext *cc, struct cmd *command,
         if (listAddNodeTail(commands, sub_command) == NULL) {
             goto oom;
         }
+        sub_commands[i] = NULL;
     }
 
 done:
@@ -2912,6 +2913,11 @@ done:
 
 oom:
     __redisClusterSetError(cc, REDIS_ERR_OOM, "Out of memory");
+    if (sub_commands != NULL) {
+        for (i = 0; i < REDIS_CLUSTER_SLOTS; i++) {
+            command_destroy(sub_commands[i]);
+        }
+    }
     hi_free(sub_commands);
     return -1; // failing slot_num
 }
@@ -3329,14 +3335,12 @@ int redisClusterAppendFormattedCommand(redisClusterContext *cc, char *cmd,
         goto error;
     }
 
-    if (commands != NULL) {
-        if (listLength(commands) > 0) {
-            command->sub_commands = commands;
-        } else {
-            listRelease(commands);
-            commands = NULL;
-        }
+    if (listLength(commands) > 0) {
+        command->sub_commands = commands;
+    } else {
+        listRelease(commands);
     }
+    commands = NULL;
 
     listReleaseIterator(list_iter);
     list_iter = NULL;
@@ -3590,6 +3594,7 @@ int redisClusterGetReply(redisClusterContext *cc, void **reply) {
         sub_command->reply = sub_reply;
     }
     listReleaseIterator(list_iter);
+    list_iter = NULL;
 
     *reply = command_post_fragment(cc, command, commands);
     if (*reply == NULL) {

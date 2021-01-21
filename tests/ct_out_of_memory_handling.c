@@ -8,6 +8,7 @@
 #define CLUSTER_NODE "127.0.0.1:7000"
 
 int successfulAllocations = 0;
+bool assertWhenAllocFail = false; // Enable for troubleshooting
 
 // A configurable OOM failing malloc()
 static void *hi_malloc_fail(size_t size) {
@@ -15,6 +16,7 @@ static void *hi_malloc_fail(size_t size) {
         --successfulAllocations;
         return malloc(size);
     }
+    assert(assertWhenAllocFail == false);
     return NULL;
 }
 
@@ -24,6 +26,7 @@ static void *hi_calloc_fail(size_t nmemb, size_t size) {
         --successfulAllocations;
         return calloc(nmemb, size);
     }
+    assert(assertWhenAllocFail == false);
     return NULL;
 }
 
@@ -33,6 +36,7 @@ static void *hi_realloc_fail(void *ptr, size_t size) {
         --successfulAllocations;
         return realloc(ptr, size);
     }
+    assert(assertWhenAllocFail == false);
     return NULL;
 }
 
@@ -86,7 +90,7 @@ void test_cluster_communication() {
         assert(result == REDIS_OK);
     }
 
-    // Set timeout
+    // Set connect timeout
     {
         struct timeval timeout = {0, 500000};
 
@@ -97,6 +101,20 @@ void test_cluster_communication() {
 
         prepare_allocation_test(cc, 1);
         result = redisClusterSetOptionConnectTimeout(cc, timeout);
+        assert(result == REDIS_OK);
+    }
+
+    // Set request timeout
+    {
+        struct timeval timeout = {0, 500000};
+
+        prepare_allocation_test(cc, 0);
+        result = redisClusterSetOptionTimeout(cc, timeout);
+        assert(result == REDIS_ERR);
+        ASSERT_STR_EQ(cc->errstr, "Out of memory");
+
+        prepare_allocation_test(cc, 1);
+        result = redisClusterSetOptionTimeout(cc, timeout);
         assert(result == REDIS_OK);
     }
 
@@ -116,32 +134,108 @@ void test_cluster_communication() {
     // Command
     {
         redisReply *reply;
+        const char *cmd = "SET key value";
 
         for (int i = 0; i < 36; ++i) {
-            prepare_allocation_test(cc, 0 + i);
-            reply = (redisReply *)redisClusterCommand(cc, "SET key value");
+            prepare_allocation_test(cc, i);
+            reply = (redisReply *)redisClusterCommand(cc, cmd);
             assert(reply == NULL);
             ASSERT_STR_EQ(cc->errstr, "Out of memory");
         }
 
         prepare_allocation_test(cc, 36);
-        reply = (redisReply *)redisClusterCommand(cc, "SET key value");
+        reply = (redisReply *)redisClusterCommand(cc, cmd);
+        CHECK_REPLY_OK(cc, reply);
+        freeReplyObject(reply);
+    }
+
+    // Multi key command
+    {
+        redisReply *reply;
+        const char *cmd = "MSET key1 v1 key2 v2 key3 v3";
+
+        for (int i = 0; i < 78; ++i) {
+            prepare_allocation_test(cc, i);
+            reply = (redisReply *)redisClusterCommand(cc, cmd);
+            assert(reply == NULL);
+            ASSERT_STR_EQ(cc->errstr, "Out of memory");
+        }
+
+        // Multi-key commands
+        prepare_allocation_test(cc, 78);
+        reply = (redisReply *)redisClusterCommand(cc, cmd);
         CHECK_REPLY_OK(cc, reply);
         freeReplyObject(reply);
     }
 
     // Append command
     {
+        redisReply *reply;
+        const char *cmd = "SET foo one";
+
         for (int i = 0; i < 33; ++i) {
-            prepare_allocation_test(cc, 0 + i);
-            result = redisClusterAppendCommand(cc, "SET foo one");
+            prepare_allocation_test(cc, i);
+            result = redisClusterAppendCommand(cc, cmd);
+            assert(result == REDIS_ERR);
+            ASSERT_STR_EQ(cc->errstr, "Out of memory");
+        }
+
+        for (int i = 0; i < 4; ++i) {
+            // Appended command lost when receiving error from hiredis
+            // during a GetReply, needs a new append for each test loop
+            prepare_allocation_test(cc, 33);
+            result = redisClusterAppendCommand(cc, cmd);
+            assert(result == REDIS_OK);
+
+            prepare_allocation_test(cc, i);
+            result = redisClusterGetReply(cc, (void *)&reply);
             assert(result == REDIS_ERR);
             ASSERT_STR_EQ(cc->errstr, "Out of memory");
         }
 
         prepare_allocation_test(cc, 33);
-        result = redisClusterAppendCommand(cc, "SET foo one");
+        result = redisClusterAppendCommand(cc, cmd);
         assert(result == REDIS_OK);
+
+        prepare_allocation_test(cc, 4);
+        result = redisClusterGetReply(cc, (void *)&reply);
+        assert(result == REDIS_OK);
+        CHECK_REPLY_OK(cc, reply);
+        freeReplyObject(reply);
+    }
+
+    // Append multi-key command
+    {
+        redisReply *reply;
+        const char *cmd = "MSET key1 val1 key2 val2 key3 val3";
+
+        for (int i = 0; i < 70; ++i) {
+            prepare_allocation_test(cc, i);
+            result = redisClusterAppendCommand(cc, cmd);
+            assert(result == REDIS_ERR);
+            ASSERT_STR_EQ(cc->errstr, "Out of memory");
+        }
+
+        for (int i = 0; i < 13; ++i) {
+            prepare_allocation_test(cc, 70);
+            result = redisClusterAppendCommand(cc, cmd);
+            assert(result == REDIS_OK);
+
+            prepare_allocation_test(cc, i);
+            result = redisClusterGetReply(cc, (void *)&reply);
+            assert(result == REDIS_ERR);
+            ASSERT_STR_EQ(cc->errstr, "Out of memory");
+        }
+
+        prepare_allocation_test(cc, 70);
+        result = redisClusterAppendCommand(cc, cmd);
+        assert(result == REDIS_OK);
+
+        prepare_allocation_test(cc, 13);
+        result = redisClusterGetReply(cc, (void *)&reply);
+        assert(result == REDIS_OK);
+        CHECK_REPLY_OK(cc, reply);
+        freeReplyObject(reply);
     }
 
     redisClusterFree(cc);
