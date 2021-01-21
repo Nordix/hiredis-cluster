@@ -3793,7 +3793,12 @@ redisAsyncContext *actx_get_by_node(redisClusterAsyncContext *acc,
     }
 
     if (acc->adapter) {
-        acc->attach_fn(ac, acc->adapter);
+        ret = acc->attach_fn(ac, acc->adapter);
+        if (ret != REDIS_OK) {
+            __redisClusterAsyncSetError(acc, ac->c.err, ac->c.errstr);
+            redisAsyncFree(ac);
+            return NULL;
+        }
     }
 
     if (acc->onConnect) {
