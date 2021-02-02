@@ -257,13 +257,11 @@ static int cluster_node_init(cluster_node *node) {
     node->host = NULL;
     node->port = 0;
     node->role = REDIS_ROLE_NULL;
-    node->myself = 0;
     node->slaves = NULL;
     node->con = NULL;
     node->acon = NULL;
     node->slots = NULL;
     node->failure_count = 0;
-    node->data = NULL;
     node->migrating = NULL;
     node->importing = NULL;
 
@@ -282,7 +280,6 @@ static void cluster_node_deinit(cluster_node *node) {
     sdsfree(node->host);
     node->port = 0;
     node->role = REDIS_ROLE_NULL;
-    node->myself = 0;
 
     redisFree(node->con);
     node->con = NULL;
@@ -978,7 +975,6 @@ dict *parse_cluster_nodes(redisClusterContext *cc, char *str, int str_len,
     char *pos, *start, *end, *line_start, *line_end;
     char *role;
     int role_len;
-    uint8_t myself = 0;
     int slot_start, slot_end;
     sds *part = NULL, *slot_start_end = NULL;
     int count_part = 0, count_slot_start_end = 0;
@@ -1027,7 +1023,6 @@ dict *parse_cluster_nodes(redisClusterContext *cc, char *str, int str_len,
             if (sdslen(part[2]) >= 7 && memcmp(part[2], "myself,", 7) == 0) {
                 role_len = sdslen(part[2]) - 7;
                 role = part[2] + 7;
-                myself = 1;
             } else {
                 role_len = sdslen(part[2]);
                 role = part[2];
@@ -1076,9 +1071,6 @@ dict *parse_cluster_nodes(redisClusterContext *cc, char *str, int str_len,
                         goto error;
                     }
                 }
-
-                if (myself)
-                    master->myself = 1;
 
                 for (k = 8; k < count_part; k++) {
                     slot_start_end = sdssplitlen(part[k], sdslen(part[k]), "-",
@@ -1213,13 +1205,6 @@ dict *parse_cluster_nodes(redisClusterContext *cc, char *str, int str_len,
                     hi_free(slave);
                     goto error;
                 }
-
-                if (myself)
-                    slave->myself = 1;
-            }
-
-            if (myself == 1) {
-                myself = 0;
             }
 
             sdsfreesplitres(part, count_part);
@@ -1483,10 +1468,7 @@ int cluster_update_route(redisClusterContext *cc) {
     }
 
     if (cc->nodes == NULL) {
-        if (flag_err_not_set) {
-            __redisClusterSetError(cc, REDIS_ERR_OTHER, "no server address");
-        }
-
+        __redisClusterSetError(cc, REDIS_ERR_OTHER, "no server address");
         return REDIS_ERR;
     }
 
@@ -1516,57 +1498,6 @@ int cluster_update_route(redisClusterContext *cc) {
     }
 
     return REDIS_ERR;
-}
-
-#ifdef DEBUG
-static void print_cluster_node_list(redisClusterContext *cc) {
-    dictEntry *de;
-    listNode *ln;
-    cluster_node *master, *slave;
-
-    if (cc == NULL) {
-        return;
-    }
-
-    dictIterator di;
-    dictInitIterator(&di, cc->nodes);
-
-    printf("name\taddress\trole\tslaves\n");
-
-    while ((de = dictNext(&di)) != NULL) {
-        master = dictGetEntryVal(de);
-
-        printf("%s\t%s\t%d\t%s\n", master->name, master->addr, master->role,
-               master->slaves ? "hava" : "null");
-
-        if (master->slaves == NULL) {
-            continue;
-        }
-
-        listIter li;
-        listRewind(master->slaves, &li);
-
-        while ((ln = listNext(&li)) != NULL) {
-            slave = listNodeValue(ln);
-            printf("%s\t%s\t%d\t%s\n", slave->name, slave->addr, slave->role,
-                   slave->slaves ? "hava" : "null");
-        }
-
-        printf("\n");
-    }
-}
-#endif /* DEBUG */
-
-int test_cluster_update_route(redisClusterContext *cc) {
-    int ret;
-
-    ret = cluster_update_route(cc);
-
-#ifdef DEBUG
-    print_cluster_node_list(cc);
-#endif /* DEBUG */
-
-    return ret;
 }
 
 redisClusterContext *redisClusterContextInit(void) {
@@ -3253,18 +3184,13 @@ int redisClusterAppendFormattedCommand(redisClusterContext *cc, char *cmd,
         }
     }
 
-    if (command->cmd != NULL) {
-        command->cmd = NULL;
-    } else {
-        goto error;
-    }
-
     if (listLength(commands) > 0) {
         command->sub_commands = commands;
     } else {
         listRelease(commands);
     }
     commands = NULL;
+    command->cmd = NULL;
 
     if (listAddNodeTail(cc->requests, command) == NULL) {
         goto oom;
@@ -3592,7 +3518,6 @@ redisClusterAsyncInitialize(redisClusterContext *cc) {
     acc->err = cc->err;
     memcpy(acc->errstr, cc->errstr, 128);
 
-    acc->data = NULL;
     acc->adapter = NULL;
     acc->attach_fn = NULL;
 
