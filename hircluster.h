@@ -46,13 +46,11 @@ typedef struct cluster_node {
     sds host;
     int port;
     uint8_t role;
-    uint8_t myself; /* myself ? */
     redisContext *con;
     redisAsyncContext *acon;
     struct hilist *slots;
     struct hilist *slaves;
     int failure_count;
-    void *data;                /* Not used by hiredis */
     struct hiarray *migrating; /* copen_slot[] */
     struct hiarray *importing; /* copen_slot[] */
 } cluster_node;
@@ -165,7 +163,6 @@ int redisClusterGetReply(redisClusterContext *cc, void **reply);
 void redisClusterReset(redisClusterContext *cc);
 
 int cluster_update_route(redisClusterContext *cc);
-int test_cluster_update_route(redisClusterContext *cc);
 struct dict *parse_cluster_nodes(redisClusterContext *cc, char *str,
                                  int str_len, int flags);
 struct dict *parse_cluster_slots(redisClusterContext *cc, redisReply *reply,
@@ -188,9 +185,6 @@ typedef struct redisClusterAsyncContext {
     /* Setup error flags so they can be used directly. */
     int err;
     char errstr[128]; /* String representation of error when applicable */
-
-    /* Not used by hiredis */
-    void *data;
 
     void *adapter;
     adapterAttachFn *attach_fn;
