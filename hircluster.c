@@ -101,10 +101,9 @@ void dictClusterNodeDestructor(void *privdata, void *val) {
     hi_free(val);
 }
 
-/* Cluster nodes hash table, mapping nodes
- * name(437c719f50dc9d0745032f3b280ce7ecc40792ac)
- * or addresses(1.2.3.4:6379) to clusterNode structures.
- * Those nodes need destroy.
+/* Cluster node hash table
+ * maps node address (1.2.3.4:6379) to cluster_node
+ * Has ownership of cluster_node memory
  */
 dictType clusterNodesDictType = {
     dictSdsHash,              /* hash function */
@@ -115,10 +114,9 @@ dictType clusterNodesDictType = {
     dictClusterNodeDestructor /* val destructor */
 };
 
-/* Cluster nodes hash table, mapping nodes
- * name(437c719f50dc9d0745032f3b280ce7ecc40792ac)
- * or addresses(1.2.3.4:6379) to clusterNode structures.
- * Those nodes do not need destroy.
+/* Referenced cluster node hash table
+ * maps node id (437c719f5.....) to cluster_node
+ * No ownership of cluster_node memory
  */
 dictType clusterNodesRefDictType = {
     dictSdsHash,       /* hash function */
@@ -2962,6 +2960,7 @@ done:
     return slot_num;
 }
 
+/* Deprecated function, replaced with redisClusterSetOptionMaxRedirect() */
 void redisClusterSetMaxRedirect(redisClusterContext *cc,
                                 int max_redirect_count) {
     if (cc == NULL || max_redirect_count <= 0) {
