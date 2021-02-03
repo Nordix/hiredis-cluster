@@ -5,10 +5,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <assert.h>
 
 #include "adlist.h"
 #include "command.h"
-#include "dict.c"
+#include "dict.h"
 #include "hiarray.h"
 #include "hircluster.h"
 #include "hiutil.h"

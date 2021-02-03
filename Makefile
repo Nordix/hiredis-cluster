@@ -5,7 +5,7 @@
 # Copyright (C) 2010-2011 Pieter Noordhuis <pcnoordhuis at gmail dot com>
 # This file is released under the BSD license, see the COPYING file
 
-OBJ=adlist.o command.o crc16.o hiarray.o hircluster.o hiutil.o
+OBJ=adlist.o command.o crc16.o dict.o hiarray.o hircluster.o hiutil.o
 EXAMPLES=hiredis-cluster-example hiredis-cluster-example-tls
 LIBNAME=libhiredis_cluster
 PKGCONFNAME=hiredis_cluster.pc
@@ -62,7 +62,8 @@ command.o: command.c command.h adlist.h hiarray.h hiutil.h
 crc16.o: crc16.c hiutil.h
 dict.o: dict.c dict.h
 hiarray.o: hiarray.c hiarray.h hiutil.h
-hircluster.o: hircluster.c adlist.h command.h dict.c dict.h hiarray.h hircluster.h hiutil.h win32.h
+hircluster.o: hircluster.c adlist.h command.h dict.h hiarray.h \
+ hircluster.h hiutil.h win32.h
 hiutil.o: hiutil.c hiutil.h win32.h
 
 $(DYLIBNAME): $(OBJ)

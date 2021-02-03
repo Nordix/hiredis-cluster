@@ -44,6 +44,7 @@ SET(hiredis_cluster_sources
     adlist.c
     command.c
     crc16.c
+    dict.c
     hiarray.c
     hircluster.c
     hiutil.c)
