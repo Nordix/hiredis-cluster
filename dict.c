@@ -34,9 +34,9 @@
  */
 
 #include <assert.h>
+#include <hiredis/alloc.h>
 #include <limits.h>
 #include <stdlib.h>
-#include <hiredis/alloc.h>
 
 #include "dict.h"
 

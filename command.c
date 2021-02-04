@@ -1199,6 +1199,7 @@ struct cmd *command_get() {
     command->frag_seq = NULL;
     command->reply = NULL;
     command->sub_commands = NULL;
+    command->node_addr = NULL;
 
     command->keys = hiarray_create(1, sizeof(struct keypos));
     if (command->keys == NULL) {
@@ -1239,6 +1240,11 @@ void command_destroy(struct cmd *command) {
 
     if (command->sub_commands != NULL) {
         listRelease(command->sub_commands);
+    }
+
+    if (command->node_addr != NULL) {
+        sdsfree(command->node_addr);
+        command->node_addr = NULL;
     }
 
     hi_free(command);

@@ -182,6 +182,29 @@ void test_alloc_failure_handling() {
         freeReplyObject(reply);
     }
 
+    // Command to node
+    {
+        redisReply *reply;
+        const char *cmd = "SET key value";
+
+        cluster_node *node = redisClusterGetNodeByKey(cc, "key");
+        assert(node);
+
+        // OOM failing commands
+        for (int i = 0; i < 32; ++i) {
+            prepare_allocation_test(cc, i);
+            reply = redisClusterCommandToNode(cc, node, cmd);
+            assert(reply == NULL);
+            ASSERT_STR_EQ(cc->errstr, "Out of memory");
+        }
+
+        // Successful command
+        prepare_allocation_test(cc, 32);
+        reply = redisClusterCommandToNode(cc, node, cmd);
+        CHECK_REPLY_OK(cc, reply);
+        freeReplyObject(reply);
+    }
+
     // Append command
     {
         redisReply *reply;
@@ -246,6 +269,51 @@ void test_alloc_failure_handling() {
         assert(result == REDIS_OK);
 
         prepare_allocation_test(cc, 10);
+        result = redisClusterGetReply(cc, (void *)&reply);
+        assert(result == REDIS_OK);
+        CHECK_REPLY_OK(cc, reply);
+        freeReplyObject(reply);
+    }
+
+    // Append command to node
+    {
+        redisReply *reply;
+        const char *cmd = "SET foo one";
+
+        cluster_node *node = redisClusterGetNodeByKey(cc, "foo");
+        assert(node);
+
+        // OOM failing appends
+        for (int i = 0; i < 36; ++i) {
+            prepare_allocation_test(cc, i);
+            result = redisClusterAppendCommandToNode(cc, node, cmd);
+            assert(result == REDIS_ERR);
+            ASSERT_STR_EQ(cc->errstr, "Out of memory");
+
+            redisClusterReset(cc);
+        }
+
+        // OOM failing GetResults
+        for (int i = 0; i < 4; ++i) {
+            // First a successful append
+            prepare_allocation_test(cc, 36);
+            result = redisClusterAppendCommandToNode(cc, node, cmd);
+            assert(result == REDIS_OK);
+
+            prepare_allocation_test(cc, i);
+            result = redisClusterGetReply(cc, (void *)&reply);
+            assert(result == REDIS_ERR);
+            ASSERT_STR_EQ(cc->errstr, "Out of memory");
+
+            redisClusterReset(cc);
+        }
+
+        // Successful append and GetReply
+        prepare_allocation_test(cc, 36);
+        result = redisClusterAppendCommandToNode(cc, node, cmd);
+        assert(result == REDIS_OK);
+
+        prepare_allocation_test(cc, 4);
         result = redisClusterGetReply(cc, (void *)&reply);
         assert(result == REDIS_OK);
         CHECK_REPLY_OK(cc, reply);

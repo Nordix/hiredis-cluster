@@ -17,6 +17,7 @@ Hiredis-cluster is a fork of Hiredis-vip, with the following improvements:
 * Code style guide (using clang-format)
 * Improved testing
 * Memory leak corrections and allocation failure handling
+* Low-level API for sending commands to specific node
 
 ## Features
 
@@ -199,6 +200,17 @@ Example:
 reply = redisClusterCommand(clustercontext, "mget %s %s %s %s", key1, key2, key3, key4);
 ```
 
+### Sending commands to a specific node
+
+When there is a need to send commands to a specific node, the following low-level API can be used.
+
+```c
+reply = redisClusterCommandToNode(clustercontext, node, "DBSIZE");
+```
+
+The function handles printf like arguments similar to `redisClusterCommand()`, but will
+only attempt to send the command to the given node and will not perform redirects or retries.
+
 ### Teardown
 
 To disconnect and free the context the following function can be used:
@@ -211,11 +223,15 @@ This function closes the sockets and deallocates the context.
 
 The function `redisClusterGetReply` is exported as part of the Hiredis API and can be used
 when a reply is expected on the socket. To pipeline commands, the only things that needs
-to be done is filling up the output buffer. For this cause, two commands can be used that
+to be done is filling up the output buffer. For this cause, the following commands can be used that
 are identical to the `redisClusterCommand` family, apart from not returning a reply:
 ```c
 int redisClusterAppendCommand(redisClusterContext *cc, const char *format, ...);
 int redisClusterAppendCommandArgv(redisClusterContext *cc, int argc, const char **argv);
+
+/* Send a command to a specific cluster node */
+int redisClusterAppendCommandToNode(redisClusterContext *cc, cluster_node *node,
+                                    const char *format, ...);
 ```
 After calling either function one or more times, `redisClusterGetReply` can be used to receive the
 subsequent replies. The return value for this function is either `REDIS_OK` or `REDIS_ERR`, where
@@ -277,6 +293,7 @@ return `REDIS_ERR`. The function to set the disconnect callback has the followin
 ```c
 int redisClusterAsyncSetDisconnectCallback(redisClusterAsyncContext *acc, redisDisconnectCallback *fn);
 ```
+
 ### Sending commands and their callbacks
 
 In an asynchronous cluster context, commands are automatically pipelined due to the nature of an event loop.
@@ -294,8 +311,12 @@ The functions that can be used to issue commands in an asynchronous context are:
 int redisClusterAsyncCommand(redisClusterAsyncContext *acc,
                              redisClusterCallbackFn *fn,
                              void *privdata, const char *format, ...);
+int redisClusterAsyncCommandToNode(redisClusterAsyncContext *acc,
+                                   cluster_node *node,
+                                   redisClusterCallbackFn *fn, void *privdata,
+                                   const char *format, ...);
 ```
-This function work like their blocking counterparts. The return value is `REDIS_OK` when the command
+These functions works like their blocking counterparts. The return value is `REDIS_OK` when the command
 was successfully added to the output buffer and `REDIS_ERR` otherwise. Example: when the connection
 is being disconnected per user-request, no new commands may be added to the output buffer and `REDIS_ERR` is
 returned on calls to the `redisClusterAsyncCommand` family.

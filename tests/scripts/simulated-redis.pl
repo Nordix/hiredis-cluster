@@ -101,7 +101,7 @@ while (<>) {
     s/^\s+//; # trim leading whitespace
     s/\s+$//; # trim trailing whitespace
     next if /^$/; # skip empty lines
-    print "(port $port) $_" if $debug;
+    print "(port $port) $_\n" if $debug;
     if (/^SEND (.*)/) {
         my $data = $1;
         if ($data =~ /^[-+\$\*:]/) {
