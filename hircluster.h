@@ -1,6 +1,7 @@
 #ifndef __HIRCLUSTER_H
 #define __HIRCLUSTER_H
 
+#include "dict.h"
 #include <hiredis/async.h>
 #include <hiredis/hiredis.h>
 
@@ -122,6 +123,13 @@ typedef struct redisClusterAsyncContext {
 
 } redisClusterAsyncContext;
 
+typedef struct nodeIterator {
+    redisClusterContext *cc;
+    uint64_t route_version;
+    int retries_left;
+    dictIterator di;
+} nodeIterator;
+
 /*
  * Synchronous API
  */
@@ -167,6 +175,8 @@ void redisClusterSetMaxRedirect(redisClusterContext *cc,
 
 /* Variadic commands (like printf) */
 void *redisClusterCommand(redisClusterContext *cc, const char *format, ...);
+void *redisClusterCommandToNode(redisClusterContext *cc, cluster_node *node,
+                                const char *format, ...);
 /* Variadic using va_list */
 void *redisClustervCommand(redisClusterContext *cc, const char *format,
                            va_list ap);
@@ -184,6 +194,8 @@ void *redisClusterFormattedCommand(redisClusterContext *cc, char *cmd, int len);
 
 /* Variadic commands (like printf) */
 int redisClusterAppendCommand(redisClusterContext *cc, const char *format, ...);
+int redisClusterAppendCommandToNode(redisClusterContext *cc, cluster_node *node,
+                                    const char *format, ...);
 /* Variadic using va_list */
 int redisClustervAppendCommand(redisClusterContext *cc, const char *format,
                                va_list ap);
@@ -228,6 +240,10 @@ void redisClusterAsyncDisconnect(redisClusterAsyncContext *acc);
 int redisClusterAsyncCommand(redisClusterAsyncContext *acc,
                              redisClusterCallbackFn *fn, void *privdata,
                              const char *format, ...);
+int redisClusterAsyncCommandToNode(redisClusterAsyncContext *acc,
+                                   cluster_node *node,
+                                   redisClusterCallbackFn *fn, void *privdata,
+                                   const char *format, ...);
 int redisClustervAsyncCommand(redisClusterAsyncContext *acc,
                               redisClusterCallbackFn *fn, void *privdata,
                               const char *format, va_list ap);
@@ -244,6 +260,15 @@ int redisClusterAsyncFormattedCommand(redisClusterAsyncContext *acc,
 /* Internal functions */
 redisAsyncContext *actx_get_by_node(redisClusterAsyncContext *acc,
                                     cluster_node *node);
+
+/* Cluster node iterator functions */
+void initNodeIterator(nodeIterator *iter, redisClusterContext *cc);
+cluster_node *nodeNext(nodeIterator *iter);
+
+/* Helper functions */
+unsigned int redisClusterGetSlotByKey(char *key);
+cluster_node *redisClusterGetNodeByKey(redisClusterContext *cc, char *key);
+
 #ifdef __cplusplus
 }
 #endif

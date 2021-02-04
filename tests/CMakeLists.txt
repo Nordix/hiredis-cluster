@@ -83,6 +83,11 @@ target_link_libraries(ct_out_of_memory_handling hiredis_cluster hiredis ${SSL_LI
 add_test(NAME ct_out_of_memory_handling COMMAND "$<TARGET_FILE:ct_out_of_memory_handling>")
 set_tests_properties(ct_out_of_memory_handling PROPERTIES LABELS "CT")
 
+add_executable(ct_specific_nodes ct_specific_nodes.c)
+target_link_libraries(ct_specific_nodes hiredis_cluster hiredis ${SSL_LIBRARY} ${EVENT_LIBRARY})
+add_test(NAME ct_specific_nodes COMMAND "$<TARGET_FILE:ct_specific_nodes>")
+set_tests_properties(ct_specific_nodes PROPERTIES LABELS "CT")
+
 if(ENABLE_SSL)
   # Executable: tls
   add_executable(example_tls main_tls.c)
@@ -98,6 +103,8 @@ endif()
 # Tests using simulated redis node
 add_executable(clusterclient clusterclient.c)
 target_link_libraries(clusterclient hiredis_cluster hiredis ${SSL_LIBRARY})
+add_executable(clusterclient_all_nodes clusterclient_all_nodes.c)
+target_link_libraries(clusterclient_all_nodes hiredis_cluster hiredis ${SSL_LIBRARY})
 add_executable(clusterclient_async clusterclient_async.c)
 target_link_libraries(clusterclient_async hiredis_cluster hiredis ${SSL_LIBRARY} ${EVENT_LIBRARY})
 add_test(NAME set-get-test
@@ -126,3 +133,7 @@ add_test(NAME moved-redirect-test
 #          COMMAND "${CMAKE_SOURCE_DIR}/tests/scripts/moved-redirect-test.sh"
 #          "$<TARGET_FILE:clusterclient_async>"
 #          WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/tests/scripts/")
+add_test(NAME dbsize-to-all-nodes-test
+         COMMAND "${CMAKE_SOURCE_DIR}/tests/scripts/dbsize-to-all-nodes-test.sh"
+                 "$<TARGET_FILE:clusterclient_all_nodes>"
+                 WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/tests/scripts/")

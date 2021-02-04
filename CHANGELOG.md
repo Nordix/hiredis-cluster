@@ -4,6 +4,9 @@
   support for statically-linked libraries.
 * Improved examples
 * Corrected crashes and leaks in OOM scenarios
+* New API for sending commands to specific node
+* New API for node iteration, can be used for sending commands
+  to some or all nodes.
 
 ### 0.5.0 - Dec 07, 2020
 
