@@ -187,17 +187,19 @@ void test_alloc_failure_handling() {
         redisReply *reply;
         const char *cmd = "SET foo one";
 
-        for (int i = 0; i < 33; ++i) {
+        for (int i = 0; i < 36; ++i) {
             prepare_allocation_test(cc, i);
             result = redisClusterAppendCommand(cc, cmd);
             assert(result == REDIS_ERR);
             ASSERT_STR_EQ(cc->errstr, "Out of memory");
+
+            redisClusterReset(cc);
         }
 
         for (int i = 0; i < 4; ++i) {
             // Appended command lost when receiving error from hiredis
             // during a GetReply, needs a new append for each test loop
-            prepare_allocation_test(cc, 33);
+            prepare_allocation_test(cc, 36);
             result = redisClusterAppendCommand(cc, cmd);
             assert(result == REDIS_OK);
 
@@ -205,9 +207,11 @@ void test_alloc_failure_handling() {
             result = redisClusterGetReply(cc, (void *)&reply);
             assert(result == REDIS_ERR);
             ASSERT_STR_EQ(cc->errstr, "Out of memory");
+
+            redisClusterReset(cc);
         }
 
-        prepare_allocation_test(cc, 33);
+        prepare_allocation_test(cc, 36);
         result = redisClusterAppendCommand(cc, cmd);
         assert(result == REDIS_OK);
 
@@ -223,15 +227,17 @@ void test_alloc_failure_handling() {
         redisReply *reply;
         const char *cmd = "MSET key1 val1 key2 val2 key3 val3";
 
-        for (int i = 0; i < 69; ++i) {
+        for (int i = 0; i < 88; ++i) {
             prepare_allocation_test(cc, i);
             result = redisClusterAppendCommand(cc, cmd);
             assert(result == REDIS_ERR);
             ASSERT_STR_EQ(cc->errstr, "Out of memory");
+
+            redisClusterReset(cc);
         }
 
-        for (int i = 0; i < 10; ++i) {
-            prepare_allocation_test(cc, 69);
+        for (int i = 0; i < 12; ++i) {
+            prepare_allocation_test(cc, 88);
             result = redisClusterAppendCommand(cc, cmd);
             assert(result == REDIS_OK);
 
@@ -239,13 +245,15 @@ void test_alloc_failure_handling() {
             result = redisClusterGetReply(cc, (void *)&reply);
             assert(result == REDIS_ERR);
             ASSERT_STR_EQ(cc->errstr, "Out of memory");
+
+            redisClusterReset(cc);
         }
 
-        prepare_allocation_test(cc, 69);
+        prepare_allocation_test(cc, 88);
         result = redisClusterAppendCommand(cc, cmd);
         assert(result == REDIS_OK);
 
-        prepare_allocation_test(cc, 10);
+        prepare_allocation_test(cc, 12);
         result = redisClusterGetReply(cc, (void *)&reply);
         assert(result == REDIS_OK);
         CHECK_REPLY_OK(cc, reply);
@@ -367,10 +375,10 @@ void test_alloc_failure_handling_async() {
             prepare_allocation_test_async(acc, i);
             result = redisClusterAsyncCommand(acc, commandCallback, &r1, cmd1);
             assert(result == REDIS_ERR);
-            if (i < 18 || i > 36) {
+            if (i != 36) {
                 ASSERT_STR_EQ(acc->errstr, "Out of memory");
             } else {
-                ASSERT_STR_EQ(acc->errstr, "actx get by node error");
+                ASSERT_STR_EQ(acc->errstr, "Failed to attach event adapter");
             }
         }
 
@@ -392,10 +400,10 @@ void test_alloc_failure_handling_async() {
             ASSERT_STR_EQ(acc->errstr, "Out of memory");
         }
 
-        /* TODO: check failure in hiredis
-           An alloc failing in async.c:249 triggers assert in async.c:566
-           Use prepare_allocation_test_async(acc, 15); */
-
+        /* Due to an issue in hiredis 1.0.0 iteration 15 is avoided.
+           The issue (that triggers an assert) is corrected on master:
+           https://github.com/redis/hiredis/commit/4bba72103c93eaaa8a6e07176e60d46ab277cf8a
+         */
         prepare_allocation_test_async(acc, 16);
         result = redisClusterAsyncCommand(acc, commandCallback, &r2, cmd2);
         ASSERT_MSG(result == REDIS_OK, acc->errstr);
