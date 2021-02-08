@@ -3713,8 +3713,13 @@ redisAsyncContext *actx_get_by_node(redisClusterAsyncContext *acc,
 
     ac = redisAsyncConnect(node->host, node->port);
     if (ac == NULL) {
-        __redisClusterAsyncSetError(acc, REDIS_ERR_OTHER,
-                                    "node host or port is error");
+        __redisClusterAsyncSetError(acc, REDIS_ERR_OOM, "Out of memory");
+        return NULL;
+    }
+
+    if (ac->err) {
+        __redisClusterAsyncSetError(acc, ac->err, ac->errstr);
+        redisAsyncFree(ac);
         return NULL;
     }
 
@@ -3742,7 +3747,8 @@ redisAsyncContext *actx_get_by_node(redisClusterAsyncContext *acc,
     if (acc->adapter) {
         ret = acc->attach_fn(ac, acc->adapter);
         if (ret != REDIS_OK) {
-            __redisClusterAsyncSetError(acc, ac->c.err, ac->c.errstr);
+            __redisClusterAsyncSetError(acc, REDIS_ERR_OTHER,
+                                        "Failed to attach event adapter");
             redisAsyncFree(ac);
             return NULL;
         }
@@ -3797,8 +3803,7 @@ actx_get_after_update_route_by_slot(redisClusterAsyncContext *acc,
 
     ac = actx_get_by_node(acc, node);
     if (ac == NULL) {
-        __redisClusterAsyncSetError(acc, REDIS_ERR_OTHER,
-                                    "actx get by node error");
+        /* Specific error already set */
         return NULL;
     } else if (ac->err) {
         __redisClusterAsyncSetError(acc, ac->err, ac->errstr);
@@ -4031,8 +4036,7 @@ static void redisClusterAsyncRetryCallback(redisAsyncContext *ac, void *r,
 
             ac_retry = actx_get_by_node(acc, node);
             if (ac_retry == NULL) {
-                __redisClusterAsyncSetError(acc, REDIS_ERR_OTHER,
-                                            "actx get by node error");
+                /* Specific error already set */
                 goto done;
             } else if (ac_retry->err) {
                 __redisClusterAsyncSetError(acc, ac_retry->err,
@@ -4176,8 +4180,7 @@ int redisClusterAsyncFormattedCommand(redisClusterAsyncContext *acc,
 
     ac = actx_get_by_node(acc, node);
     if (ac == NULL) {
-        __redisClusterAsyncSetError(acc, REDIS_ERR_OTHER,
-                                    "actx get by node error");
+        /* Specific error already set */
         goto error;
     } else if (ac->err) {
         __redisClusterAsyncSetError(acc, ac->err, ac->errstr);
