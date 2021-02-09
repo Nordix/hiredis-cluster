@@ -1,7 +1,7 @@
 #include <ctype.h>
 #include <errno.h>
 #include <hiredis/alloc.h>
-#include <string.h>
+#include <strings.h>
 
 #include "command.h"
 #include "hiarray.h"
