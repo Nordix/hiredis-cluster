@@ -1,4 +1,4 @@
-### 0.Y.Z - Y D, 2021
+### 0.6.0 - Feb 09, 2021
 * Minimum required version of CMake changed to 3.11 (from 3.14)
 * Re-added the Makefile for symmetry with hiredis, which also enables
   support for statically-linked libraries.
