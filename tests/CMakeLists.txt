@@ -23,7 +23,7 @@ else()
 endif()
 
 find_program(Docker_EXECUTABLE docker)
-set(CONTAINER "bjosv/redis-cluster:latest") # When supporting password and IPv6, change to: grokzen/redis-cluster:vX.X
+set(CONTAINER "bjosv/redis-cluster:6.2.0") # When supporting password change to: grokzen/redis-cluster:X.X.X
 
 add_custom_target(start
   COMMAND ${Docker_EXECUTABLE} run --name docker-cluster -d -p 7000-7006:7000-7006 ${CONTAINER} || (exit 0)

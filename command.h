@@ -95,8 +95,18 @@ typedef enum cmd_parse_result {
     ACTION(REQ_REDIS_SUNION)                                                   \
     ACTION(REQ_REDIS_SUNIONSTORE)                                              \
     ACTION(REQ_REDIS_SSCAN)                                                    \
+    ACTION(REQ_REDIS_XACK)                                                     \
+    ACTION(REQ_REDIS_XADD)                                                     \
+    ACTION(REQ_REDIS_XAUTOCLAIM)                                               \
+    ACTION(REQ_REDIS_XCLAIM)                                                   \
+    ACTION(REQ_REDIS_XDEL)                                                     \
     ACTION(REQ_REDIS_XGROUP)                                                   \
     ACTION(REQ_REDIS_XINFO)                                                    \
+    ACTION(REQ_REDIS_XLEN)                                                     \
+    ACTION(REQ_REDIS_XPENDING)                                                 \
+    ACTION(REQ_REDIS_XRANGE)                                                   \
+    ACTION(REQ_REDIS_XREVRANGE)                                                \
+    ACTION(REQ_REDIS_XTRIM)                                                    \
     ACTION(REQ_REDIS_ZADD) /* redis requests - sorted sets */                  \
     ACTION(REQ_REDIS_ZCARD)                                                    \
     ACTION(REQ_REDIS_ZCOUNT)                                                   \

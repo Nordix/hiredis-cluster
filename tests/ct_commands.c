@@ -201,6 +201,81 @@ void test_eval(redisClusterContext *cc) {
     assert(reply == NULL);
 }
 
+void test_xack(redisClusterContext *cc) {
+    redisReply *r;
+
+    /* Prepare a stream and group */
+    r = redisClusterCommand(cc, "XADD mystream * field1 value1");
+    CHECK_REPLY_TYPE(r, REDIS_REPLY_STRING);
+    freeReplyObject(r);
+    r = redisClusterCommand(cc, "XGROUP DESTROY mystream mygroup");
+    CHECK_REPLY_TYPE(r, REDIS_REPLY_INTEGER);
+    freeReplyObject(r);
+    r = redisClusterCommand(cc, "XGROUP CREATE mystream mygroup 0");
+    CHECK_REPLY_OK(cc, r);
+    freeReplyObject(r);
+
+    r = redisClusterCommand(cc, "XACK mystream mygroup 1526569495631-0");
+    CHECK_REPLY_TYPE(r, REDIS_REPLY_INTEGER);
+    freeReplyObject(r);
+}
+
+void test_xadd(redisClusterContext *cc) {
+    redisReply *r;
+
+    r = redisClusterCommand(cc, "XADD mystream * field1 value1");
+    CHECK_REPLY_TYPE(r, REDIS_REPLY_STRING);
+    freeReplyObject(r);
+
+    r = redisClusterCommand(cc, "XADD mystream * field1 value1 field2 value2");
+    CHECK_REPLY_TYPE(r, REDIS_REPLY_STRING);
+    freeReplyObject(r);
+
+    r = redisClusterCommand(
+        cc, "XADD mystream * field1 value1 field2 value2 field3 value3");
+    CHECK_REPLY_TYPE(r, REDIS_REPLY_STRING);
+    freeReplyObject(r);
+}
+
+void test_xautoclaim(redisClusterContext *cc) {
+    redisReply *r;
+
+    r = redisClusterCommand(
+        cc, "XAUTOCLAIM mystream mygroup Alice 3600000 0-0 COUNT 25");
+    CHECK_REPLY_TYPE(r, REDIS_REPLY_ARRAY);
+    freeReplyObject(r);
+}
+
+void test_xclaim(redisClusterContext *cc) {
+    redisReply *r;
+
+    r = redisClusterCommand(
+        cc, "XCLAIM mystream mygroup Alice 3600000 1526569498055-0");
+    CHECK_REPLY_TYPE(r, REDIS_REPLY_ARRAY);
+    freeReplyObject(r);
+}
+
+void test_xdel(redisClusterContext *cc) {
+    redisReply *r;
+    char *id;
+
+    r = redisClusterCommand(cc, "XADD mystream * field value");
+    CHECK_REPLY_TYPE(r, REDIS_REPLY_STRING);
+    id = strdup(r->str); /* Keep the id */
+    freeReplyObject(r);
+
+    r = redisClusterCommand(cc, "XDEL mystream %s", id);
+    CHECK_REPLY_TYPE(r, REDIS_REPLY_INTEGER);
+    freeReplyObject(r);
+
+    /* Verify client handling of multiple id values / arguments */
+    r = redisClusterCommand(cc, "XDEL mystream %s %s", id, id);
+    CHECK_REPLY_TYPE(r, REDIS_REPLY_INTEGER);
+    freeReplyObject(r);
+
+    free(id);
+}
+
 void test_xgroup(redisClusterContext *cc) {
     redisReply *r;
 
@@ -270,6 +345,62 @@ void test_xinfo(redisClusterContext *cc) {
     freeReplyObject(r);
 }
 
+void test_xlen(redisClusterContext *cc) {
+    redisReply *r;
+
+    r = (redisReply *)redisClusterCommand(cc, "XLEN mystream");
+    CHECK_REPLY_TYPE(r, REDIS_REPLY_INTEGER);
+    freeReplyObject(r);
+}
+
+void test_xpending(redisClusterContext *cc) {
+    redisReply *r;
+
+    r = redisClusterCommand(cc, "XPENDING mystream mygroup");
+    CHECK_REPLY_TYPE(r, REDIS_REPLY_ARRAY);
+    freeReplyObject(r);
+
+    r = redisClusterCommand(cc, "XPENDING mystream mygroup - + 10");
+    CHECK_REPLY_TYPE(r, REDIS_REPLY_ARRAY);
+    freeReplyObject(r);
+}
+
+void test_xrange(redisClusterContext *cc) {
+    redisReply *r;
+
+    r = redisClusterCommand(cc, "XRANGE mystream 0 0");
+    CHECK_REPLY_ARRAY(cc, r, 0); /* No entries due to 0-range */
+    freeReplyObject(r);
+
+    r = redisClusterCommand(cc, "XRANGE mystream - + COUNT 1");
+    CHECK_REPLY_ARRAY(cc, r, 1); /* Single entry due to count argument */
+    freeReplyObject(r);
+}
+
+void test_xrevrange(redisClusterContext *cc) {
+    redisReply *r;
+
+    r = redisClusterCommand(cc, "XREVRANGE mystream 0 0");
+    CHECK_REPLY_ARRAY(cc, r, 0); /* No entries due to 0-range */
+    freeReplyObject(r);
+
+    r = redisClusterCommand(cc, "XREVRANGE mystream + - COUNT 1");
+    CHECK_REPLY_ARRAY(cc, r, 1); /* Single entry due to count argument */
+    freeReplyObject(r);
+}
+
+void test_xtrim(redisClusterContext *cc) {
+    redisReply *r;
+
+    r = redisClusterCommand(cc, "XTRIM mystream MAXLEN 200");
+    CHECK_REPLY_TYPE(r, REDIS_REPLY_INTEGER);
+    freeReplyObject(r);
+
+    r = redisClusterCommand(cc, "XTRIM mystream MAXLEN ~ 100");
+    CHECK_REPLY_TYPE(r, REDIS_REPLY_INTEGER);
+    freeReplyObject(r);
+}
+
 int main() {
     struct timeval timeout = {0, 500000};
 
@@ -288,8 +419,18 @@ int main() {
     test_hset_hget_hdel_hexists(cc);
     test_eval(cc);
 
+    test_xack(cc);
+    test_xadd(cc);
+    test_xautoclaim(cc);
+    test_xclaim(cc);
+    test_xdel(cc);
     test_xgroup(cc);
     test_xinfo(cc);
+    test_xlen(cc);
+    test_xpending(cc);
+    test_xrange(cc);
+    test_xrevrange(cc);
+    test_xtrim(cc);
 
     redisClusterFree(cc);
     return 0;
