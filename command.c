@@ -12,6 +12,7 @@ static uint64_t cmd_id = 0; /* command id counter */
 /*
  * Return true, if the redis command take no key, otherwise
  * return false
+ * Format: command
  */
 static int redis_argz(struct cmd *r) {
     switch (r->type) {
@@ -29,6 +30,7 @@ static int redis_argz(struct cmd *r) {
 /*
  * Return true, if the redis command accepts no arguments, otherwise
  * return false
+ * Format: command key
  */
 static int redis_arg0(struct cmd *r) {
     switch (r->type) {
@@ -57,6 +59,7 @@ static int redis_arg0(struct cmd *r) {
     case CMD_REQ_REDIS_SMEMBERS:
     case CMD_REQ_REDIS_SPOP:
 
+    case CMD_REQ_REDIS_XLEN:
     case CMD_REQ_REDIS_ZCARD:
     case CMD_REQ_REDIS_PFCOUNT:
     case CMD_REQ_REDIS_AUTH:
@@ -72,6 +75,7 @@ static int redis_arg0(struct cmd *r) {
 /*
  * Return true, if the redis command accepts exactly 1 argument, otherwise
  * return false
+ * Format: command key arg
  */
 static int redis_arg1(struct cmd *r) {
     switch (r->type) {
@@ -113,6 +117,7 @@ static int redis_arg1(struct cmd *r) {
 /*
  * Return true, if the redis command accepts exactly 2 arguments, otherwise
  * return false
+ * Format: command key arg1 arg2
  */
 static int redis_arg2(struct cmd *r) {
     switch (r->type) {
@@ -154,6 +159,7 @@ static int redis_arg2(struct cmd *r) {
 /*
  * Return true, if the redis command accepts exactly 3 arguments, otherwise
  * return false
+ * Format: command key arg1 arg2 arg3
  */
 static int redis_arg3(struct cmd *r) {
     switch (r->type) {
@@ -170,6 +176,7 @@ static int redis_arg3(struct cmd *r) {
 /*
  * Return true, if the redis command accepts 0 or more arguments, otherwise
  * return false
+ * Format: command key [ arg ... ]
  */
 static int redis_argn(struct cmd *r) {
     switch (r->type) {
@@ -197,7 +204,15 @@ static int redis_argn(struct cmd *r) {
 
     case CMD_REQ_REDIS_PFADD:
     case CMD_REQ_REDIS_PFMERGE:
-
+    case CMD_REQ_REDIS_XACK:
+    case CMD_REQ_REDIS_XADD:
+    case CMD_REQ_REDIS_XAUTOCLAIM:
+    case CMD_REQ_REDIS_XCLAIM:
+    case CMD_REQ_REDIS_XDEL:
+    case CMD_REQ_REDIS_XPENDING:
+    case CMD_REQ_REDIS_XRANGE:
+    case CMD_REQ_REDIS_XREVRANGE:
+    case CMD_REQ_REDIS_XTRIM:
     case CMD_REQ_REDIS_ZADD:
     case CMD_REQ_REDIS_ZINTERSTORE:
     case CMD_REQ_REDIS_ZRANGE:
@@ -220,6 +235,7 @@ static int redis_argn(struct cmd *r) {
 /*
  * Return true, if the redis command is a vector command accepting one or
  * more keys, otherwise return false
+ * Format: command key [ key ... ]
  */
 static int redis_argx(struct cmd *r) {
     switch (r->type) {
@@ -238,6 +254,7 @@ static int redis_argx(struct cmd *r) {
 /*
  * Return true, if the redis command is a vector command accepting one or
  * more key-value pairs, otherwise return false
+ * Format: command key value [ key value ... ]
  */
 static int redis_argkvx(struct cmd *r) {
     switch (r->type) {
@@ -253,7 +270,7 @@ static int redis_argkvx(struct cmd *r) {
 
 /*
  * Check if command type expects a sub-command before the key
- * Format: COMMAND SUBCOMMAND key [...]
+ * Format: command subcommand key [ arg ... ]
  */
 static int redis_argsub(struct cmd *r) {
     switch (r->type) {
@@ -316,6 +333,10 @@ static inline cmd_type_t redis_parse_cmd_verb(const char *m, int len) {
                !strncasecmp(m, "type", 4) ? CMD_REQ_REDIS_TYPE :
                !strncasecmp(m, "mget", 4) ? CMD_REQ_REDIS_MGET :
                !strncasecmp(m, "mset", 4) ? CMD_REQ_REDIS_MSET :
+               !strncasecmp(m, "xack", 4) ? CMD_REQ_REDIS_XACK :
+               !strncasecmp(m, "xadd", 4) ? CMD_REQ_REDIS_XADD :
+               !strncasecmp(m, "xdel", 4) ? CMD_REQ_REDIS_XDEL :
+               !strncasecmp(m, "xlen", 4) ? CMD_REQ_REDIS_XLEN :
                !strncasecmp(m, "zadd", 4) ? CMD_REQ_REDIS_ZADD :
                !strncasecmp(m, "zrem", 4) ? CMD_REQ_REDIS_ZREM :
                !strncasecmp(m, "eval", 4) ? CMD_REQ_REDIS_EVAL :
@@ -340,6 +361,7 @@ static inline cmd_type_t redis_parse_cmd_verb(const char *m, int len) {
                !strncasecmp(m, "smove", 5) ? CMD_REQ_REDIS_SMOVE :
                !strncasecmp(m, "sscan", 5) ? CMD_REQ_REDIS_SSCAN :
                !strncasecmp(m, "xinfo", 5) ? CMD_REQ_REDIS_XINFO :
+               !strncasecmp(m, "xtrim", 5) ? CMD_REQ_REDIS_XTRIM :
                !strncasecmp(m, "zcard", 5) ? CMD_REQ_REDIS_ZCARD :
                !strncasecmp(m, "zrank", 5) ? CMD_REQ_REDIS_ZRANK :
                !strncasecmp(m, "zscan", 5) ? CMD_REQ_REDIS_ZSCAN :
@@ -363,7 +385,9 @@ static inline cmd_type_t redis_parse_cmd_verb(const char *m, int len) {
                !strncasecmp(m, "sinter", 6) ? CMD_REQ_REDIS_SINTER :
                !strncasecmp(m, "strlen", 6) ? CMD_REQ_REDIS_STRLEN :
                !strncasecmp(m, "sunion", 6) ? CMD_REQ_REDIS_SUNION :
+               !strncasecmp(m, "xclaim", 6) ? CMD_REQ_REDIS_XCLAIM :
                !strncasecmp(m, "xgroup", 6) ? CMD_REQ_REDIS_XGROUP :
+               !strncasecmp(m, "xrange", 6) ? CMD_REQ_REDIS_XRANGE :
                !strncasecmp(m, "zcount", 6) ? CMD_REQ_REDIS_ZCOUNT :
                !strncasecmp(m, "zrange", 6) ? CMD_REQ_REDIS_ZRANGE :
                !strncasecmp(m, "zscore", 6) ? CMD_REQ_REDIS_ZSCORE :
@@ -387,17 +411,20 @@ static inline cmd_type_t redis_parse_cmd_verb(const char *m, int len) {
                !strncasecmp(m, "getrange", 8) ? CMD_REQ_REDIS_GETRANGE :
                !strncasecmp(m, "setrange", 8) ? CMD_REQ_REDIS_SETRANGE :
                !strncasecmp(m, "smembers", 8) ? CMD_REQ_REDIS_SMEMBERS :
+               !strncasecmp(m, "xpending", 8) ? CMD_REQ_REDIS_XPENDING :
                !strncasecmp(m, "zrevrank", 8) ? CMD_REQ_REDIS_ZREVRANK :
                                                 CMD_UNKNOWN;
     case 9:
         return !strncasecmp(m, "pexpireat", 9) ? CMD_REQ_REDIS_PEXPIREAT :
                !strncasecmp(m, "rpoplpush", 9) ? CMD_REQ_REDIS_RPOPLPUSH :
                !strncasecmp(m, "sismember", 9) ? CMD_REQ_REDIS_SISMEMBER :
+               !strncasecmp(m, "xrevrange", 9) ? CMD_REQ_REDIS_XREVRANGE :
                !strncasecmp(m, "zrevrange", 9) ? CMD_REQ_REDIS_ZREVRANGE :
                !strncasecmp(m, "zlexcount", 9) ? CMD_REQ_REDIS_ZLEXCOUNT :
                                                  CMD_UNKNOWN;
     case 10:
         return !strncasecmp(m, "sdiffstore", 10) ? CMD_REQ_REDIS_SDIFFSTORE :
+               !strncasecmp(m, "xautoclaim", 10) ? CMD_REQ_REDIS_XAUTOCLAIM :
                                                    CMD_UNKNOWN;
     case 11:
         return !strncasecmp(m, "incrbyfloat", 11) ? CMD_REQ_REDIS_INCRBYFLOAT :
