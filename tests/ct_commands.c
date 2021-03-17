@@ -201,6 +201,75 @@ void test_eval(redisClusterContext *cc) {
     assert(reply == NULL);
 }
 
+void test_xgroup(redisClusterContext *cc) {
+    redisReply *r;
+
+    /* Test of missing subcommand */
+    r = redisClusterCommand(cc, "XGROUP");
+    assert(r == NULL);
+
+    /* Test of missing stream/key */
+    r = redisClusterCommand(cc, "XGROUP CREATE");
+    assert(r == NULL);
+
+    /* Test the destroy command first as preparation */
+    r = redisClusterCommand(cc, "XGROUP DESTROY mystream consumer-group-name");
+    CHECK_REPLY_TYPE(r, REDIS_REPLY_INTEGER);
+    freeReplyObject(r);
+
+    r = redisClusterCommand(cc, "XGROUP CREATE mystream consumer-group-name 0");
+    CHECK_REPLY_OK(cc, r);
+    freeReplyObject(r);
+
+    /* Attempting to create an already existing group gives error */
+    r = redisClusterCommand(cc, "XGROUP CREATE mystream consumer-group-name 0");
+    CHECK_REPLY_ERROR(cc, r, "BUSYGROUP");
+    freeReplyObject(r);
+
+    r = redisClusterCommand(
+        cc, "XGROUP CREATECONSUMER mystream consumer-group-name myconsumer123");
+    CHECK_REPLY_INT(cc, r, 1);
+    freeReplyObject(r);
+
+    r = redisClusterCommand(
+        cc, "XGROUP DELCONSUMER mystream consumer-group-name myconsumer123");
+    CHECK_REPLY_TYPE(r, REDIS_REPLY_INTEGER);
+    freeReplyObject(r);
+
+    r = redisClusterCommand(cc, "XGROUP SETID mystream consumer-group-name 0");
+    CHECK_REPLY_OK(cc, r);
+    freeReplyObject(r);
+}
+
+void test_xinfo(redisClusterContext *cc) {
+    redisReply *r;
+
+    /* Test of missing subcommand */
+    r = redisClusterCommand(cc, "XINFO");
+    assert(r == NULL);
+
+    /* Test of missing stream/key */
+    r = redisClusterCommand(cc, "XINFO STREAM");
+    assert(r == NULL);
+
+    r = redisClusterCommand(cc, "XINFO STREAM mystream");
+    CHECK_REPLY_TYPE(r, REDIS_REPLY_ARRAY);
+    freeReplyObject(r);
+
+    /* Test of subcommand STREAM with arguments*/
+    r = redisClusterCommand(cc, "XINFO STREAM mystream FULL COUNT 1");
+    CHECK_REPLY_TYPE(r, REDIS_REPLY_ARRAY);
+    freeReplyObject(r);
+
+    r = redisClusterCommand(cc, "XINFO GROUPS mystream");
+    CHECK_REPLY_TYPE(r, REDIS_REPLY_ARRAY);
+    freeReplyObject(r);
+
+    r = redisClusterCommand(cc, "XINFO CONSUMERS mystream consumer-group-name");
+    CHECK_REPLY_TYPE(r, REDIS_REPLY_ARRAY);
+    freeReplyObject(r);
+}
+
 int main() {
     struct timeval timeout = {0, 500000};
 
@@ -218,6 +287,9 @@ int main() {
     test_mget(cc);
     test_hset_hget_hdel_hexists(cc);
     test_eval(cc);
+
+    test_xgroup(cc);
+    test_xinfo(cc);
 
     redisClusterFree(cc);
     return 0;
