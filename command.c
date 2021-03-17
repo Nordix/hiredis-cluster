@@ -252,6 +252,23 @@ static int redis_argkvx(struct cmd *r) {
 }
 
 /*
+ * Check if command type expects a sub-command before the key
+ * Format: COMMAND SUBCOMMAND key [...]
+ */
+static int redis_argsub(struct cmd *r) {
+    switch (r->type) {
+    case CMD_REQ_REDIS_XGROUP:
+    case CMD_REQ_REDIS_XINFO:
+        return 1;
+
+    default:
+        break;
+    }
+
+    return 0;
+}
+
+/*
  * Return true, if the redis command is either EVAL or EVALSHA. These commands
  * have a special format with exactly 2 arguments, followed by one or more keys,
  * followed by zero or more arguments (the documentation online seems to suggest
@@ -322,6 +339,7 @@ static inline cmd_type_t redis_parse_cmd_verb(const char *m, int len) {
                !strncasecmp(m, "setnx", 5) ? CMD_REQ_REDIS_SETNX :
                !strncasecmp(m, "smove", 5) ? CMD_REQ_REDIS_SMOVE :
                !strncasecmp(m, "sscan", 5) ? CMD_REQ_REDIS_SSCAN :
+               !strncasecmp(m, "xinfo", 5) ? CMD_REQ_REDIS_XINFO :
                !strncasecmp(m, "zcard", 5) ? CMD_REQ_REDIS_ZCARD :
                !strncasecmp(m, "zrank", 5) ? CMD_REQ_REDIS_ZRANK :
                !strncasecmp(m, "zscan", 5) ? CMD_REQ_REDIS_ZSCAN :
@@ -345,6 +363,7 @@ static inline cmd_type_t redis_parse_cmd_verb(const char *m, int len) {
                !strncasecmp(m, "sinter", 6) ? CMD_REQ_REDIS_SINTER :
                !strncasecmp(m, "strlen", 6) ? CMD_REQ_REDIS_STRLEN :
                !strncasecmp(m, "sunion", 6) ? CMD_REQ_REDIS_SUNION :
+               !strncasecmp(m, "xgroup", 6) ? CMD_REQ_REDIS_XGROUP :
                !strncasecmp(m, "zcount", 6) ? CMD_REQ_REDIS_ZCOUNT :
                !strncasecmp(m, "zrange", 6) ? CMD_REQ_REDIS_ZRANGE :
                !strncasecmp(m, "zscore", 6) ? CMD_REQ_REDIS_ZSCORE :
@@ -593,7 +612,7 @@ void redis_parse_cmd(struct cmd *r) {
             case LF:
                 if (redis_argz(r)) {
                     goto done;
-                } else if (redis_argeval(r)) {
+                } else if (redis_argeval(r) || redis_argsub(r)) {
                     state = SW_ARG1_LEN;
                 } else {
                     state = SW_KEY_LEN;
@@ -714,7 +733,7 @@ void redis_parse_cmd(struct cmd *r) {
                         goto error;
                     }
                     state = SW_ARG1_LEN;
-                } else if (redis_argeval(r)) {
+                } else if (redis_argeval(r) || redis_argsub(r)) {
                     if (rnarg == 0) {
                         goto done;
                     }
@@ -842,6 +861,13 @@ void redis_parse_cmd(struct cmd *r) {
                         goto error;
                     }
                     state = SW_ARG2_LEN;
+                } else if (redis_argsub(r)) {
+                    // Command layout:  cmd <sub-cmd> <key> <args..>
+                    // Current position:             ^
+                    if (rnarg < 1) {
+                        goto error;
+                    }
+                    state = SW_KEY_LEN;
                 } else if (redis_argkvx(r)) {
                     if (rnarg == 0) {
                         goto done;
@@ -1122,7 +1148,7 @@ void redis_parse_cmd(struct cmd *r) {
         case SW_ARGN_LF:
             switch (ch) {
             case LF:
-                if (redis_argn(r) || redis_argeval(r)) {
+                if (redis_argn(r) || redis_argeval(r) || redis_argsub(r)) {
                     if (rnarg == 0) {
                         goto done;
                     }

@@ -95,6 +95,8 @@ typedef enum cmd_parse_result {
     ACTION(REQ_REDIS_SUNION)                                                   \
     ACTION(REQ_REDIS_SUNIONSTORE)                                              \
     ACTION(REQ_REDIS_SSCAN)                                                    \
+    ACTION(REQ_REDIS_XGROUP)                                                   \
+    ACTION(REQ_REDIS_XINFO)                                                    \
     ACTION(REQ_REDIS_ZADD) /* redis requests - sorted sets */                  \
     ACTION(REQ_REDIS_ZCARD)                                                    \
     ACTION(REQ_REDIS_ZCOUNT)                                                   \
