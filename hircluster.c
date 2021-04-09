@@ -4251,6 +4251,62 @@ error:
     return REDIS_ERR;
 }
 
+int redisClusterAsyncFormattedCommandToNode(redisClusterAsyncContext *acc,
+                                            cluster_node *node,
+                                            redisClusterCallbackFn *fn,
+                                            void *privdata, char *cmd,
+                                            int len) {
+    redisAsyncContext *ac;
+    int status;
+    cluster_async_data *cad = NULL;
+    struct cmd *command = NULL;
+
+    ac = actx_get_by_node(acc, node);
+    if (ac == NULL) {
+        /* Specific error already set */
+        return REDIS_ERR;
+    } else if (ac->err) {
+        __redisClusterAsyncSetError(acc, ac->err, ac->errstr);
+        return REDIS_ERR;
+    }
+
+    command = command_get();
+    if (command == NULL) {
+        goto oom;
+    }
+
+    command->cmd = hi_malloc(len * sizeof(*command->cmd));
+    if (command->cmd == NULL) {
+        goto oom;
+    }
+    memcpy(command->cmd, cmd, len);
+    command->clen = len;
+
+    cad = cluster_async_data_get();
+    if (cad == NULL)
+        goto oom;
+
+    cad->acc = acc;
+    cad->command = command;
+    cad->callback = fn;
+    cad->privdata = privdata;
+
+    status = redisAsyncFormattedCommand(ac, redisClusterAsyncCallback, cad, cmd,
+                                        len);
+    if (status != REDIS_OK)
+        goto error;
+
+    return REDIS_OK;
+
+oom:
+    __redisClusterAsyncSetError(acc, REDIS_ERR_OTHER, "Out of memory");
+    // passthrough
+
+error:
+    command_destroy(command);
+    return REDIS_ERR;
+}
+
 int redisClustervAsyncCommand(redisClusterAsyncContext *acc,
                               redisClusterCallbackFn *fn, void *privdata,
                               const char *format, va_list ap) {
@@ -4296,22 +4352,10 @@ int redisClusterAsyncCommandToNode(redisClusterAsyncContext *acc,
                                    cluster_node *node,
                                    redisClusterCallbackFn *fn, void *privdata,
                                    const char *format, ...) {
-    redisAsyncContext *ac;
+    int ret;
     va_list ap;
     int len;
-    int status;
-    cluster_async_data *cad = NULL;
     char *cmd = NULL;
-    struct cmd *command = NULL;
-
-    ac = actx_get_by_node(acc, node);
-    if (ac == NULL) {
-        /* Specific error already set */
-        return REDIS_ERR;
-    } else if (ac->err) {
-        __redisClusterAsyncSetError(acc, ac->err, ac->errstr);
-        return REDIS_ERR;
-    }
 
     /* Allocate cmd and encode the variadic command */
     va_start(ap, format);
@@ -4319,45 +4363,18 @@ int redisClusterAsyncCommandToNode(redisClusterAsyncContext *acc,
     va_end(ap);
 
     if (len == -1) {
-        goto oom;
+        __redisClusterAsyncSetError(acc, REDIS_ERR_OTHER, "Out of memory");
+        return REDIS_ERR;
     } else if (len == -2) {
         __redisClusterAsyncSetError(acc, REDIS_ERR_OTHER,
                                     "Invalid format string");
         return REDIS_ERR;
     }
 
-    command = command_get();
-    if (command == NULL) {
-        hi_free(cmd);
-        goto oom;
-    }
-
-    command->cmd = cmd;
-    command->clen = len;
-
-    cad = cluster_async_data_get();
-    if (cad == NULL)
-        goto oom;
-
-    cad->acc = acc;
-    cad->command = command;
-    cad->callback = fn;
-    cad->privdata = privdata;
-
-    status = redisAsyncFormattedCommand(ac, redisClusterAsyncCallback, cad, cmd,
-                                        len);
-    if (status != REDIS_OK)
-        goto error;
-
-    return REDIS_OK;
-
-oom:
-    __redisClusterAsyncSetError(acc, REDIS_ERR_OTHER, "Out of memory");
-    // passthrough
-
-error:
-    command_destroy(command);
-    return REDIS_ERR;
+    ret = redisClusterAsyncFormattedCommandToNode(acc, node, fn, privdata, cmd,
+                                                  len);
+    hi_free(cmd);
+    return ret;
 }
 
 int redisClusterAsyncCommandArgv(redisClusterAsyncContext *acc,

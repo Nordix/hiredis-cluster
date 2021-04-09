@@ -287,6 +287,10 @@ int redisClusterAsyncCommandArgv(redisClusterAsyncContext *acc,
 int redisClusterAsyncFormattedCommand(redisClusterAsyncContext *acc,
                                       redisClusterCallbackFn *fn,
                                       void *privdata, char *cmd, int len);
+int redisClusterAsyncFormattedCommandToNode(redisClusterAsyncContext *acc,
+                                            cluster_node *node,
+                                            redisClusterCallbackFn *fn,
+                                            void *privdata, char *cmd, int len);
 
 /* Internal functions */
 redisAsyncContext *actx_get_by_node(redisClusterAsyncContext *acc,
