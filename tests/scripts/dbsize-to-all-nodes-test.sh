@@ -59,7 +59,7 @@ if [ $clientexit -ne 0 ]; then
 fi
 
 # Check the output from clusterclient
-echo '11\n88' | cmp "$testname.out" - || exit 99
+printf '11\n88\n' | cmp "$testname.out" - || exit 99
 
 # Clean up
 rm "$testname.out"
