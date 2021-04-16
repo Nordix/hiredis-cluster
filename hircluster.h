@@ -2,6 +2,7 @@
  * Copyright (c) 2015-2017, Ieshen Zheng <ieshen.zheng at 163 dot com>
  * Copyright (c) 2020, Nick <heronr1 at gmail dot com>
  * Copyright (c) 2020-2021, Bjorn Svensson <bjorn.a.svensson at est dot tech>
+ * Copyright (c) 2021, Red Hat
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
