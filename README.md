@@ -315,6 +315,10 @@ int redisClusterAsyncCommandToNode(redisClusterAsyncContext *acc,
                                    cluster_node *node,
                                    redisClusterCallbackFn *fn, void *privdata,
                                    const char *format, ...);
+int redisClusterAsyncFormattedCommandToNode(redisClusterAsyncContext *acc,
+                                            cluster_node *node,
+                                            redisClusterCallbackFn *fn,
+                                            void *privdata, char *cmd, int len);
 ```
 These functions works like their blocking counterparts. The return value is `REDIS_OK` when the command
 was successfully added to the output buffer and `REDIS_ERR` otherwise. Example: when the connection
