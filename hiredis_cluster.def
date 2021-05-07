@@ -31,7 +31,7 @@
 	redisClusterSetOptionConnectBlock
 	redisClusterSetOptionConnectNonBlock
 	redisClusterSetOptionConnectTimeout
-	redisClusterSetOptionMaxRedirect
+	redisClusterSetOptionMaxRetry
 	redisClusterSetOptionParseOpenSlots
 	redisClusterSetOptionParseSlaves
 	redisClusterSetOptionRouteUseSlots

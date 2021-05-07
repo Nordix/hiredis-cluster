@@ -308,7 +308,7 @@ void test_async_to_single_node() {
     redisClusterAsyncSetConnectCallback(acc, callbackExpectOk);
     redisClusterAsyncSetDisconnectCallback(acc, callbackExpectOk);
     redisClusterSetOptionAddNodes(acc->cc, CLUSTER_NODE);
-    redisClusterSetOptionMaxRedirect(acc->cc, 1);
+    redisClusterSetOptionMaxRetry(acc->cc, 1);
     redisClusterSetOptionRouteUseSlots(acc->cc);
     status = redisClusterConnect2(acc->cc);
     ASSERT_MSG(status == REDIS_OK, acc->errstr);
@@ -344,7 +344,7 @@ void test_async_formatted_to_single_node() {
     redisClusterAsyncSetConnectCallback(acc, callbackExpectOk);
     redisClusterAsyncSetDisconnectCallback(acc, callbackExpectOk);
     redisClusterSetOptionAddNodes(acc->cc, CLUSTER_NODE);
-    redisClusterSetOptionMaxRedirect(acc->cc, 1);
+    redisClusterSetOptionMaxRetry(acc->cc, 1);
     redisClusterSetOptionRouteUseSlots(acc->cc);
     status = redisClusterConnect2(acc->cc);
     ASSERT_MSG(status == REDIS_OK, acc->errstr);
@@ -381,7 +381,7 @@ void test_async_to_all_nodes() {
     redisClusterAsyncSetConnectCallback(acc, callbackExpectOk);
     redisClusterAsyncSetDisconnectCallback(acc, callbackExpectOk);
     redisClusterSetOptionAddNodes(acc->cc, CLUSTER_NODE);
-    redisClusterSetOptionMaxRedirect(acc->cc, 1);
+    redisClusterSetOptionMaxRetry(acc->cc, 1);
     redisClusterSetOptionRouteUseSlots(acc->cc);
     status = redisClusterConnect2(acc->cc);
     ASSERT_MSG(status == REDIS_OK, acc->errstr);
@@ -421,7 +421,7 @@ int main() {
     assert(cc);
     redisClusterSetOptionAddNodes(cc, CLUSTER_NODE);
     redisClusterSetOptionRouteUseSlots(cc);
-    redisClusterSetOptionMaxRedirect(cc, 1);
+    redisClusterSetOptionMaxRetry(cc, 1);
     status = redisClusterConnect2(cc);
     ASSERT_MSG(status == REDIS_OK, cc->errstr);
 

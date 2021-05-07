@@ -48,7 +48,7 @@
 
 // Cluster errors are offset by 100 to be sufficiently out of range of
 // standard Redis errors
-#define REDIS_ERR_CLUSTER_TOO_MANY_REDIRECT 100
+#define REDIS_ERR_CLUSTER_TOO_MANY_RETRIES 100
 
 #define REDIS_ERROR_MOVED "MOVED"
 #define REDIS_ERROR_ASK "ASK"
@@ -72,7 +72,7 @@
 
 #define CLUSTER_ADDRESS_SEPARATOR ","
 
-#define CLUSTER_DEFAULT_MAX_REDIRECT_COUNT 5
+#define CLUSTER_DEFAULT_MAX_RETRY_COUNT 5
 
 typedef struct cluster_async_data {
     redisClusterAsyncContext *acc;
@@ -1544,7 +1544,7 @@ redisClusterContext *redisClusterContextInit(void) {
     cc->command_timeout = NULL;
     cc->nodes = NULL;
     cc->slots = NULL;
-    cc->max_redirect_count = CLUSTER_DEFAULT_MAX_REDIRECT_COUNT;
+    cc->max_retry_count = CLUSTER_DEFAULT_MAX_RETRY_COUNT;
     cc->retry_count = 0;
     cc->requests = NULL;
     cc->need_update_route = 0;
@@ -1981,13 +1981,13 @@ int redisClusterSetOptionTimeout(redisClusterContext *cc,
     return REDIS_OK;
 }
 
-int redisClusterSetOptionMaxRedirect(redisClusterContext *cc,
-                                     int max_redirect_count) {
-    if (cc == NULL || max_redirect_count <= 0) {
+int redisClusterSetOptionMaxRetry(redisClusterContext *cc,
+                                  int max_retry_count) {
+    if (cc == NULL || max_retry_count <= 0) {
         return REDIS_ERR;
     }
 
-    cc->max_redirect_count = max_redirect_count;
+    cc->max_retry_count = max_retry_count;
 
     return REDIS_OK;
 }
@@ -2274,7 +2274,7 @@ static int __redisClusterGetReplyFromNode(redisClusterContext *cc,
     } else if (c->err) {
         if (cc->need_update_route == 0) {
             cc->retry_count++;
-            if (cc->retry_count > cc->max_redirect_count) {
+            if (cc->retry_count > cc->max_retry_count) {
                 cc->need_update_route = 1;
                 cc->retry_count = 0;
             }
@@ -2423,9 +2423,9 @@ retry:
         }
 
         cc->retry_count++;
-        if (cc->retry_count > cc->max_redirect_count) {
-            __redisClusterSetError(cc, REDIS_ERR_CLUSTER_TOO_MANY_REDIRECT,
-                                   "too many cluster redirect");
+        if (cc->retry_count > cc->max_retry_count) {
+            __redisClusterSetError(cc, REDIS_ERR_CLUSTER_TOO_MANY_RETRIES,
+                                   "too many cluster retries");
             return NULL;
         }
 
@@ -2455,9 +2455,9 @@ ask_retry:
     error_type = cluster_reply_error_type(reply);
     if (error_type > CLUSTER_NOT_ERR && error_type < CLUSTER_ERR_SENTINEL) {
         cc->retry_count++;
-        if (cc->retry_count > cc->max_redirect_count) {
-            __redisClusterSetError(cc, REDIS_ERR_CLUSTER_TOO_MANY_REDIRECT,
-                                   "too many cluster redirect");
+        if (cc->retry_count > cc->max_retry_count) {
+            __redisClusterSetError(cc, REDIS_ERR_CLUSTER_TOO_MANY_RETRIES,
+                                   "too many cluster retries");
             freeReplyObject(reply);
             return NULL;
         }
@@ -2999,14 +2999,13 @@ done:
     return slot_num;
 }
 
-/* Deprecated function, replaced with redisClusterSetOptionMaxRedirect() */
-void redisClusterSetMaxRedirect(redisClusterContext *cc,
-                                int max_redirect_count) {
-    if (cc == NULL || max_redirect_count <= 0) {
+/* Deprecated function, replaced with redisClusterSetOptionMaxRetry() */
+void redisClusterSetMaxRedirect(redisClusterContext *cc, int max_retry_count) {
+    if (cc == NULL || max_retry_count <= 0) {
         return;
     }
 
-    cc->max_redirect_count = max_redirect_count;
+    cc->max_retry_count = max_retry_count;
 }
 
 void *redisClusterFormattedCommand(redisClusterContext *cc, char *cmd,
@@ -3994,7 +3993,7 @@ static void redisClusterAsyncRetryCallback(redisAsyncContext *ac, void *r,
         }
 
         node->failure_count++;
-        if (node->failure_count > cc->max_redirect_count) {
+        if (node->failure_count > cc->max_retry_count) {
             char *cluster_timeout_str;
             int cluster_timeout_str_len;
             int cluster_timeout;
@@ -4041,11 +4040,10 @@ static void redisClusterAsyncRetryCallback(redisAsyncContext *ac, void *r,
 
     if (error_type > CLUSTER_NOT_ERR && error_type < CLUSTER_ERR_SENTINEL) {
         cad->retry_count++;
-        if (cad->retry_count > cc->max_redirect_count) {
+        if (cad->retry_count > cc->max_retry_count) {
             cad->retry_count = 0;
-            __redisClusterAsyncSetError(acc,
-                                        REDIS_ERR_CLUSTER_TOO_MANY_REDIRECT,
-                                        "too many cluster redirect");
+            __redisClusterAsyncSetError(acc, REDIS_ERR_CLUSTER_TOO_MANY_RETRIES,
+                                        "too many cluster retries");
             goto done;
         }
 

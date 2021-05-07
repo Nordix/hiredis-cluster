@@ -116,7 +116,7 @@ typedef struct redisClusterContext {
     int flags;                                  /* Configuration flags */
     struct timeval *connect_timeout;            /* TCP connect timeout */
     struct timeval *command_timeout;            /* Receive and send timeout */
-    int max_redirect_count;                     /* Allowed retry attempts */
+    int max_retry_count;                        /* Allowed retry attempts */
     char password[CONFIG_AUTHPASS_MAX_LEN + 1]; /* Include a null terminator */
 
     struct dict *nodes;     /* Known cluster_nodes*/
@@ -190,13 +190,12 @@ int redisClusterSetOptionConnectTimeout(redisClusterContext *cc,
                                         const struct timeval tv);
 int redisClusterSetOptionTimeout(redisClusterContext *cc,
                                  const struct timeval tv);
-int redisClusterSetOptionMaxRedirect(redisClusterContext *cc,
-                                     int max_redirect_count);
+int redisClusterSetOptionMaxRetry(redisClusterContext *cc, int max_retry_count);
 #ifdef SSL_SUPPORT
 int redisClusterSetOptionEnableSSL(redisClusterContext *cc,
                                    redisSSLContext *ssl);
 #endif
-/* Deprecated function, replaced with redisClusterSetOptionMaxRedirect() */
+/* Deprecated function, replaced with redisClusterSetOptionMaxRetry() */
 void redisClusterSetMaxRedirect(redisClusterContext *cc,
                                 int max_redirect_count);
 
