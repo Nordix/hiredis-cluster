@@ -1060,13 +1060,6 @@ dict *parse_cluster_nodes(redisClusterContext *cc, char *str, int str_len,
 
             // add master node
             if (role_len >= 6 && memcmp(role, "master", 6) == 0) {
-                if (count_part < 8) {
-                    __redisClusterSetError(
-                        cc, REDIS_ERR_OTHER,
-                        "Master node parts number error: less than 8.");
-                    goto error;
-                }
-
                 master = node_get_with_nodes(cc, part, count_part,
                                              REDIS_ROLE_MASTER);
                 if (master == NULL) {
