@@ -1737,14 +1737,14 @@ int redisClusterSetOptionAddNode(redisClusterContext *cc, const char *addr) {
             __redisClusterSetError(
                 cc, REDIS_ERR_OTHER,
                 "server address is incorrect, port part missing.");
-            return REDIS_ERR;
+            goto error;
         }
 
         port = hi_atoi(p, strlen(p));
         if (port <= 0) {
             __redisClusterSetError(cc, REDIS_ERR_OTHER,
                                    "server port is incorrect");
-            return REDIS_ERR;
+            goto error;
         }
 
         node = hi_malloc(sizeof(cluster_node));
@@ -1777,6 +1777,9 @@ int redisClusterSetOptionAddNode(redisClusterContext *cc, const char *addr) {
 
 oom:
     __redisClusterSetError(cc, REDIS_ERR_OOM, "Out of memory");
+    // passthrough
+
+error:
     sdsfree(ip);
     if (node != NULL) {
         sdsfree(node->addr);
@@ -1804,8 +1807,9 @@ int redisClusterSetOptionAddNodes(redisClusterContext *cc, const char *addrs) {
 
     if (address_count <= 0) {
         __redisClusterSetError(cc, REDIS_ERR_OTHER,
-                               "servers address is error(correct is like: "
+                               "invalid server addresses (example format: "
                                "127.0.0.1:1234,127.0.0.2:5678)");
+        sdsfreesplitres(address, address_count);
         return REDIS_ERR;
     }
 
