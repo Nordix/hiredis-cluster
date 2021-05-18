@@ -2926,7 +2926,7 @@ static void *command_post_fragment(redisClusterContext *cc, struct cmd *command,
     } else if (command->type == CMD_REQ_REDIS_MSET) {
         reply->type = REDIS_REPLY_STATUS;
         uint32_t str_len = strlen(REDIS_STATUS_OK);
-        reply->str = hi_malloc((str_len + 1) * sizeof(char *));
+        reply->str = hi_malloc((str_len + 1) * sizeof(char));
         if (reply->str == NULL) {
             goto oom;
         }
