@@ -2892,7 +2892,7 @@ static void *command_post_fragment(redisClusterContext *cc, struct cmd *command,
         key_count = hiarray_n(command->keys);
 
         reply->elements = key_count;
-        reply->element = hi_calloc(key_count, sizeof(*reply));
+        reply->element = hi_calloc(key_count, sizeof(*reply->element));
         if (reply->element == NULL) {
             goto oom;
         }
