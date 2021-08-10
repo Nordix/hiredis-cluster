@@ -97,3 +97,11 @@ jobs:
       working-directory: build
       shell: bash
       run: make stop
+    - name: Build examples
+      shell: bash
+      env:
+        CC: ${{ matrix.compiler }}
+      run: |
+        examples/using_cmake_externalproject/build.sh
+        examples/using_cmake_separate/build.sh
+        examples/using_make/build.sh
