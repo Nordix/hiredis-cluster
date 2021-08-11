@@ -57,7 +57,7 @@ jobs:
 
     steps:
     - name: Prepare
-      run: sudo apt install libevent-dev ${{ matrix.compiler }}
+      run: sudo apt install libevent-dev libuv1-dev ${{ matrix.compiler }}
     - name: Setup cmake
       # Temporary disabled due to actions-setup-cmake/issues/21
       # uses: jwlawson/actions-setup-cmake@v1.6
