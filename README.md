@@ -257,9 +257,9 @@ redisClusterReset(clusterContext);
 ## Cluster asynchronous API
 
 Hiredis-cluster comes with an asynchronous cluster API that works with many event systems.
-Currently there are adapters that enables support for libevent and Redis Event Library (ae),
-but more can be added. The hiredis library has adapters for additional event systems that
-easily can be adapted for hiredis-cluster as well.
+Currently there are adapters that enables support for `libevent`, `libev`, `libuv` and
+Redis Event Library (`ae`), but more can be added. The hiredis library has adapters for
+additional event systems that easily can be adapted for hiredis-cluster as well.
 
 ### Connecting
 
@@ -346,7 +346,7 @@ callbacks have been executed. After this, the disconnection callback is executed
 ### Using event library *X*
 
 There are a few hooks that need to be set on the cluster context object after it is created.
-See the `adapters/` directory for bindings to *ae* and *libevent*.
+See the `adapters/` directory for bindings to *libevent* and a range of other event libraries.
 
 ### Allocator injection
 

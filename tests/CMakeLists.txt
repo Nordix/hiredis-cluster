@@ -39,6 +39,7 @@ add_custom_target(stop
 # Find dependencies
 find_library(LIBEVENT_LIBRARY event HINTS /usr/lib/x86_64-linux-gnu)
 find_library(LIBUV_LIBRARY uv HINTS /usr/lib/x86_64-linux-gnu)
+find_library(LIBEV_LIBRARY ev HINTS /usr/lib/x86_64-linux-gnu)
 
 if(MSVC)
   # MS Visual: Suppress warnings
@@ -106,6 +107,15 @@ if(LIBUV_LIBRARY)
   target_link_libraries(ct_async_libuv hiredis_cluster hiredis ${SSL_LIBRARY} ${LIBUV_LIBRARY})
   add_test(NAME ct_async_libuv COMMAND "$<TARGET_FILE:ct_async_libuv>")
   set_tests_properties(ct_async_libuv PROPERTIES LABELS "CT")
+endif()
+
+if(LIBEV_LIBRARY)
+  add_executable(ct_async_libev ct_async_libev.c)
+  # Temporary remove warning of unused parameter due to an issue in hiredis libev adapter
+  target_compile_options(ct_async_libev PRIVATE -Wno-unused-parameter)
+  target_link_libraries(ct_async_libev hiredis_cluster hiredis ${SSL_LIBRARY} ${LIBEV_LIBRARY})
+  add_test(NAME ct_async_libev COMMAND "$<TARGET_FILE:ct_async_libev>")
+  set_tests_properties(ct_async_libev PROPERTIES LABELS "CT")
 endif()
 
 # Tests using simulated redis node
