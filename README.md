@@ -257,9 +257,12 @@ redisClusterReset(clusterContext);
 ## Cluster asynchronous API
 
 Hiredis-cluster comes with an asynchronous cluster API that works with many event systems.
-Currently there are adapters that enables support for `libevent`, `libev`, `libuv` and
-Redis Event Library (`ae`), but more can be added. The hiredis library has adapters for
-additional event systems that easily can be adapted for hiredis-cluster as well.
+Currently there are adapters that enables support for `libevent`, `libev`, `libuv`, `glib`
+and Redis Event Library (`ae`). For usage examples, see the test programs with the different
+event libraries `tests/ct_async_{libev,libuv,glib}.c`.
+
+The hiredis library has adapters for additional event systems that easily can be adapted
+for hiredis-cluster as well.
 
 ### Connecting
 

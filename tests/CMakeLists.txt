@@ -37,6 +37,8 @@ add_custom_target(stop
 )
 
 # Find dependencies
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(GLIB_LIBRARY IMPORTED_TARGET glib-2.0)
 find_library(LIBEVENT_LIBRARY event HINTS /usr/lib/x86_64-linux-gnu)
 find_library(LIBUV_LIBRARY uv HINTS /usr/lib/x86_64-linux-gnu)
 find_library(LIBEV_LIBRARY ev HINTS /usr/lib/x86_64-linux-gnu)
@@ -116,6 +118,13 @@ if(LIBEV_LIBRARY)
   target_link_libraries(ct_async_libev hiredis_cluster hiredis ${SSL_LIBRARY} ${LIBEV_LIBRARY})
   add_test(NAME ct_async_libev COMMAND "$<TARGET_FILE:ct_async_libev>")
   set_tests_properties(ct_async_libev PROPERTIES LABELS "CT")
+endif()
+
+if(GLIB_LIBRARY_FOUND)
+  add_executable(ct_async_glib ct_async_glib.c)
+  target_link_libraries(ct_async_glib hiredis_cluster hiredis ${SSL_LIBRARY} PkgConfig::GLIB_LIBRARY)
+  add_test(NAME ct_async_glib COMMAND "$<TARGET_FILE:ct_async_glib>")
+  set_tests_properties(ct_async_glib PROPERTIES LABELS "CT")
 endif()
 
 # Tests using simulated redis node
