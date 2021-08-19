@@ -115,6 +115,7 @@ typedef struct redisClusterContext {
     struct timeval *connect_timeout; /* TCP connect timeout */
     struct timeval *command_timeout; /* Receive and send timeout */
     int max_retry_count;             /* Allowed retry attempts */
+    char *username;                  /* Authenticate using user */
     char *password;                  /* Authentication password */
 
     struct dict *nodes;     /* Known cluster_nodes*/
@@ -179,6 +180,8 @@ int redisClusterSetOptionAddNode(redisClusterContext *cc, const char *addr);
 int redisClusterSetOptionAddNodes(redisClusterContext *cc, const char *addrs);
 int redisClusterSetOptionConnectBlock(redisClusterContext *cc);
 int redisClusterSetOptionConnectNonBlock(redisClusterContext *cc);
+int redisClusterSetOptionUsername(redisClusterContext *cc,
+                                  const char *username);
 int redisClusterSetOptionPassword(redisClusterContext *cc,
                                   const char *password);
 int redisClusterSetOptionParseSlaves(redisClusterContext *cc);

@@ -469,7 +469,13 @@ static int authenticate(redisClusterContext *cc, redisContext *c) {
         return REDIS_OK;
     }
 
-    redisReply *reply = redisCommand(c, "AUTH %s", cc->password);
+    redisReply *reply;
+    if (cc->username != NULL) {
+        reply = redisCommand(c, "AUTH %s %s", cc->username, cc->password);
+    } else {
+        reply = redisCommand(c, "AUTH %s", cc->password);
+    }
+
     if (reply == NULL) {
         __redisClusterSetError(cc, REDIS_ERR_OTHER,
                                "Command AUTH reply error (NULL)");
@@ -1552,6 +1558,7 @@ redisClusterContext *redisClusterContextInit(void) {
 #ifdef SSL_SUPPORT
     cc->ssl = NULL;
 #endif
+    cc->username = NULL;
     cc->password = NULL;
 
     return cc;
@@ -1586,6 +1593,11 @@ void redisClusterFree(redisClusterContext *cc) {
 
     if (cc->requests != NULL) {
         listRelease(cc->requests);
+    }
+
+    if (cc->username != NULL) {
+        hi_free(cc->username);
+        cc->username = NULL;
     }
 
     if (cc->password != NULL) {
@@ -1849,6 +1861,34 @@ int redisClusterSetOptionConnectNonBlock(redisClusterContext *cc) {
     }
 
     cc->flags &= ~REDIS_BLOCK;
+
+    return REDIS_OK;
+}
+
+/**
+ * Configure a username used during authentication, see
+ * the Redis AUTH command.
+ * Disabled by default. Can be disabled again by providing an
+ * empty string or a null pointer.
+ */
+int redisClusterSetOptionUsername(redisClusterContext *cc,
+                                  const char *username) {
+    if (cc == NULL) {
+        return REDIS_ERR;
+    }
+
+    // Disabling option
+    if (username == NULL || username[0] == '\0') {
+        hi_free(cc->username);
+        cc->username = NULL;
+        return REDIS_OK;
+    }
+
+    hi_free(cc->username);
+    cc->username = hi_strdup(username);
+    if (cc->username == NULL) {
+        return REDIS_ERR;
+    }
 
     return REDIS_OK;
 }
@@ -3774,7 +3814,14 @@ redisAsyncContext *actx_get_by_node(redisClusterAsyncContext *acc,
 
     // Authenticate when needed
     if (acc->cc->password != NULL) {
-        ret = redisAsyncCommand(ac, NULL, NULL, "AUTH %s", acc->cc->password);
+        if (acc->cc->username != NULL) {
+            ret = redisAsyncCommand(ac, NULL, NULL, "AUTH %s %s",
+                                    acc->cc->username, acc->cc->password);
+        } else {
+            ret =
+                redisAsyncCommand(ac, NULL, NULL, "AUTH %s", acc->cc->password);
+        }
+
         if (ret != REDIS_OK) {
             __redisClusterAsyncSetError(acc, ac->c.err, ac->c.errstr);
             redisAsyncFree(ac);
