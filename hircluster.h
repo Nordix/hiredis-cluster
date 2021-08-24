@@ -54,8 +54,6 @@
 #define REDIS_ROLE_MASTER 1
 #define REDIS_ROLE_SLAVE 2
 
-#define CONFIG_AUTHPASS_MAX_LEN 512 // Defined in Redis as max characters
-
 /* Configuration flags */
 #define HIRCLUSTER_FLAG_NULL 0x0
 /* Flag to enable parsing of slave nodes. Currently not used, but the
@@ -113,11 +111,11 @@ typedef struct redisClusterContext {
     char errstr[128]; /* String representation of error when applicable */
 
     /* Configurations */
-    int flags;                                  /* Configuration flags */
-    struct timeval *connect_timeout;            /* TCP connect timeout */
-    struct timeval *command_timeout;            /* Receive and send timeout */
-    int max_retry_count;                        /* Allowed retry attempts */
-    char password[CONFIG_AUTHPASS_MAX_LEN + 1]; /* Include a null terminator */
+    int flags;                       /* Configuration flags */
+    struct timeval *connect_timeout; /* TCP connect timeout */
+    struct timeval *command_timeout; /* Receive and send timeout */
+    int max_retry_count;             /* Allowed retry attempts */
+    char *password;                  /* Authentication password */
 
     struct dict *nodes;     /* Known cluster_nodes*/
     struct hiarray *slots;  /* Sorted array of cluster_slots */

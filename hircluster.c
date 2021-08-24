@@ -465,7 +465,7 @@ static int authenticate(redisClusterContext *cc, redisContext *c) {
     }
 
     // Skip if no password configured
-    if (cc->password[0] == '\0') {
+    if (cc->password == NULL) {
         return REDIS_OK;
     }
 
@@ -1552,7 +1552,7 @@ redisClusterContext *redisClusterContextInit(void) {
 #ifdef SSL_SUPPORT
     cc->ssl = NULL;
 #endif
-    cc->password[0] = '\0';
+    cc->password = NULL;
 
     return cc;
 }
@@ -1586,6 +1586,11 @@ void redisClusterFree(redisClusterContext *cc) {
 
     if (cc->requests != NULL) {
         listRelease(cc->requests);
+    }
+
+    if (cc->password != NULL) {
+        hi_free(cc->password);
+        cc->password = NULL;
     }
 
     hi_free(cc);
@@ -1855,16 +1860,22 @@ int redisClusterSetOptionConnectNonBlock(redisClusterContext *cc) {
 int redisClusterSetOptionPassword(redisClusterContext *cc,
                                   const char *password) {
 
-    if (cc == NULL || password == NULL) {
+    if (cc == NULL) {
         return REDIS_ERR;
     }
 
-    if (strlen(password) > CONFIG_AUTHPASS_MAX_LEN) {
-        return REDIS_ERR;
+    // Disabling use of password
+    if (password == NULL || password[0] == '\0') {
+        hi_free(cc->password);
+        cc->password = NULL;
+        return REDIS_OK;
     }
 
-    strncpy(cc->password, password, sizeof(cc->password) - 1);
-    cc->password[sizeof(cc->password) - 1] = '\0';
+    hi_free(cc->password);
+    cc->password = hi_strdup(password);
+    if (cc->password == NULL) {
+        return REDIS_ERR;
+    }
 
     return REDIS_OK;
 }
@@ -3762,7 +3773,7 @@ redisAsyncContext *actx_get_by_node(redisClusterAsyncContext *acc,
 #endif
 
     // Authenticate when needed
-    if (acc->cc->password[0] != '\0') {
+    if (acc->cc->password != NULL) {
         ret = redisAsyncCommand(ac, NULL, NULL, "AUTH %s", acc->cc->password);
         if (ret != REDIS_OK) {
             __redisClusterAsyncSetError(acc, ac->c.err, ac->c.errstr);
