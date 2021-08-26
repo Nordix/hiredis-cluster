@@ -241,6 +241,7 @@ the `err` field in the context can be used to find out what the cause of this er
 void redisClusterReset(redisClusterContext *cc);
 ```
 Warning: You must call `redisClusterReset` function after one pipelining anyway.
+Warning: Calling `redisClusterReset` without pipelining first will reset all Redis connections.
 
 The following examples shows a simple cluster pipeline:
 ```c

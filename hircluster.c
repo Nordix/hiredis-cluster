@@ -3637,6 +3637,11 @@ error:
     return REDIS_ERR;
 }
 
+
+/**
+ * Resets cluster state after pipeline. 
+ * Resets Redis node connections if pipeline commands were not called beforehand.
+ */
 void redisClusterReset(redisClusterContext *cc) {
     int status;
     void *reply;
