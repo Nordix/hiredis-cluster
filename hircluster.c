@@ -277,25 +277,9 @@ static int cluster_reply_error_type(redisReply *reply) {
     return CLUSTER_NOT_ERR;
 }
 
-static int cluster_node_init(cluster_node *node) {
-    if (node == NULL) {
-        return REDIS_ERR;
-    }
-
-    node->name = NULL;
-    node->addr = NULL;
-    node->host = NULL;
-    node->port = 0;
-    node->role = REDIS_ROLE_NULL;
-    node->slaves = NULL;
-    node->con = NULL;
-    node->acon = NULL;
-    node->slots = NULL;
-    node->failure_count = 0;
-    node->migrating = NULL;
-    node->importing = NULL;
-
-    return REDIS_OK;
+static cluster_node *cluster_node_create(void) {
+    /* use calloc to guarantee all fields are zeroed */
+    return hi_calloc(1, sizeof(cluster_node));
 }
 
 static void cluster_node_deinit(cluster_node *node) {
@@ -347,23 +331,14 @@ static void cluster_node_deinit(cluster_node *node) {
     }
 }
 
-static int cluster_slot_init(cluster_slot *slot, cluster_node *node) {
-    slot->start = 0;
-    slot->end = 0;
-    slot->node = node;
-
-    return REDIS_OK;
-}
-
 static cluster_slot *cluster_slot_create(cluster_node *node) {
     cluster_slot *slot;
 
-    slot = hi_malloc(sizeof(*slot));
+    slot = hi_calloc(1, sizeof(*slot));
     if (slot == NULL) {
         return NULL;
     }
-
-    cluster_slot_init(slot, node);
+    slot->node = node;
 
     if (node != NULL) {
         ASSERT(node->role == REDIS_ROLE_MASTER);
@@ -425,15 +400,10 @@ static copen_slot *cluster_open_slot_create(uint32_t slot_num, int migrate,
                                             cluster_node *node) {
     copen_slot *oslot;
 
-    oslot = hi_malloc(sizeof(*oslot));
+    oslot = hi_calloc(1, sizeof(*oslot));
     if (oslot == NULL) {
         return NULL;
     }
-
-    oslot->slot_num = 0;
-    oslot->migrate = 0;
-    oslot->node = NULL;
-    oslot->remote_name = NULL;
 
     oslot->slot_num = slot_num;
     oslot->migrate = migrate;
@@ -529,12 +499,10 @@ static cluster_node *node_get_with_slots(redisClusterContext *cc,
         goto error;
     }
 
-    node = hi_malloc(sizeof(cluster_node));
+    node = cluster_node_create();
     if (node == NULL) {
         goto oom;
     }
-
-    cluster_node_init(node);
 
     if (role == REDIS_ROLE_MASTER) {
         node->slots = listCreate();
@@ -590,11 +558,10 @@ static cluster_node *node_get_with_nodes(redisClusterContext *cc,
         return NULL;
     }
 
-    node = hi_malloc(sizeof(cluster_node));
+    node = cluster_node_create();
     if (node == NULL) {
         goto oom;
     }
-    cluster_node_init(node);
 
     if (role == REDIS_ROLE_MASTER) {
         node->slots = listCreate();
@@ -1750,12 +1717,10 @@ int redisClusterSetOptionAddNode(redisClusterContext *cc, const char *addr) {
             goto error;
         }
 
-        node = hi_malloc(sizeof(cluster_node));
+        node = cluster_node_create();
         if (node == NULL) {
             goto oom;
         }
-
-        cluster_node_init(node);
 
         node->addr = sdsnew(addr);
         if (node->addr == NULL) {
@@ -2375,12 +2340,10 @@ static cluster_node *node_get_by_ask_error_reply(redisClusterContext *cc,
         if (ip_port_len == 2) {
             de = dictFind(cc->nodes, part[2]);
             if (de == NULL) {
-                node = hi_malloc(sizeof(cluster_node));
+                node = cluster_node_create();
                 if (node == NULL) {
                     goto oom;
                 }
-
-                cluster_node_init(node);
                 node->addr = part[1];
                 node->host = ip_port[0];
                 node->port = hi_atoi(ip_port[1], sdslen(ip_port[1]));
@@ -3687,7 +3650,7 @@ redisClusterAsyncInitialize(redisClusterContext *cc) {
         return NULL;
     }
 
-    acc = hi_malloc(sizeof(redisClusterAsyncContext));
+    acc = hi_calloc(1, sizeof(redisClusterAsyncContext));
     if (acc == NULL)
         return NULL;
 
@@ -3699,30 +3662,12 @@ redisClusterAsyncInitialize(redisClusterContext *cc) {
     acc->err = cc->err;
     memcpy(acc->errstr, cc->errstr, 128);
 
-    acc->adapter = NULL;
-    acc->attach_fn = NULL;
-
-    acc->onConnect = NULL;
-    acc->onDisconnect = NULL;
-
     return acc;
 }
 
-static cluster_async_data *cluster_async_data_get(void) {
-    cluster_async_data *cad;
-
-    cad = hi_malloc(sizeof(cluster_async_data));
-    if (cad == NULL) {
-        return NULL;
-    }
-
-    cad->acc = NULL;
-    cad->command = NULL;
-    cad->callback = NULL;
-    cad->privdata = NULL;
-    cad->retry_count = 0;
-
-    return cad;
+static cluster_async_data *cluster_async_data_create(void) {
+    /* use calloc to guarantee all fields are zeroed */
+    return hi_calloc(1, sizeof(cluster_async_data));
 }
 
 static void cluster_async_data_free(cluster_async_data *cad) {
@@ -4201,7 +4146,7 @@ int redisClusterAsyncFormattedCommand(redisClusterAsyncContext *acc,
         goto oom;
     }
 
-    command->cmd = hi_malloc(len * sizeof(*command->cmd));
+    command->cmd = hi_calloc(len, sizeof(*command->cmd));
     if (command->cmd == NULL) {
         goto oom;
     }
@@ -4252,7 +4197,7 @@ int redisClusterAsyncFormattedCommand(redisClusterAsyncContext *acc,
         goto error;
     }
 
-    cad = cluster_async_data_get();
+    cad = cluster_async_data_create();
     if (cad == NULL) {
         goto oom;
     }
@@ -4310,14 +4255,14 @@ int redisClusterAsyncFormattedCommandToNode(redisClusterAsyncContext *acc,
         goto oom;
     }
 
-    command->cmd = hi_malloc(len * sizeof(*command->cmd));
+    command->cmd = hi_calloc(len, sizeof(*command->cmd));
     if (command->cmd == NULL) {
         goto oom;
     }
     memcpy(command->cmd, cmd, len);
     command->clen = len;
 
-    cad = cluster_async_data_get();
+    cad = cluster_async_data_create();
     if (cad == NULL)
         goto oom;
 
