@@ -1512,7 +1512,7 @@ int cluster_update_route(redisClusterContext *cc) {
 
     while ((de = dictNext(&di)) != NULL) {
         node = dictGetEntryVal(de);
-        if (node == NULL || node->host == NULL || node->port < 0) {
+        if (node == NULL || node->host == NULL) {
             continue;
         }
 

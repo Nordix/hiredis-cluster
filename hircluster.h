@@ -81,13 +81,14 @@ typedef struct cluster_node {
     sds name;
     sds addr;
     sds host;
-    int port;
+    uint16_t port;
     uint8_t role;
+    uint8_t pad;
+    int failure_count; /* consecutive failing attempts in async */
     redisContext *con;
     redisAsyncContext *acon;
     struct hilist *slots;
     struct hilist *slaves;
-    int failure_count;         /* consecutive failing attempts in async */
     struct hiarray *migrating; /* copen_slot[] */
     struct hiarray *importing; /* copen_slot[] */
 } cluster_node;
