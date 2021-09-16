@@ -2578,13 +2578,12 @@ static int command_pre_fragment(redisClusterContext *cc, struct cmd *command,
 
     key_count = hiarray_n(command->keys);
 
-    sub_commands = hi_malloc(REDIS_CLUSTER_SLOTS * sizeof(*sub_commands));
+    sub_commands = hi_calloc(REDIS_CLUSTER_SLOTS, sizeof(*sub_commands));
     if (sub_commands == NULL) {
         goto oom;
     }
-    memset(sub_commands, 0, REDIS_CLUSTER_SLOTS * sizeof(*sub_commands));
 
-    command->frag_seq = hi_malloc(key_count * sizeof(*command->frag_seq));
+    command->frag_seq = hi_calloc(key_count, sizeof(*command->frag_seq));
     if (command->frag_seq == NULL) {
         goto oom;
     }
@@ -2671,12 +2670,10 @@ static int command_pre_fragment(redisClusterContext *cc, struct cmd *command,
             sub_command->clen += 13 + num_str_len;
 
             sub_command->cmd =
-                hi_malloc(sub_command->clen * sizeof(*sub_command->cmd));
+                hi_calloc(sub_command->clen, sizeof(*sub_command->cmd));
             if (sub_command->cmd == NULL) {
                 goto oom;
             }
-            memset(sub_command->cmd, 0,
-                   sub_command->clen * sizeof(*sub_command->cmd));
 
             sub_command->cmd[idx++] = '*';
             memcpy(sub_command->cmd + idx, num_str, num_str_len);
@@ -2713,12 +2710,10 @@ static int command_pre_fragment(redisClusterContext *cc, struct cmd *command,
             sub_command->clen += 12 + num_str_len;
 
             sub_command->cmd =
-                hi_malloc(sub_command->clen * sizeof(*sub_command->cmd));
+                hi_calloc(sub_command->clen, sizeof(*sub_command->cmd));
             if (sub_command->cmd == NULL) {
                 goto oom;
             }
-            memset(sub_command->cmd, 0,
-                   sub_command->clen * sizeof(*sub_command->cmd));
 
             sub_command->cmd[idx++] = '*';
             memcpy(sub_command->cmd + idx, num_str, num_str_len);
@@ -2755,12 +2750,10 @@ static int command_pre_fragment(redisClusterContext *cc, struct cmd *command,
             sub_command->clen += 15 + num_str_len;
 
             sub_command->cmd =
-                hi_malloc(sub_command->clen * sizeof(*sub_command->cmd));
+                hi_calloc(sub_command->clen, sizeof(*sub_command->cmd));
             if (sub_command->cmd == NULL) {
                 goto oom;
             }
-            memset(sub_command->cmd, 0,
-                   sub_command->clen * sizeof(*sub_command->cmd));
 
             sub_command->cmd[idx++] = '*';
             memcpy(sub_command->cmd + idx, num_str, num_str_len);
@@ -2799,12 +2792,10 @@ static int command_pre_fragment(redisClusterContext *cc, struct cmd *command,
             sub_command->clen += 13 + num_str_len;
 
             sub_command->cmd =
-                hi_malloc(sub_command->clen * sizeof(*sub_command->cmd));
+                hi_calloc(sub_command->clen, sizeof(*sub_command->cmd));
             if (sub_command->cmd == NULL) {
                 goto oom;
             }
-            memset(sub_command->cmd, 0,
-                   sub_command->clen * sizeof(*sub_command->cmd));
 
             sub_command->cmd[idx++] = '*';
             memcpy(sub_command->cmd + idx, num_str, num_str_len);
