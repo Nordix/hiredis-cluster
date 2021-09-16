@@ -1281,7 +1281,7 @@ static int cluster_update_route_by_addr(redisClusterContext *cc, const char *ip,
     cluster_slot *slot, **slot_elem;
     dictEntry *den;
     listNode *lnode;
-    cluster_node *table[REDIS_CLUSTER_SLOTS];
+    cluster_node **table = NULL;
     uint32_t j, k;
 
     if (cc == NULL) {
@@ -1382,7 +1382,10 @@ static int cluster_update_route_by_addr(redisClusterContext *cc, const char *ip,
         goto error;
     }
 
-    memset(table, 0, REDIS_CLUSTER_SLOTS * sizeof(cluster_node *));
+    table = hi_calloc(REDIS_CLUSTER_SLOTS, sizeof(cluster_node *));
+    if (table == NULL) {
+        goto oom;
+    }
 
     slots = hiarray_create(dictSize(nodes), sizeof(cluster_slot *));
     if (slots == NULL) {
@@ -1452,8 +1455,8 @@ static int cluster_update_route_by_addr(redisClusterContext *cc, const char *ip,
         cc->slots = NULL;
     }
     cc->slots = slots;
+    cc->table = table;
 
-    memcpy(cc->table, table, REDIS_CLUSTER_SLOTS * sizeof(cluster_node *));
     cc->route_version++;
 
     freeReplyObject(reply);
@@ -1467,6 +1470,9 @@ oom:
     // passthrough
 
 error:
+    if (table != NULL) {
+	hi_free(table);
+    }
     if (slots != NULL) {
         if (slots == cc->slots) {
             cc->slots = NULL;
@@ -1536,31 +1542,8 @@ redisClusterContext *redisClusterContextInit(void) {
     if (cc == NULL)
         return NULL;
 
-    cc->err = 0;
-    cc->errstr[0] = '\0';
-    cc->flags = 0;
-    cc->connect_timeout = NULL;
-    cc->command_timeout = NULL;
-    cc->nodes = NULL;
-    cc->slots = NULL;
     cc->max_retry_count = CLUSTER_DEFAULT_MAX_RETRY_COUNT;
-    cc->retry_count = 0;
-    cc->requests = NULL;
-    cc->need_update_route = 0;
-    cc->update_route_time = 0LL;
-
-    cc->route_version = 0LL;
-
-    memset(cc->table, 0, REDIS_CLUSTER_SLOTS * sizeof(cluster_node *));
-
     cc->flags |= REDIS_BLOCK;
-
-#ifdef SSL_SUPPORT
-    cc->ssl = NULL;
-#endif
-    cc->username = NULL;
-    cc->password = NULL;
-
     return cc;
 }
 
@@ -1579,7 +1562,10 @@ void redisClusterFree(redisClusterContext *cc) {
         cc->command_timeout = NULL;
     }
 
-    memset(cc->table, 0, REDIS_CLUSTER_SLOTS * sizeof(cluster_node *));
+    if (cc->table != NULL) {
+        hi_free(cc->table);
+        cc->table = NULL;
+    }
 
     if (cc->slots != NULL) {
         cc->slots->nelem = 0;

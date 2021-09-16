@@ -121,7 +121,7 @@ typedef struct redisClusterContext {
     struct dict *nodes;     /* Known cluster_nodes*/
     struct hiarray *slots;  /* Sorted array of cluster_slots */
     uint64_t route_version; /* Increased when the node lookup table changes */
-    cluster_node *table[REDIS_CLUSTER_SLOTS]; /* cluster_node lookup table */
+    cluster_node **table;   /* cluster_node lookup table */
 
     struct hilist *requests; /* Outstanding commands (Pipelining) */
 
