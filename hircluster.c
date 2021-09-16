@@ -1400,7 +1400,7 @@ static int cluster_update_route_by_addr(redisClusterContext *cc, const char *ip,
         for (k = (*slot_elem)->start; k <= (*slot_elem)->end; k++) {
             if (table[k] != NULL) {
                 __redisClusterSetError(cc, REDIS_ERR_OTHER,
-                                       "Diffent node hold a same slot");
+                                       "Different node holds same slot");
                 goto error;
             }
 
@@ -1412,16 +1412,18 @@ static int cluster_update_route_by_addr(redisClusterContext *cc, const char *ip,
     cluster_nodes_swap_ctx(cc->nodes, nodes);
     if (cc->nodes != NULL) {
         dictRelease(cc->nodes);
-        cc->nodes = NULL;
     }
     cc->nodes = nodes;
 
     if (cc->slots != NULL) {
         cc->slots->nelem = 0;
         hiarray_destroy(cc->slots);
-        cc->slots = NULL;
     }
     cc->slots = slots;
+
+    if (cc->table != NULL) {
+        hi_free(cc->table);
+    }
     cc->table = table;
 
     cc->route_version++;
@@ -1438,7 +1440,7 @@ oom:
 
 error:
     if (table != NULL) {
-	hi_free(table);
+        hi_free(table);
     }
     if (slots != NULL) {
         if (slots == cc->slots) {
@@ -2089,7 +2091,7 @@ redisContext *ctx_get_by_node(redisClusterContext *cc, cluster_node *node) {
 
 static cluster_node *node_get_by_table(redisClusterContext *cc,
                                        uint32_t slot_num) {
-    if (cc == NULL) {
+    if (cc == NULL || cc->table == NULL) {
         return NULL;
     }
 
