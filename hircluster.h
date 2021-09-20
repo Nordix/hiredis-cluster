@@ -81,13 +81,14 @@ typedef struct cluster_node {
     sds name;
     sds addr;
     sds host;
-    int port;
+    uint16_t port;
     uint8_t role;
+    uint8_t pad;
+    int failure_count; /* consecutive failing attempts in async */
     redisContext *con;
     redisAsyncContext *acon;
     struct hilist *slots;
     struct hilist *slaves;
-    int failure_count;         /* consecutive failing attempts in async */
     struct hiarray *migrating; /* copen_slot[] */
     struct hiarray *importing; /* copen_slot[] */
 } cluster_node;
@@ -121,7 +122,7 @@ typedef struct redisClusterContext {
     struct dict *nodes;     /* Known cluster_nodes*/
     struct hiarray *slots;  /* Sorted array of cluster_slots */
     uint64_t route_version; /* Increased when the node lookup table changes */
-    cluster_node *table[REDIS_CLUSTER_SLOTS]; /* cluster_node lookup table */
+    cluster_node **table;   /* cluster_node lookup table */
 
     struct hilist *requests; /* Outstanding commands (Pipelining) */
 
