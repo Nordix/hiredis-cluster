@@ -4,8 +4,8 @@
 * Added support for authentication using AUTH with username.
 * Added adapters for event libraries libuv, libev and GLib.
 * Improved memory efficiency.
-* Renamed API function `redisClusterSetOptionMaxRedirect(..)`
-  to `redisClusterSetOptionMaxRetry(..)`.
+* Renamed API function `redisClusterSetOptionMaxRedirect()`
+  to `redisClusterSetOptionMaxRetry()`.
 
 ### 0.6.0 - Feb 09, 2021
 
