@@ -4238,6 +4238,7 @@ int redisClusterAsyncFormattedCommandToNode(redisClusterAsyncContext *acc,
                                             redisClusterCallbackFn *fn,
                                             void *privdata, char *cmd,
                                             int len) {
+    redisClusterContext *cc;
     redisAsyncContext *ac;
     int status;
     cluster_async_data *cad = NULL;
@@ -4250,6 +4251,18 @@ int redisClusterAsyncFormattedCommandToNode(redisClusterAsyncContext *acc,
     } else if (ac->err) {
         __redisClusterAsyncSetError(acc, ac->err, ac->errstr);
         return REDIS_ERR;
+    }
+
+    cc = acc->cc;
+
+    if (cc->err) {
+        cc->err = 0;
+        memset(cc->errstr, '\0', strlen(cc->errstr));
+    }
+
+    if (acc->err) {
+        acc->err = 0;
+        memset(acc->errstr, '\0', strlen(acc->errstr));
     }
 
     command = command_get();
