@@ -30,7 +30,7 @@ void connectToRedis(redisClusterAsyncContext *acc) {
     if (status == REDIS_OK) {
         // cluster mode
     } else if (acc->cc->err && strcmp(acc->cc->errstr, REDIS_ENOCLUSTER) == 0) {
-        //printf("[no cluster]\n");
+        printf("[no cluster]\n");
         acc->cc->err = 0;
         memset(acc->cc->errstr, '\0', strlen(acc->cc->errstr));
     } else {

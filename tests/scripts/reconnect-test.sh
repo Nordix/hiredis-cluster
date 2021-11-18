@@ -58,7 +58,7 @@ if [ $clientexit -ne 0 ]; then
 fi
 
 # Check the output from clusterclient
-printf 'OK\nbar\n[reconnect]\nbar\n' | cmp "$testname.out" - || exit 99
+printf '[no cluster]\nOK\nbar\n[reconnect]\n[no cluster]\nbar\n' | cmp "$testname.out" - || exit 99
 
 # Clean up
 rm "$testname.out"
