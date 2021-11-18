@@ -143,6 +143,8 @@ add_executable(clusterclient_all_nodes clusterclient_all_nodes.c)
 target_link_libraries(clusterclient_all_nodes hiredis_cluster hiredis ${SSL_LIBRARY})
 add_executable(clusterclient_async clusterclient_async.c)
 target_link_libraries(clusterclient_async hiredis_cluster hiredis ${SSL_LIBRARY} ${LIBEVENT_LIBRARY})
+add_executable(clusterclient_reconnect_async clusterclient_reconnect_async.c)
+target_link_libraries(clusterclient_reconnect_async hiredis_cluster hiredis ${SSL_LIBRARY} ${LIBEVENT_LIBRARY})
 add_test(NAME set-get-test
          COMMAND "${CMAKE_SOURCE_DIR}/tests/scripts/set-get-test.sh"
                  "$<TARGET_FILE:clusterclient>"
@@ -173,3 +175,7 @@ add_test(NAME dbsize-to-all-nodes-test
          COMMAND "${CMAKE_SOURCE_DIR}/tests/scripts/dbsize-to-all-nodes-test.sh"
                  "$<TARGET_FILE:clusterclient_all_nodes>"
                  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/tests/scripts/")
+add_test(NAME reconnect-test
+         COMMAND "${CMAKE_SOURCE_DIR}/tests/scripts/reconnect-test.sh"
+                "$<TARGET_FILE:clusterclient_reconnect_async>"
+                WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/tests/scripts/")
