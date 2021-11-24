@@ -43,10 +43,15 @@ void replyCallback(redisClusterAsyncContext *acc, void *r, void *privdata) {
     UNUSED(privdata);
     redisReply *reply = (redisReply *)r;
 
-    if (reply == NULL &&
-        (acc->err == REDIS_ERR_IO || acc->err == REDIS_ERR_EOF)) {
-        printf("[reconnect]\n");
-        connectToRedis(acc);
+    if (reply == NULL) {
+        if (acc->err == REDIS_ERR_IO || acc->err == REDIS_ERR_EOF) {
+            printf("[reconnect]\n");
+            connectToRedis(acc);
+        } else if (acc->err) {
+            printf("error: %s\n", acc->errstr);
+        } else {
+            printf("unknown error\n");
+        }
     } else {
         printf("%s\n", reply->str);
     }
@@ -74,6 +79,7 @@ void sendNextCommand(int fd, short kind, void *arg) {
         cluster_node *node = dictGetEntryVal(de);
         assert(node);
 
+        // coverity[tainted_scalar]
         int status = redisClusterAsyncCommandToNode(acc, node, replyCallback,
                                                     NULL, command);
         ASSERT_MSG(status == REDIS_OK, acc->errstr);
