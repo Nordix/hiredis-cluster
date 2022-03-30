@@ -31,7 +31,11 @@
 #include <ctype.h>
 #include <errno.h>
 #include <hiredis/alloc.h>
+#ifndef _WIN32
 #include <strings.h>
+#endif
+
+#include "win32.h"
 
 #include "command.h"
 #include "hiarray.h"

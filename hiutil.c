@@ -35,12 +35,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/socket.h>
 #include <sys/types.h>
 
 #ifndef WIN32
 #include <netinet/in.h>
 #include <netinet/tcp.h>
+#include <sys/socket.h>
 #include <sys/time.h>
 #endif
 
@@ -48,8 +48,9 @@
 #include <execinfo.h>
 #endif
 
-#include "hiutil.h"
 #include "win32.h"
+
+#include "hiutil.h"
 
 #ifndef WIN32
 int hi_set_blocking(int sd) {
@@ -308,7 +309,7 @@ void hi_assert(const char *cond, const char *file, int line, int panic) {
     abort();
 }
 
-int _vscnprintf(char *buf, size_t size, const char *fmt, va_list args) {
+static int _vscnprintf(char *buf, size_t size, const char *fmt, va_list args) {
     int n;
 
     n = vsnprintf(buf, size, fmt, args);

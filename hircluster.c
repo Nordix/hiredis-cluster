@@ -38,13 +38,14 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "win32.h"
+
 #include "adlist.h"
 #include "command.h"
 #include "dict.h"
 #include "hiarray.h"
 #include "hircluster.h"
 #include "hiutil.h"
-#include "win32.h"
 
 // Cluster errors are offset by 100 to be sufficiently out of range of
 // standard Redis errors

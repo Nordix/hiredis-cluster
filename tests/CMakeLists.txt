@@ -44,10 +44,16 @@ find_library(LIBUV_LIBRARY uv HINTS /usr/lib/x86_64-linux-gnu)
 find_library(LIBEV_LIBRARY ev HINTS /usr/lib/x86_64-linux-gnu)
 
 if(MSVC)
-  # MS Visual: Suppress warnings
-  add_compile_options("/wd 4267" "/wd 4244")
+  find_path(LIBEVENT_INCLUDES event2/event.h)
+  find_library(LIBEVENT_LIBRARY Libevent)
+  include_directories(${LIBEVENT_INCLUDES})
 else()
   add_compile_options(-Wall -Wextra -pedantic -Werror)
+endif()
+
+if(APPLE)
+  # Set include path manually due to issue in CMake on macOS
+  include_directories(/usr/local/include)
 endif()
 
 # Debug mode for tests

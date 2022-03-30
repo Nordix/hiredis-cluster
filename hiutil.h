@@ -33,13 +33,8 @@
 #ifndef __HIUTIL_H_
 #define __HIUTIL_H_
 
-#include <stdarg.h>
 #include <stdint.h>
 #include <sys/types.h>
-#if defined(_MSC_VER)
-#include <BaseTsd.h>
-typedef SSIZE_T ssize_t;
-#endif
 
 #define HI_OK 0
 #define HI_ERROR -1
@@ -193,7 +188,6 @@ void hi_stacktrace(int skip_count);
 void hi_stacktrace_fd(int fd);
 
 int _scnprintf(char *buf, size_t size, const char *fmt, ...);
-int _vscnprintf(char *buf, size_t size, const char *fmt, va_list args);
 int64_t hi_usec_now(void);
 int64_t hi_msec_now(void);
 
