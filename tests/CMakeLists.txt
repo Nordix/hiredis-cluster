@@ -39,21 +39,16 @@ add_custom_target(stop
 # Find dependencies
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(GLIB_LIBRARY IMPORTED_TARGET glib-2.0)
-find_library(LIBEVENT_LIBRARY event HINTS /usr/lib/x86_64-linux-gnu)
 find_library(LIBUV_LIBRARY uv HINTS /usr/lib/x86_64-linux-gnu)
 find_library(LIBEV_LIBRARY ev HINTS /usr/lib/x86_64-linux-gnu)
+find_library(LIBEVENT_LIBRARY event HINTS /usr/lib/x86_64-linux-gnu)
+find_path(LIBEVENT_INCLUDES event2/event.h)
+include_directories(${LIBEVENT_INCLUDES})
 
 if(MSVC)
-  find_path(LIBEVENT_INCLUDES event2/event.h)
   find_library(LIBEVENT_LIBRARY Libevent)
-  include_directories(${LIBEVENT_INCLUDES})
 else()
   add_compile_options(-Wall -Wextra -pedantic -Werror)
-endif()
-
-if(APPLE)
-  # Set include path manually due to issue in CMake on macOS
-  include_directories(/usr/local/include)
 endif()
 
 # Debug mode for tests
