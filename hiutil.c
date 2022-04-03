@@ -48,9 +48,8 @@
 #include <execinfo.h>
 #endif
 
-#include "win32.h"
-
 #include "hiutil.h"
+#include "win32.h"
 
 #ifndef WIN32
 int hi_set_blocking(int sd) {
@@ -439,25 +438,3 @@ int64_t hi_usec_now(void) {
  * Return the current time in milliseconds since Epoch
  */
 int64_t hi_msec_now(void) { return hi_usec_now() / 1000LL; }
-
-void print_string_with_length(char *s, size_t len) {
-    char *token;
-    for (token = s; token <= s + len; token++) {
-        printf("%c", *token);
-    }
-    printf("\n");
-}
-
-void print_string_with_length_fix_CRLF(char *s, size_t len) {
-    char *token;
-    for (token = s; token < s + len; token++) {
-        if (*token == CR) {
-            printf("\\r");
-        } else if (*token == LF) {
-            printf("\\n");
-        } else {
-            printf("%c", *token);
-        }
-    }
-    printf("\n");
-}

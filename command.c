@@ -35,11 +35,13 @@
 #include <strings.h>
 #endif
 
-#include "win32.h"
-
 #include "command.h"
 #include "hiarray.h"
 #include "hiutil.h"
+#include "win32.h"
+
+#define LF (uint8_t)10
+#define CR (uint8_t)13
 
 static uint64_t cmd_id = 0; /* command id counter */
 
