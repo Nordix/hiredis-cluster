@@ -60,10 +60,7 @@ add_library(hiredis_cluster
   SHARED
   ${hiredis_cluster_sources})
 
-if(MSVC)
-  # MS Visual: Suppress warnings
-  target_compile_options(hiredis_cluster PRIVATE "/wd 4267" "/wd 4244")
-else()
+if(NOT MSVC)
   target_compile_options(hiredis_cluster PRIVATE -Wall -Wextra -pedantic -Werror)
 
   # Add extra defines when CMAKE_BUILD_TYPE is set to Debug
@@ -129,7 +126,15 @@ target_include_directories(hiredis_cluster PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>)
 
 if(WIN32 OR MINGW)
-    TARGET_LINK_LIBRARIES(hiredis_cluster PRIVATE ws2_32 hiredis::hiredis)
+  target_link_libraries(hiredis_cluster ws2_32 hiredis)
+endif()
+
+if(APPLE)
+  if(ENABLE_SSL)
+    target_link_libraries(hiredis_cluster hiredis hiredis_ssl)
+  else()
+    target_link_libraries(hiredis_cluster hiredis)
+  endif()
 endif()
 
 if(NOT DISABLE_TESTS)

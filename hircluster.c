@@ -74,6 +74,9 @@
 
 #define CLUSTER_DEFAULT_MAX_RETRY_COUNT 5
 
+#define CRLF "\x0d\x0a"
+#define CRLF_LEN (sizeof("\x0d\x0a") - 1)
+
 typedef struct cluster_async_data {
     redisClusterAsyncContext *acc;
     struct cmd *command;

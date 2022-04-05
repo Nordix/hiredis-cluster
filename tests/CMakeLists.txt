@@ -39,13 +39,14 @@ add_custom_target(stop
 # Find dependencies
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(GLIB_LIBRARY IMPORTED_TARGET glib-2.0)
-find_library(LIBEVENT_LIBRARY event HINTS /usr/lib/x86_64-linux-gnu)
 find_library(LIBUV_LIBRARY uv HINTS /usr/lib/x86_64-linux-gnu)
 find_library(LIBEV_LIBRARY ev HINTS /usr/lib/x86_64-linux-gnu)
+find_library(LIBEVENT_LIBRARY event HINTS /usr/lib/x86_64-linux-gnu)
+find_path(LIBEVENT_INCLUDES event2/event.h)
+include_directories(${LIBEVENT_INCLUDES})
 
 if(MSVC)
-  # MS Visual: Suppress warnings
-  add_compile_options("/wd 4267" "/wd 4244")
+  find_library(LIBEVENT_LIBRARY Libevent)
 else()
   add_compile_options(-Wall -Wextra -pedantic -Werror)
 endif()
