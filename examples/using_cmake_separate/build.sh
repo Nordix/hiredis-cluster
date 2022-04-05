@@ -8,9 +8,9 @@ set -e
 script_dir=$(realpath "${0%/*}")
 repo_dir=$(git rev-parse --show-toplevel)
 
-# Download hiredis
-hiredis_version=1.0.0
-curl -L https://github.com/redis/hiredis/archive/v${hiredis_version}.tar.gz | tar -xz -C ${script_dir}
+# Download hiredis, later than v1.0.2 needed for build corrections
+hiredis_version=f8de9a4bd433791890572f7b9147e685653ddef9
+curl -L https://github.com/redis/hiredis/archive/${hiredis_version}.tar.gz | tar -xz -C ${script_dir}
 
 # Build and install downloaded hiredis using CMake
 mkdir -p ${script_dir}/hiredis_build
