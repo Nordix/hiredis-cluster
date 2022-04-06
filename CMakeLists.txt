@@ -138,7 +138,7 @@ if(ENABLE_SSL)
   endif()
 
   add_library(hiredis_cluster_ssl
-    SHARED ssl.c)
+    SHARED hircluster_ssl.c)
   set_target_properties(hiredis_cluster_ssl
     PROPERTIES VERSION "${HIREDIS_CLUSTER_SONAME}")
   target_link_libraries(hiredis_cluster_ssl

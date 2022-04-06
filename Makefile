@@ -42,7 +42,7 @@ DYLIB_MAKE_CMD=$(CC) -shared -Wl,-soname,$(DYLIB_MINOR_NAME)
 STLIBNAME=$(LIBNAME).$(STLIBSUFFIX)
 STLIB_MAKE_CMD=$(AR) rcs
 
-SSL_OBJ=ssl.o
+SSL_OBJ=hircluster_ssl.o
 SSL_LIBNAME=libhiredis_cluster_ssl
 SSL_PKGCONFNAME=hiredis_cluster_ssl.pc
 SSL_INSTALLNAME=install-ssl
@@ -81,7 +81,7 @@ hiarray.o: hiarray.c hiarray.h hiutil.h
 hircluster.o: hircluster.c adlist.h command.h dict.h hiarray.h \
  hircluster.h hiutil.h win32.h
 hiutil.o: hiutil.c hiutil.h win32.h
-ssl.o: ssl.c hircluster_ssl.h hircluster.h dict.h
+hircluster_ssl.o: hircluster_ssl.c hircluster_ssl.h hircluster.h dict.h
 
 $(DYLIBNAME): $(OBJ)
 	$(DYLIB_MAKE_CMD) -o $(DYLIBNAME) $(OBJ) $(REAL_LDFLAGS)
@@ -95,7 +95,7 @@ $(SSL_DYLIBNAME): $(SSL_OBJ)
 $(SSL_STLIBNAME): $(SSL_OBJ)
 	$(STLIB_MAKE_CMD) $(SSL_STLIBNAME) $(SSL_OBJ)
 
-$(SSL_OBJ): ssl.c
+$(SSL_OBJ): hircluster_ssl.c
 
 dynamic: $(DYLIBNAME) $(SSL_DYLIB)
 static: $(STLIBNAME) $(SSL_STLIB)
