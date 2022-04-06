@@ -78,7 +78,7 @@ if(DOWNLOAD_HIREDIS)
   include(FetchContent)
   FetchContent_Declare(hiredis
     GIT_REPOSITORY https://github.com/redis/hiredis
-    GIT_TAG        f8de9a4bd433791890572f7b9147e685653ddef9
+    GIT_TAG        v1.0.0
     SOURCE_DIR     "${CMAKE_CURRENT_BINARY_DIR}/_deps/hiredis"
   )
 
@@ -105,7 +105,6 @@ if(DOWNLOAD_HIREDIS)
   if(ENABLE_SSL)
     file(WRITE "${stub_dir}/hiredis_ssl-config.cmake" "")
     set(hiredis_ssl_DIR ${stub_dir})
-    add_library(hiredis::hiredis_ssl ALIAS hiredis_ssl)
   endif()
 
 else()
@@ -114,9 +113,15 @@ endif()
 
 find_package(hiredis REQUIRED)
 
+if(NOT TARGET hiredis::hiredis)
+  # Add target to support older hiredis releases
+  add_library(hiredis::hiredis ALIAS hiredis)
+endif()
+
 target_include_directories(hiredis_cluster PUBLIC
   $<BUILD_INTERFACE:${hiredis_INCLUDE_DIRS}>
-  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>)
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+  $<INSTALL_INTERFACE:include>)
 
 if(WIN32 OR MINGW)
   target_link_libraries(hiredis_cluster PUBLIC ws2_32 hiredis::hiredis)
@@ -126,6 +131,11 @@ endif()
 
 if(ENABLE_SSL)
   find_package(hiredis_ssl REQUIRED)
+
+  if(NOT TARGET hiredis::hiredis_ssl)
+    # Add target to support older hiredis releases
+    add_library(hiredis::hiredis_ssl ALIAS hiredis_ssl)
+  endif()
 
   add_library(hiredis_cluster_ssl
     SHARED ssl.c)
