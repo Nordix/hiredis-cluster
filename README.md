@@ -27,6 +27,9 @@ Hiredis-cluster is a fork of Hiredis-vip, with the following improvements:
 * Multi-key commands
     * Support `MSET`, `MGET` and `DEL`.
     * Multi-key commands will be processed and sent to slot owning nodes.
+      (This breaks the atomicity of the commands if the keys reside on different
+      nodes so if atomicity is important, use these only with keys in the same
+      cluster slot.)
 
 * Pipelining
     * Send multiple commands at once to speed up queries.
@@ -47,7 +50,9 @@ Hiredis-cluster is a fork of Hiredis-vip, with the following improvements:
 Prerequisites:
 
 * A C compiler (GCC or Clang)
-* CMake and GNU Make
+* CMake and GNU Make (but see [Alternative build using Makefile
+  directly](#alternative-build-using-makefile-directly) below for how to build
+  without CMake)
 * [hiredis](https://github.com/redis/hiredis); downloaded automatically by
   default, but see build options below
 * [libevent](https://libevent.org/) (`libevent-dev` in Debian); can be avoided
@@ -119,7 +124,8 @@ a static library, a similar limitation exists in the CMake files in hiredis v1.0
 
 The only option that exists in the Makefile is to enable SSL/TLS support via `USE_SSL=1`
 
-See `examples/using_make/build.sh` for an example build.
+See [`examples/using_make/build.sh`](examples/using_make/build.sh) for an
+example build.
 
 ### Running the tests
 
