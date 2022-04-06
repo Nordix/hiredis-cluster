@@ -59,9 +59,14 @@ Prerequisites:
   if building without tests (DISABLE_TESTS=ON)
 * OpenSSL (`libssl-dev` in Debian) if building with TLS support
 
-Hiredis-cluster will be built as a shared library and the test suites will
-additionally depend on the shared library libhiredis.so, and libhiredis_ssl.so
-when SSL is enabled.
+Hiredis-cluster will be built as a shared library `libhiredis_cluster.so` and
+it depends on the hiredis shared library `libhiredis.so`.
+
+When SSL/TLS support is enabled an extra library `libhiredis_cluster_ssl.so`
+is built, which depends on the hiredis SSL support library `libhiredis_ssl.a`.
+
+A user project that needs SSL/TLS support should link to both `libhiredis_cluster.so`
+and `libhiredis_cluster_ssl.so` to enable the SSL/TLS configuration API.
 
 ```sh
 $ mkdir build; cd build
@@ -110,11 +115,14 @@ Options needs to be set with the `-D` flag when generating makefiles, e.g.
 ### Build details
 
 The build uses CMake's [find_package](https://cmake.org/cmake/help/latest/command/find_package.html#search-procedure)
-to search for a `hiredis` installation. When building and installing `hiredis` a
-file called `hiredis-config.cmake` will be installed and this contains relevant information for users.
-
-As described in the CMake docs a specific path can be set using a flag like:
+to search for a `hiredis` installation. CMake will search for a `hiredis`
+installation in the default paths, searching for a file called `hiredis-config.cmake`.
+The default search path can be altered via `CMAKE_PREFIX_PATH` or
+as described in the CMake docs; a specific path can be set using a flag like:
 `-Dhiredis_DIR:PATH=${MY_DIR}/hiredis/share/hiredis`
+
+See `examples/using_cmake_separate/build.sh` or
+`examples/using_cmake_externalproject/build.sh` for alternative CMake builds.
 
 ### Alternative build using Makefile directly
 

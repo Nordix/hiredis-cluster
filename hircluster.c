@@ -1281,14 +1281,10 @@ static int cluster_update_route_by_addr(redisClusterContext *cc, const char *ip,
         redisSetTimeout(c, *cc->command_timeout);
     }
 
-#ifdef SSL_SUPPORT
-    if (cc->ssl) {
-        if (redisInitiateSSLWithContext(c, cc->ssl) != REDIS_OK) {
-            __redisClusterSetError(cc, c->err, c->errstr);
-            goto error;
-        }
+    if (cc->ssl && cc->ssl_init_fn(c, cc->ssl) != REDIS_OK) {
+        __redisClusterSetError(cc, c->err, c->errstr);
+        goto error;
     }
-#endif
 
     if (authenticate(cc, c) != REDIS_OK) {
         goto error;
@@ -1996,19 +1992,6 @@ int redisClusterSetOptionMaxRetry(redisClusterContext *cc,
     return REDIS_OK;
 }
 
-#ifdef SSL_SUPPORT
-int redisClusterSetOptionEnableSSL(redisClusterContext *cc,
-                                   redisSSLContext *ssl) {
-    if (cc == NULL || ssl == NULL) {
-        return REDIS_ERR;
-    }
-
-    cc->ssl = ssl;
-
-    return REDIS_OK;
-}
-#endif
-
 int redisClusterConnect2(redisClusterContext *cc) {
 
     if (cc == NULL) {
@@ -2029,13 +2012,10 @@ redisContext *ctx_get_by_node(redisClusterContext *cc, cluster_node *node) {
         if (c->err) {
             redisReconnect(c);
 
-#ifdef SSL_SUPPORT
-            if (cc->ssl) {
-                if (redisInitiateSSLWithContext(c, cc->ssl) != REDIS_OK) {
-                    __redisClusterSetError(cc, c->err, c->errstr);
-                }
+            if (cc->ssl && cc->ssl_init_fn(c, cc->ssl) != REDIS_OK) {
+                __redisClusterSetError(cc, c->err, c->errstr);
             }
-#endif
+
             if (cc->command_timeout && c->err == 0) {
                 redisSetTimeout(c, *cc->command_timeout);
             }
@@ -2072,15 +2052,11 @@ redisContext *ctx_get_by_node(redisClusterContext *cc, cluster_node *node) {
         redisSetTimeout(c, *cc->command_timeout);
     }
 
-#ifdef SSL_SUPPORT
-    if (cc->ssl) {
-        if (redisInitiateSSLWithContext(c, cc->ssl) != REDIS_OK) {
-            __redisClusterSetError(cc, c->err, c->errstr);
-            redisFree(c);
-            return NULL;
-        }
+    if (cc->ssl && cc->ssl_init_fn(c, cc->ssl) != REDIS_OK) {
+        __redisClusterSetError(cc, c->err, c->errstr);
+        redisFree(c);
+        return NULL;
     }
-#endif
 
     if (authenticate(cc, c) != REDIS_OK) {
         redisFree(c);
@@ -3732,16 +3708,12 @@ redisAsyncContext *actx_get_by_node(redisClusterAsyncContext *acc,
         return NULL;
     }
 
-#ifdef SSL_SUPPORT
-    if (acc->cc->ssl) {
-        ret = redisInitiateSSLWithContext(&ac->c, acc->cc->ssl);
-        if (ret != REDIS_OK) {
-            __redisClusterAsyncSetError(acc, ac->c.err, ac->c.errstr);
-            redisAsyncFree(ac);
-            return NULL;
-        }
+    if (acc->cc->ssl &&
+        acc->cc->ssl_init_fn(&ac->c, acc->cc->ssl) != REDIS_OK) {
+        __redisClusterAsyncSetError(acc, ac->c.err, ac->c.errstr);
+        redisAsyncFree(ac);
+        return NULL;
     }
-#endif
 
     // Authenticate when needed
     if (acc->cc->password != NULL) {

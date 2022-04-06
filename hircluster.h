@@ -37,10 +37,6 @@
 #include <hiredis/async.h>
 #include <hiredis/hiredis.h>
 
-#ifdef SSL_SUPPORT
-#include <hiredis/hiredis_ssl.h>
-#endif
-
 #define UNUSED(x) (void)(x)
 
 #define HIREDIS_CLUSTER_MAJOR 0
@@ -75,6 +71,7 @@ struct hilist;
 struct redisClusterAsyncContext;
 
 typedef int(adapterAttachFn)(redisAsyncContext *, void *);
+typedef int(sslInitFn)(redisContext *, void *);
 typedef void(redisClusterCallbackFn)(struct redisClusterAsyncContext *, void *,
                                      void *);
 typedef struct cluster_node {
@@ -130,9 +127,9 @@ typedef struct redisClusterContext {
     int need_update_route;     /* Indicator for redisClusterReset() (Pipel.) */
     int64_t update_route_time; /* Timestamp for next required route update
                                   (Async mode only) */
-#ifdef SSL_SUPPORT
-    redisSSLContext *ssl;
-#endif
+
+    void *ssl; /* Pointer to a redisSSLContext when using SSL/TLS. */
+    sslInitFn *ssl_init_fn; /* Func ptr for SSL context initiation */
 
 } redisClusterContext;
 
@@ -193,10 +190,6 @@ int redisClusterSetOptionConnectTimeout(redisClusterContext *cc,
 int redisClusterSetOptionTimeout(redisClusterContext *cc,
                                  const struct timeval tv);
 int redisClusterSetOptionMaxRetry(redisClusterContext *cc, int max_retry_count);
-#ifdef SSL_SUPPORT
-int redisClusterSetOptionEnableSSL(redisClusterContext *cc,
-                                   redisSSLContext *ssl);
-#endif
 /* Deprecated function, replaced with redisClusterSetOptionMaxRetry() */
 void redisClusterSetMaxRedirect(redisClusterContext *cc,
                                 int max_redirect_count);

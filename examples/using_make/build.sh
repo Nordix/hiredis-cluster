@@ -29,7 +29,10 @@ make -C ${repo_dir} \
 
 # Build example binaries by providing static libraries
 make -C ${repo_dir} CFLAGS="-I${script_dir}/install/usr/local/include" \
-     LDFLAGS="${script_dir}/install/usr/local/lib/libhiredis_cluster.a ${script_dir}/install/usr/local/lib/libhiredis.a ${script_dir}/install/usr/local/lib/libhiredis_ssl.a" \
+     LDFLAGS="${script_dir}/install/usr/local/lib/libhiredis_cluster.a \
+              ${script_dir}/install/usr/local/lib/libhiredis_cluster_ssl.a \
+              ${script_dir}/install/usr/local/lib/libhiredis.a \
+              ${script_dir}/install/usr/local/lib/libhiredis_ssl.a" \
      USE_SSL=1 \
      clean examples
 
