@@ -27,6 +27,9 @@ Hiredis-cluster is a fork of Hiredis-vip, with the following improvements:
 * Multi-key commands
     * Support `MSET`, `MGET` and `DEL`.
     * Multi-key commands will be processed and sent to slot owning nodes.
+      (This breaks the atomicity of the commands if the keys reside on different
+      nodes so if atomicity is important, use these only with keys in the same
+      cluster slot.)
 
 * Pipelining
     * Send multiple commands at once to speed up queries.
