@@ -1955,6 +1955,9 @@ int redisClusterSetOptionTimeout(redisClusterContext *cc,
 
             while ((de = dictNext(&di)) != NULL) {
                 node = dictGetEntryVal(de);
+                if (node->acon) {
+                    redisAsyncSetTimeout(node->acon, tv);
+                }
                 if (node->con && node->con->flags & REDIS_CONNECTED &&
                     node->con->err == 0) {
                     redisSetTimeout(node->con, tv);
@@ -1969,6 +1972,9 @@ int redisClusterSetOptionTimeout(redisClusterContext *cc,
 
                     while ((ln = listNext(&li)) != NULL) {
                         slave = listNodeValue(ln);
+                        if (slave->acon) {
+                            redisAsyncSetTimeout(slave->acon, tv);
+                        }
                         if (slave->con && slave->con->flags & REDIS_CONNECTED &&
                             slave->con->err == 0) {
                             redisSetTimeout(slave->con, tv);
@@ -3711,6 +3717,13 @@ redisAsyncContext *actx_get_by_node(redisClusterAsyncContext *acc,
 
     if (acc->cc->ssl &&
         acc->cc->ssl_init_fn(&ac->c, acc->cc->ssl) != REDIS_OK) {
+        __redisClusterAsyncSetError(acc, ac->c.err, ac->c.errstr);
+        redisAsyncFree(ac);
+        return NULL;
+    }
+
+    if (acc->cc->command_timeout &&
+        redisAsyncSetTimeout(ac, *acc->cc->command_timeout) != REDIS_OK) {
         __redisClusterAsyncSetError(acc, ac->c.err, ac->c.errstr);
         redisAsyncFree(ac);
         return NULL;
