@@ -1931,20 +1931,21 @@ int redisClusterSetOptionTimeout(redisClusterContext *cc,
         return REDIS_ERR;
     }
 
-    if (cc->command_timeout == NULL) {
-        cc->command_timeout = hi_malloc(sizeof(struct timeval));
-        if (cc->command_timeout == NULL) {
-            __redisClusterSetError(cc, REDIS_ERR_OOM, "Out of memory");
-            return REDIS_ERR;
-        }
-        memcpy(cc->command_timeout, &tv, sizeof(struct timeval));
-        return REDIS_OK;
-    }
-
-    if (cc->command_timeout->tv_sec != tv.tv_sec ||
+    if (cc->command_timeout == NULL ||
+        cc->command_timeout->tv_sec != tv.tv_sec ||
         cc->command_timeout->tv_usec != tv.tv_usec) {
+
+        if (cc->command_timeout == NULL) {
+            cc->command_timeout = hi_malloc(sizeof(struct timeval));
+            if (cc->command_timeout == NULL) {
+                __redisClusterSetError(cc, REDIS_ERR_OOM, "Out of memory");
+                return REDIS_ERR;
+            }
+        }
+
         memcpy(cc->command_timeout, &tv, sizeof(struct timeval));
 
+        /* Set timeout on already connected nodes */
         if (cc->nodes && dictSize(cc->nodes) > 0) {
             dictEntry *de;
             cluster_node *node;
