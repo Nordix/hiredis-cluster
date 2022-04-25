@@ -1931,20 +1931,21 @@ int redisClusterSetOptionTimeout(redisClusterContext *cc,
         return REDIS_ERR;
     }
 
-    if (cc->command_timeout == NULL) {
-        cc->command_timeout = hi_malloc(sizeof(struct timeval));
-        if (cc->command_timeout == NULL) {
-            __redisClusterSetError(cc, REDIS_ERR_OOM, "Out of memory");
-            return REDIS_ERR;
-        }
-        memcpy(cc->command_timeout, &tv, sizeof(struct timeval));
-        return REDIS_OK;
-    }
-
-    if (cc->command_timeout->tv_sec != tv.tv_sec ||
+    if (cc->command_timeout == NULL ||
+        cc->command_timeout->tv_sec != tv.tv_sec ||
         cc->command_timeout->tv_usec != tv.tv_usec) {
+
+        if (cc->command_timeout == NULL) {
+            cc->command_timeout = hi_malloc(sizeof(struct timeval));
+            if (cc->command_timeout == NULL) {
+                __redisClusterSetError(cc, REDIS_ERR_OOM, "Out of memory");
+                return REDIS_ERR;
+            }
+        }
+
         memcpy(cc->command_timeout, &tv, sizeof(struct timeval));
 
+        /* Set timeout on already connected nodes */
         if (cc->nodes && dictSize(cc->nodes) > 0) {
             dictEntry *de;
             cluster_node *node;
@@ -1954,6 +1955,9 @@ int redisClusterSetOptionTimeout(redisClusterContext *cc,
 
             while ((de = dictNext(&di)) != NULL) {
                 node = dictGetEntryVal(de);
+                if (node->acon) {
+                    redisAsyncSetTimeout(node->acon, tv);
+                }
                 if (node->con && node->con->flags & REDIS_CONNECTED &&
                     node->con->err == 0) {
                     redisSetTimeout(node->con, tv);
@@ -1968,6 +1972,9 @@ int redisClusterSetOptionTimeout(redisClusterContext *cc,
 
                     while ((ln = listNext(&li)) != NULL) {
                         slave = listNodeValue(ln);
+                        if (slave->acon) {
+                            redisAsyncSetTimeout(slave->acon, tv);
+                        }
                         if (slave->con && slave->con->flags & REDIS_CONNECTED &&
                             slave->con->err == 0) {
                             redisSetTimeout(slave->con, tv);
@@ -3710,6 +3717,13 @@ redisAsyncContext *actx_get_by_node(redisClusterAsyncContext *acc,
 
     if (acc->cc->ssl &&
         acc->cc->ssl_init_fn(&ac->c, acc->cc->ssl) != REDIS_OK) {
+        __redisClusterAsyncSetError(acc, ac->c.err, ac->c.errstr);
+        redisAsyncFree(ac);
+        return NULL;
+    }
+
+    if (acc->cc->command_timeout &&
+        redisAsyncSetTimeout(ac, *acc->cc->command_timeout) != REDIS_OK) {
         __redisClusterAsyncSetError(acc, ac->c.err, ac->c.errstr);
         redisAsyncFree(ac);
         return NULL;

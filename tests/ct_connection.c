@@ -174,6 +174,81 @@ void test_multicluster() {
     redisClusterFree(cc2);
 }
 
+/* Connect to a non-routable address which results in a connection timeout. */
+void test_connect_timeout() {
+    struct timeval timeout = {0, 200000};
+
+    redisClusterContext *cc = redisClusterContextInit();
+    assert(cc);
+
+    /* Configure a non-routable IP address and a timeout */
+    redisClusterSetOptionAddNodes(cc, "192.168.0.0:7000");
+    redisClusterSetOptionConnectTimeout(cc, timeout);
+
+    int status = redisClusterConnect2(cc);
+    assert(status == REDIS_ERR);
+    assert(cc->err == REDIS_ERR_IO);
+    assert(strcmp(cc->errstr, "Connection timed out") == 0);
+
+    redisClusterFree(cc);
+}
+
+/* Connect using a pre-configured command timeout */
+void test_command_timeout() {
+    struct timeval timeout = {0, 200000};
+
+    redisClusterContext *cc = redisClusterContextInit();
+    assert(cc);
+    redisClusterSetOptionAddNodes(cc, CLUSTER_NODE);
+    redisClusterSetOptionTimeout(cc, timeout);
+
+    int status = redisClusterConnect2(cc);
+    ASSERT_MSG(status == REDIS_OK, cc->errstr);
+
+    nodeIterator ni;
+    initNodeIterator(&ni, cc);
+    cluster_node *node = nodeNext(&ni);
+    assert(node);
+
+    /* Simulate a command timeout */
+    redisReply *reply;
+    reply = redisClusterCommandToNode(cc, node, "DEBUG SLEEP 1");
+    assert(reply == NULL);
+    assert(cc->err == REDIS_ERR_IO);
+
+    redisClusterFree(cc);
+}
+
+/* Connect and configure a command timeout while connected. */
+void test_command_timeout_set_while_connected() {
+    struct timeval timeout = {0, 200000};
+
+    redisClusterContext *cc = redisClusterContextInit();
+    assert(cc);
+    redisClusterSetOptionAddNodes(cc, CLUSTER_NODE);
+
+    int status = redisClusterConnect2(cc);
+    ASSERT_MSG(status == REDIS_OK, cc->errstr);
+
+    nodeIterator ni;
+    initNodeIterator(&ni, cc);
+    cluster_node *node = nodeNext(&ni);
+    assert(node);
+
+    redisReply *reply;
+    reply = redisClusterCommandToNode(cc, node, "DEBUG SLEEP 1");
+    CHECK_REPLY_OK(cc, reply);
+    freeReplyObject(reply);
+
+    /* Set command timeout while connected */
+    redisClusterSetOptionTimeout(cc, timeout);
+
+    reply = redisClusterCommandToNode(cc, node, "DEBUG SLEEP 1");
+    assert(reply == NULL);
+    assert(cc->err == REDIS_ERR_IO);
+    redisClusterFree(cc);
+}
+
 //------------------------------------------------------------------------------
 // Async API
 //------------------------------------------------------------------------------
@@ -420,6 +495,65 @@ void test_async_multicluster() {
     event_base_free(base);
 }
 
+/* Connect to a non-routable address which results in a connection timeout. */
+void test_async_connect_timeout() {
+    struct timeval timeout = {0, 200000};
+
+    redisClusterAsyncContext *acc = redisClusterAsyncContextInit();
+    assert(acc);
+
+    /* Configure a non-routable IP address and a timeout */
+    redisClusterSetOptionAddNodes(acc->cc, "192.168.0.0:7000");
+    redisClusterSetOptionConnectTimeout(acc->cc, timeout);
+
+    struct event_base *base = event_base_new();
+    redisClusterLibeventAttach(acc, base);
+
+    int status = redisClusterConnect2(acc->cc);
+    assert(status == REDIS_ERR);
+    assert(acc->cc->err == REDIS_ERR_IO);
+    assert(strcmp(acc->cc->errstr, "Connection timed out") == 0);
+
+    event_base_dispatch(base);
+
+    redisClusterAsyncFree(acc);
+    event_base_free(base);
+}
+
+/* Connect using a pre-configured command timeout */
+void test_async_command_timeout() {
+    struct timeval timeout = {0, 200000};
+
+    redisClusterAsyncContext *acc = redisClusterAsyncContextInit();
+    assert(acc);
+    redisClusterSetOptionAddNodes(acc->cc, CLUSTER_NODE);
+    redisClusterSetOptionTimeout(acc->cc, timeout);
+
+    struct event_base *base = event_base_new();
+    redisClusterLibeventAttach(acc, base);
+
+    int status = redisClusterConnect2(acc->cc);
+    assert(status == REDIS_OK);
+    assert(acc->cc->err == 0);
+
+    nodeIterator ni;
+    initNodeIterator(&ni, acc->cc);
+    cluster_node *node = nodeNext(&ni);
+    assert(node);
+
+    /* Simulate a command timeout and expect a timeout error */
+    ExpectedResult r = {
+        .noreply = true, .errstr = "Timeout", .disconnect = true};
+    status = redisClusterAsyncCommandToNode(acc, node, commandCallback, &r,
+                                            "DEBUG SLEEP 1");
+    assert(status == REDIS_OK);
+
+    event_base_dispatch(base);
+
+    redisClusterAsyncFree(acc);
+    event_base_free(base);
+}
+
 int main() {
 
     test_password_ok();
@@ -428,12 +562,17 @@ int main() {
     test_username_ok();
     test_username_disabled();
     test_multicluster();
+    test_connect_timeout();
+    test_command_timeout();
+    test_command_timeout_set_while_connected();
 
     test_async_password_ok();
     test_async_password_wrong();
     test_async_password_missing();
     test_async_username_ok();
     test_async_multicluster();
+    test_async_connect_timeout();
+    test_async_command_timeout();
 
     return 0;
 }
