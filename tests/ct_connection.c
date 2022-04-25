@@ -188,7 +188,7 @@ void test_connect_timeout() {
     int status = redisClusterConnect2(cc);
     assert(status == REDIS_ERR);
     assert(cc->err == REDIS_ERR_IO);
-    assert(strncmp(cc->errstr, "Connection timed out", 20) == 0);
+    assert(strcmp(cc->errstr, "Connection timed out") == 0);
 
     redisClusterFree(cc);
 }
@@ -512,7 +512,7 @@ void test_async_connect_timeout() {
     int status = redisClusterConnect2(acc->cc);
     assert(status == REDIS_ERR);
     assert(acc->cc->err == REDIS_ERR_IO);
-    assert(strncmp(acc->cc->errstr, "Connection timed out", 20) == 0);
+    assert(strcmp(acc->cc->errstr, "Connection timed out") == 0);
 
     event_base_dispatch(base);
 
