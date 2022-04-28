@@ -2007,34 +2007,23 @@ int redisClusterConnect2(redisClusterContext *cc) {
     return _redisClusterConnect2(cc);
 }
 
+/* Get a viable connection context to a given cluster node.
+ * Will connect to the node, setup TLS and authenticate when required.
+ * If an existing context exist but with errors it will be re-created.
+ */
 redisContext *ctx_get_by_node(redisClusterContext *cc, cluster_node *node) {
-    redisContext *c = NULL;
-    if (node == NULL) {
+    if (node == NULL || node->host == NULL || node->port == 0) {
         return NULL;
     }
 
-    c = node->con;
-    if (c != NULL) {
-        if (c->err) {
-            redisReconnect(c);
+    redisContext *c = node->con;
 
-            if (cc->ssl && cc->ssl_init_fn(c, cc->ssl) != REDIS_OK) {
-                __redisClusterSetError(cc, c->err, c->errstr);
-            }
-
-            if (cc->command_timeout && c->err == 0) {
-                redisSetTimeout(c, *cc->command_timeout);
-            }
-
-            authenticate(cc, c); // err and errstr handled in function
-        }
-
+    if (c && c->err == 0)
         return c;
-    }
 
-    if (node->host == NULL || node->port <= 0) {
-        return NULL;
-    }
+    /* Create a new Redis connection context */
+    redisFree(c);
+    node->con = NULL;
 
     redisOptions options = {0};
     REDIS_OPTIONS_SET_TCP(&options, node->host, node->port);
@@ -2104,7 +2093,7 @@ static cluster_node *node_get_which_connected(redisClusterContext *cc) {
         }
 
         c = ctx_get_by_node(cc, node);
-        if (c == NULL || c->err) {
+        if (c == NULL) {
             continue;
         }
 
@@ -2228,9 +2217,6 @@ static int __redisClusterAppendCommand(redisClusterContext *cc,
 
     c = ctx_get_by_node(cc, node);
     if (c == NULL) {
-        return REDIS_ERR;
-    } else if (c->err) {
-        __redisClusterSetError(cc, c->err, c->errstr);
         return REDIS_ERR;
     }
 
@@ -2395,8 +2381,6 @@ retry:
 
     c = ctx_get_by_node(cc, node);
     if (c == NULL) {
-        return NULL;
-    } else if (c->err) {
         node = node_get_which_connected(cc);
         if (node == NULL) {
             __redisClusterSetError(cc, REDIS_ERR_OTHER,
@@ -2413,9 +2397,6 @@ retry:
 
         c = ctx_get_by_node(cc, node);
         if (c == NULL) {
-            return NULL;
-        } else if (c->err) {
-            __redisClusterSetError(cc, c->err, c->errstr);
             return NULL;
         }
     }
@@ -2471,9 +2452,6 @@ ask_retry:
 
             c = ctx_get_by_node(cc, node);
             if (c == NULL) {
-                return NULL;
-            } else if (c->err) {
-                __redisClusterSetError(cc, c->err, c->errstr);
                 return NULL;
             }
 
@@ -3124,9 +3102,6 @@ void *redisClusterCommandToNode(redisClusterContext *cc, cluster_node *node,
     c = ctx_get_by_node(cc, node);
     if (c == NULL) {
         return NULL;
-    } else if (c->err) {
-        __redisClusterSetError(cc, c->err, c->errstr);
-        return NULL;
     }
 
     va_start(ap, format);
@@ -3316,9 +3291,6 @@ int redisClusterAppendCommandToNode(redisClusterContext *cc, cluster_node *node,
 
     c = ctx_get_by_node(cc, node);
     if (c == NULL) {
-        return REDIS_ERR;
-    } else if (c->err) {
-        __redisClusterSetError(cc, c->err, c->errstr);
         return REDIS_ERR;
     }
 

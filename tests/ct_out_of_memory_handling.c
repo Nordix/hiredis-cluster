@@ -151,14 +151,18 @@ void test_alloc_failure_handling() {
         redisReply *reply;
         const char *cmd = "SET key value";
 
-        for (int i = 0; i < 36; ++i) {
+        for (int i = 0; i < 38; ++i) {
             prepare_allocation_test(cc, i);
             reply = (redisReply *)redisClusterCommand(cc, cmd);
             assert(reply == NULL);
-            ASSERT_STR_EQ(cc->errstr, "Out of memory");
+            if (i < 17 || i > 32) {
+                ASSERT_STR_EQ(cc->errstr, "Out of memory");
+            } else {
+                ASSERT_STR_EQ(cc->errstr, "no reachable node in cluster");
+            }
         }
 
-        prepare_allocation_test(cc, 36);
+        prepare_allocation_test(cc, 38);
         reply = (redisReply *)redisClusterCommand(cc, cmd);
         CHECK_REPLY_OK(cc, reply);
         freeReplyObject(reply);
@@ -169,15 +173,19 @@ void test_alloc_failure_handling() {
         redisReply *reply;
         const char *cmd = "MSET key1 v1 key2 v2 key3 v3";
 
-        for (int i = 0; i < 77; ++i) {
+        for (int i = 0; i < 91; ++i) {
             prepare_allocation_test(cc, i);
             reply = (redisReply *)redisClusterCommand(cc, cmd);
             assert(reply == NULL);
-            ASSERT_STR_EQ(cc->errstr, "Out of memory");
+            if (i < 49 || (i > 64 && i < 74) || i > 89) {
+                ASSERT_STR_EQ(cc->errstr, "Out of memory");
+            } else {
+                ASSERT_STR_EQ(cc->errstr, "no reachable node in cluster");
+            }
         }
 
         // Multi-key commands
-        prepare_allocation_test(cc, 77);
+        prepare_allocation_test(cc, 91);
         reply = (redisReply *)redisClusterCommand(cc, cmd);
         CHECK_REPLY_OK(cc, reply);
         freeReplyObject(reply);
@@ -192,7 +200,7 @@ void test_alloc_failure_handling() {
         assert(node);
 
         // OOM failing commands
-        for (int i = 0; i < 32; ++i) {
+        for (int i = 0; i < 33; ++i) {
             prepare_allocation_test(cc, i);
             reply = redisClusterCommandToNode(cc, node, cmd);
             assert(reply == NULL);
@@ -200,7 +208,7 @@ void test_alloc_failure_handling() {
         }
 
         // Successful command
-        prepare_allocation_test(cc, 32);
+        prepare_allocation_test(cc, 34);
         reply = redisClusterCommandToNode(cc, node, cmd);
         CHECK_REPLY_OK(cc, reply);
         freeReplyObject(reply);
