@@ -180,3 +180,7 @@ add_test(NAME reconnect-test
          COMMAND "${CMAKE_SOURCE_DIR}/tests/scripts/reconnect-test.sh"
                 "$<TARGET_FILE:clusterclient_reconnect_async>"
                 WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/tests/scripts/")
+add_test(NAME cluster-scale-down-test
+         COMMAND "${CMAKE_SOURCE_DIR}/tests/scripts/cluster-scale-down-test.sh"
+                "$<TARGET_FILE:clusterclient>"
+                WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/tests/scripts/")
