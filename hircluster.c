@@ -1263,12 +1263,11 @@ static int cluster_update_route_by_addr(redisClusterContext *cc, const char *ip,
         goto error;
     }
 
-    if (cc->connect_timeout) {
-        c = redisConnectWithTimeout(ip, port, *cc->connect_timeout);
-    } else {
-        c = redisConnect(ip, port);
-    }
+    redisOptions options = {0};
+    REDIS_OPTIONS_SET_TCP(&options, ip, port);
+    options.connect_timeout = cc->connect_timeout;
 
+    c = redisConnectWithOptions(&options);
     if (c == NULL) {
         goto oom;
     }
@@ -2037,13 +2036,11 @@ redisContext *ctx_get_by_node(redisClusterContext *cc, cluster_node *node) {
         return NULL;
     }
 
-    if (cc->connect_timeout) {
-        c = redisConnectWithTimeout(node->host, node->port,
-                                    *cc->connect_timeout);
-    } else {
-        c = redisConnect(node->host, node->port);
-    }
+    redisOptions options = {0};
+    REDIS_OPTIONS_SET_TCP(&options, node->host, node->port);
+    options.connect_timeout = cc->connect_timeout;
 
+    c = redisConnectWithOptions(&options);
     if (c == NULL) {
         __redisClusterSetError(cc, REDIS_ERR_OOM, "Out of memory");
         return NULL;
