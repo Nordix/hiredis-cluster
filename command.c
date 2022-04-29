@@ -165,7 +165,6 @@ static int redis_arg2(struct cmd *r) {
 
     case CMD_REQ_REDIS_HINCRBY:
     case CMD_REQ_REDIS_HINCRBYFLOAT:
-    case CMD_REQ_REDIS_HSET:
     case CMD_REQ_REDIS_HSETNX:
 
     case CMD_REQ_REDIS_LRANGE:
@@ -223,6 +222,7 @@ static int redis_argn(struct cmd *r) {
     case CMD_REQ_REDIS_HMGET:
     case CMD_REQ_REDIS_HMSET:
     case CMD_REQ_REDIS_HSCAN:
+    case CMD_REQ_REDIS_HSET:
 
     case CMD_REQ_REDIS_LPUSH:
     case CMD_REQ_REDIS_RPUSH:

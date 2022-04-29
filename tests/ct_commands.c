@@ -132,11 +132,11 @@ void test_hset_hget_hdel_hexists(redisClusterContext *cc) {
     CHECK_REPLY_INT(cc, reply, 0); // no field
     freeReplyObject(reply);
 
-    // As of Redis 4.0.0, HSET is variadic i.e. multiple field/value,
-    // but this is currently not supported.
+    // Set multiple fields at once
     reply = (redisReply *)redisClusterCommand(
         cc, "HSET myhash field1 hsetvalue1 field2 hsetvalue2");
-    assert(reply == NULL);
+    CHECK_REPLY_INT(cc, reply, 2);
+    freeReplyObject(reply);
 }
 
 // Command layout:
