@@ -167,7 +167,7 @@ redisClusterContext *redisClusterConnect(const char *addrs, int flags);
 redisClusterContext *redisClusterConnectWithTimeout(const char *addrs,
                                                     const struct timeval tv,
                                                     int flags);
-/* Deprecated function, replaced with redisClusterConnect() */
+/* Deprecated function, replaced by redisClusterConnect() */
 redisClusterContext *redisClusterConnectNonBlock(const char *addrs, int flags);
 int redisClusterConnect2(redisClusterContext *cc);
 
