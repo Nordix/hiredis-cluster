@@ -1632,7 +1632,7 @@ redisClusterContext *redisClusterConnectWithTimeout(const char *addrs,
     return _redisClusterConnect(cc, addrs);
 }
 
-/* Deprecated function, replaced with redisClusterConnect() */
+/* Deprecated function, replaced by redisClusterConnect() */
 redisClusterContext *redisClusterConnectNonBlock(const char *addrs, int flags) {
     return redisClusterConnect(addrs, flags);
 }
