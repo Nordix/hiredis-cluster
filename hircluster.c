@@ -1511,7 +1511,6 @@ redisClusterContext *redisClusterContextInit(void) {
         return NULL;
 
     cc->max_retry_count = CLUSTER_DEFAULT_MAX_RETRY_COUNT;
-    cc->flags |= REDIS_BLOCK;
     return cc;
 }
 
@@ -1603,10 +1602,7 @@ redisClusterContext *redisClusterConnect(const char *addrs, int flags) {
         return NULL;
     }
 
-    cc->flags |= REDIS_BLOCK;
-    if (flags) {
-        cc->flags |= flags;
-    }
+    cc->flags = flags;
 
     return _redisClusterConnect(cc, addrs);
 }
@@ -1622,10 +1618,7 @@ redisClusterContext *redisClusterConnectWithTimeout(const char *addrs,
         return NULL;
     }
 
-    cc->flags |= REDIS_BLOCK;
-    if (flags) {
-        cc->flags |= flags;
-    }
+    cc->flags = flags;
 
     if (cc->connect_timeout == NULL) {
         cc->connect_timeout = hi_malloc(sizeof(struct timeval));
@@ -1639,22 +1632,9 @@ redisClusterContext *redisClusterConnectWithTimeout(const char *addrs,
     return _redisClusterConnect(cc, addrs);
 }
 
+/* Deprecated function, replaced by redisClusterConnect() */
 redisClusterContext *redisClusterConnectNonBlock(const char *addrs, int flags) {
-
-    redisClusterContext *cc;
-
-    cc = redisClusterContextInit();
-
-    if (cc == NULL) {
-        return NULL;
-    }
-
-    cc->flags &= ~REDIS_BLOCK;
-    if (flags) {
-        cc->flags |= flags;
-    }
-
-    return _redisClusterConnect(cc, addrs);
+    return redisClusterConnect(addrs, flags);
 }
 
 int redisClusterSetOptionAddNode(redisClusterContext *cc, const char *addr) {
@@ -1795,25 +1775,19 @@ int redisClusterSetOptionAddNodes(redisClusterContext *cc, const char *addrs) {
     return REDIS_OK;
 }
 
+/* Deprecated function, option has no effect. */
 int redisClusterSetOptionConnectBlock(redisClusterContext *cc) {
-
     if (cc == NULL) {
         return REDIS_ERR;
     }
-
-    cc->flags |= REDIS_BLOCK;
-
     return REDIS_OK;
 }
 
+/* Deprecated function, option has no effect. */
 int redisClusterSetOptionConnectNonBlock(redisClusterContext *cc) {
-
     if (cc == NULL) {
         return REDIS_ERR;
     }
-
-    cc->flags &= ~REDIS_BLOCK;
-
     return REDIS_OK;
 }
 
@@ -3824,8 +3798,6 @@ redisClusterAsyncContext *redisClusterAsyncContextInit() {
         return NULL;
     }
 
-    cc->flags &= ~REDIS_BLOCK;
-
     acc = redisClusterAsyncInitialize(cc);
     if (acc == NULL) {
         redisClusterFree(cc);
@@ -3841,7 +3813,7 @@ redisClusterAsyncContext *redisClusterAsyncConnect(const char *addrs,
     redisClusterContext *cc;
     redisClusterAsyncContext *acc;
 
-    cc = redisClusterConnectNonBlock(addrs, flags);
+    cc = redisClusterConnect(addrs, flags);
     if (cc == NULL) {
         return NULL;
     }

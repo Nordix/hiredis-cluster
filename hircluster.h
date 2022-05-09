@@ -167,6 +167,7 @@ redisClusterContext *redisClusterConnect(const char *addrs, int flags);
 redisClusterContext *redisClusterConnectWithTimeout(const char *addrs,
                                                     const struct timeval tv,
                                                     int flags);
+/* Deprecated function, replaced by redisClusterConnect() */
 redisClusterContext *redisClusterConnectNonBlock(const char *addrs, int flags);
 int redisClusterConnect2(redisClusterContext *cc);
 
@@ -176,7 +177,9 @@ void redisClusterFree(redisClusterContext *cc);
 /* Configuration options */
 int redisClusterSetOptionAddNode(redisClusterContext *cc, const char *addr);
 int redisClusterSetOptionAddNodes(redisClusterContext *cc, const char *addrs);
+/* Deprecated function, option has no effect. */
 int redisClusterSetOptionConnectBlock(redisClusterContext *cc);
+/* Deprecated function, option has no effect. */
 int redisClusterSetOptionConnectNonBlock(redisClusterContext *cc);
 int redisClusterSetOptionUsername(redisClusterContext *cc,
                                   const char *username);
