@@ -402,6 +402,18 @@ void test_xtrim(redisClusterContext *cc) {
     freeReplyObject(r);
 }
 
+void test_multi(redisClusterContext *cc) {
+
+    /* Since the slot lookup is currently not handled for this command
+     * the regular API is expected to fail. This command requires the
+     * ..ToNode() APIs for sending a command to a specific node.
+     * See ct_specific_nodes.c for these tests.
+     */
+
+    redisReply *r = redisClusterCommand(cc, "MULTI");
+    assert(r == NULL);
+}
+
 int main() {
     struct timeval timeout = {0, 500000};
 
@@ -414,12 +426,12 @@ int main() {
     status = redisClusterConnect2(cc);
     ASSERT_MSG(status == REDIS_OK, cc->errstr);
 
-    test_exists(cc);
-    test_mset(cc);
-    test_mget(cc);
-    test_hset_hget_hdel_hexists(cc);
     test_eval(cc);
-
+    test_exists(cc);
+    test_hset_hget_hdel_hexists(cc);
+    test_mget(cc);
+    test_mset(cc);
+    test_multi(cc);
     test_xack(cc);
     test_xadd(cc);
     test_xautoclaim(cc);
