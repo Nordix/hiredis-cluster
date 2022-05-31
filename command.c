@@ -216,6 +216,8 @@ static int redis_arg3(struct cmd *r) {
 static int redis_argn(struct cmd *r) {
     switch (r->type) {
     case CMD_REQ_REDIS_BITCOUNT:
+    case CMD_REQ_REDIS_BITFIELD:
+    case CMD_REQ_REDIS_BITFIELD_RO:
 
     case CMD_REQ_REDIS_SET:
     case CMD_REQ_REDIS_HDEL:
@@ -312,6 +314,25 @@ static int redis_argsub(struct cmd *r) {
     switch (r->type) {
     case CMD_REQ_REDIS_XGROUP:
     case CMD_REQ_REDIS_XINFO:
+        return 1;
+
+    default:
+        break;
+    }
+
+    return 0;
+}
+
+/*
+ * Return true if the redis command is variadic (BITFIELD). This command as
+ * the following form:
+ * cmd key [sub-cmd-1 encoding off [value], ..., sub-cmd-n encoding off [value]]
+ * RO: cmd key [GET encoding offset, ..., GET encoding offset-n]
+ */
+static int redis_bitfield(struct cmd *r) {
+    switch (r->type) {
+    case CMD_REQ_REDIS_BITFIELD:
+    case CMD_REQ_REDIS_BITFIELD_RO:
         return 1;
 
     default:
@@ -444,6 +465,7 @@ static inline cmd_type_t redis_parse_cmd_verb(const char *m, int len) {
     case 8:
         return !strncasecmp(m, "expireat", 8) ? CMD_REQ_REDIS_EXPIREAT :
                !strncasecmp(m, "bitcount", 8) ? CMD_REQ_REDIS_BITCOUNT :
+               !strncasecmp(m, "bitfield", 8) ? CMD_REQ_REDIS_BITFIELD :
                !strncasecmp(m, "getrange", 8) ? CMD_REQ_REDIS_GETRANGE :
                !strncasecmp(m, "setrange", 8) ? CMD_REQ_REDIS_SETRANGE :
                !strncasecmp(m, "smembers", 8) ? CMD_REQ_REDIS_SMEMBERS :
@@ -463,7 +485,8 @@ static inline cmd_type_t redis_parse_cmd_verb(const char *m, int len) {
                !strncasecmp(m, "xautoclaim", 10) ? CMD_REQ_REDIS_XAUTOCLAIM :
                                                    CMD_UNKNOWN;
     case 11:
-        return !strncasecmp(m, "incrbyfloat", 11) ? CMD_REQ_REDIS_INCRBYFLOAT :
+        return !strncasecmp(m, "bitfield_ro", 11) ? CMD_REQ_REDIS_BITFIELD_RO :
+               !strncasecmp(m, "incrbyfloat", 11) ? CMD_REQ_REDIS_INCRBYFLOAT :
                !strncasecmp(m, "sinterstore", 11) ? CMD_REQ_REDIS_SINTERSTORE :
                !strncasecmp(m, "srandmember", 11) ? CMD_REQ_REDIS_SRANDMEMBER :
                !strncasecmp(m, "sunionstore", 11) ? CMD_REQ_REDIS_SUNIONSTORE :
@@ -928,6 +951,12 @@ void redis_parse_cmd(struct cmd *r) {
                     // Command layout:  cmd <sub-cmd> <key> <args..>
                     // Current position:             ^
                     if (rnarg < 1) {
+                        goto error;
+                    }
+                    state = SW_KEY_LEN;
+                } else if (redis_bitfield(r)) {
+                    // Command layout:  cmd <key> <sub-cmd> <args..>
+                    if (rnarg < 2) {
                         goto error;
                     }
                     state = SW_KEY_LEN;
