@@ -324,25 +324,6 @@ static int redis_argsub(struct cmd *r) {
 }
 
 /*
- * Return true if the redis command is variadic (BITFIELD). This command as
- * the following form:
- * cmd key [sub-cmd-1 encoding off [value], ..., sub-cmd-n encoding off [value]]
- * RO: cmd key [GET encoding offset, ..., GET encoding offset-n]
- */
-static int redis_bitfield(struct cmd *r) {
-    switch (r->type) {
-    case CMD_REQ_REDIS_BITFIELD:
-    case CMD_REQ_REDIS_BITFIELD_RO:
-        return 1;
-
-    default:
-        break;
-    }
-
-    return 0;
-}
-
-/*
  * Return true, if the redis command is either EVAL or EVALSHA. These commands
  * have a special format with exactly 2 arguments, followed by one or more keys,
  * followed by zero or more arguments (the documentation online seems to suggest
@@ -951,12 +932,6 @@ void redis_parse_cmd(struct cmd *r) {
                     // Command layout:  cmd <sub-cmd> <key> <args..>
                     // Current position:             ^
                     if (rnarg < 1) {
-                        goto error;
-                    }
-                    state = SW_KEY_LEN;
-                } else if (redis_bitfield(r)) {
-                    // Command layout:  cmd <key> <sub-cmd> <args..>
-                    if (rnarg < 2) {
                         goto error;
                     }
                     state = SW_KEY_LEN;
