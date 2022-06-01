@@ -31,6 +31,30 @@ void test_exists(redisClusterContext *cc) {
     freeReplyObject(reply);
 }
 
+void test_bitfield(redisClusterContext *cc) {
+    redisReply *reply;
+
+    reply = (redisReply *)redisClusterCommand(
+        cc, "BITFIELD bkey1 SET u32 #0 255 GET u32 #0");
+    CHECK_REPLY_ARRAY(cc, reply, 2);
+    CHECK_REPLY_INT(cc, reply->element[1], 255);
+    freeReplyObject(reply);
+}
+
+void test_bitfield_ro(redisClusterContext *cc) {
+    redisReply *reply;
+
+    reply = (redisReply *)redisClusterCommand(cc, "SET bkey2 a"); // 97
+    CHECK_REPLY_OK(cc, reply);
+    freeReplyObject(reply);
+
+    reply =
+        (redisReply *)redisClusterCommand(cc, "BITFIELD_RO bkey2 GET u8 #0");
+    CHECK_REPLY_ARRAY(cc, reply, 1);
+    CHECK_REPLY_INT(cc, reply->element[0], 97);
+    freeReplyObject(reply);
+}
+
 void test_mset(redisClusterContext *cc) {
     redisReply *reply;
     reply = (redisReply *)redisClusterCommand(
@@ -419,6 +443,7 @@ int main() {
 
     redisClusterContext *cc = redisClusterContextInit();
     assert(cc);
+
     redisClusterSetOptionAddNodes(cc, CLUSTER_NODE);
     redisClusterSetOptionConnectTimeout(cc, timeout);
 
@@ -426,6 +451,8 @@ int main() {
     status = redisClusterConnect2(cc);
     ASSERT_MSG(status == REDIS_OK, cc->errstr);
 
+    test_bitfield(cc);
+    test_bitfield_ro(cc);
     test_eval(cc);
     test_exists(cc);
     test_hset_hget_hdel_hexists(cc);

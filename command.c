@@ -216,6 +216,8 @@ static int redis_arg3(struct cmd *r) {
 static int redis_argn(struct cmd *r) {
     switch (r->type) {
     case CMD_REQ_REDIS_BITCOUNT:
+    case CMD_REQ_REDIS_BITFIELD:
+    case CMD_REQ_REDIS_BITFIELD_RO:
 
     case CMD_REQ_REDIS_SET:
     case CMD_REQ_REDIS_HDEL:
@@ -444,6 +446,7 @@ static inline cmd_type_t redis_parse_cmd_verb(const char *m, int len) {
     case 8:
         return !strncasecmp(m, "expireat", 8) ? CMD_REQ_REDIS_EXPIREAT :
                !strncasecmp(m, "bitcount", 8) ? CMD_REQ_REDIS_BITCOUNT :
+               !strncasecmp(m, "bitfield", 8) ? CMD_REQ_REDIS_BITFIELD :
                !strncasecmp(m, "getrange", 8) ? CMD_REQ_REDIS_GETRANGE :
                !strncasecmp(m, "setrange", 8) ? CMD_REQ_REDIS_SETRANGE :
                !strncasecmp(m, "smembers", 8) ? CMD_REQ_REDIS_SMEMBERS :
@@ -463,7 +466,8 @@ static inline cmd_type_t redis_parse_cmd_verb(const char *m, int len) {
                !strncasecmp(m, "xautoclaim", 10) ? CMD_REQ_REDIS_XAUTOCLAIM :
                                                    CMD_UNKNOWN;
     case 11:
-        return !strncasecmp(m, "incrbyfloat", 11) ? CMD_REQ_REDIS_INCRBYFLOAT :
+        return !strncasecmp(m, "bitfield_ro", 11) ? CMD_REQ_REDIS_BITFIELD_RO :
+               !strncasecmp(m, "incrbyfloat", 11) ? CMD_REQ_REDIS_INCRBYFLOAT :
                !strncasecmp(m, "sinterstore", 11) ? CMD_REQ_REDIS_SINTERSTORE :
                !strncasecmp(m, "srandmember", 11) ? CMD_REQ_REDIS_SRANDMEMBER :
                !strncasecmp(m, "sunionstore", 11) ? CMD_REQ_REDIS_SUNIONSTORE :
