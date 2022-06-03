@@ -195,7 +195,7 @@ void test_connect_timeout() {
 
 /* Connect using a pre-configured command timeout */
 void test_command_timeout() {
-    struct timeval timeout = {0, 200000};
+    struct timeval timeout = {0, 10000};
 
     redisClusterContext *cc = redisClusterContextInit();
     assert(cc);
@@ -212,16 +212,25 @@ void test_command_timeout() {
 
     /* Simulate a command timeout */
     redisReply *reply;
-    reply = redisClusterCommandToNode(cc, node, "DEBUG SLEEP 1");
+    reply = redisClusterCommandToNode(cc, node, "DEBUG SLEEP 0.2");
     assert(reply == NULL);
     assert(cc->err == REDIS_ERR_IO);
+
+    /* Make sure debug sleep is done before leaving testcase */
+    for (int i = 0; i < 20; ++i) {
+        reply = redisClusterCommandToNode(cc, node, "SET key1 Hello");
+        if (reply && reply->type == REDIS_REPLY_STATUS)
+            break;
+    }
+    CHECK_REPLY_OK(cc, reply);
+    freeReplyObject(reply);
 
     redisClusterFree(cc);
 }
 
 /* Connect and configure a command timeout while connected. */
 void test_command_timeout_set_while_connected() {
-    struct timeval timeout = {0, 200000};
+    struct timeval timeout = {0, 10000};
 
     redisClusterContext *cc = redisClusterContextInit();
     assert(cc);
@@ -236,16 +245,26 @@ void test_command_timeout_set_while_connected() {
     assert(node);
 
     redisReply *reply;
-    reply = redisClusterCommandToNode(cc, node, "DEBUG SLEEP 1");
+    reply = redisClusterCommandToNode(cc, node, "DEBUG SLEEP 0.2");
     CHECK_REPLY_OK(cc, reply);
     freeReplyObject(reply);
 
     /* Set command timeout while connected */
     redisClusterSetOptionTimeout(cc, timeout);
 
-    reply = redisClusterCommandToNode(cc, node, "DEBUG SLEEP 1");
+    reply = redisClusterCommandToNode(cc, node, "DEBUG SLEEP 0.2");
     assert(reply == NULL);
     assert(cc->err == REDIS_ERR_IO);
+
+    /* Make sure debug sleep is done before leaving testcase */
+    for (int i = 0; i < 20; ++i) {
+        reply = redisClusterCommandToNode(cc, node, "SET key1 Hello");
+        if (reply && reply->type == REDIS_REPLY_STATUS)
+            break;
+    }
+    CHECK_REPLY_OK(cc, reply);
+    freeReplyObject(reply);
+
     redisClusterFree(cc);
 }
 
@@ -522,7 +541,7 @@ void test_async_connect_timeout() {
 
 /* Connect using a pre-configured command timeout */
 void test_async_command_timeout() {
-    struct timeval timeout = {0, 200000};
+    struct timeval timeout = {0, 10000};
 
     redisClusterAsyncContext *acc = redisClusterAsyncContextInit();
     assert(acc);
@@ -545,7 +564,7 @@ void test_async_command_timeout() {
     ExpectedResult r = {
         .noreply = true, .errstr = "Timeout", .disconnect = true};
     status = redisClusterAsyncCommandToNode(acc, node, commandCallback, &r,
-                                            "DEBUG SLEEP 1");
+                                            "DEBUG SLEEP 0.2");
     assert(status == REDIS_OK);
 
     event_base_dispatch(base);
