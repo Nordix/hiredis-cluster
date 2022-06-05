@@ -158,11 +158,13 @@ void test_streams(redisClusterContext *cc) {
     CHECK_REPLY_OK(cc, reply);
     freeReplyObject(reply);
 
-    /* Create a consumer */
-    reply = redisClusterCommandToNode(
-        cc, node, "XGROUP CREATECONSUMER mystream mygroup1 myconsumer123");
-    CHECK_REPLY_INT(cc, reply, 1);
-    freeReplyObject(reply);
+    if (!redis_version_less_than(6, 2)) {
+        /* Create a consumer */
+        reply = redisClusterCommandToNode(
+            cc, node, "XGROUP CREATECONSUMER mystream mygroup1 myconsumer123");
+        CHECK_REPLY_INT(cc, reply, 1);
+        freeReplyObject(reply);
+    }
 
     /* Blocking read of consumer group */
     reply = redisClusterCommandToNode(cc, node,
@@ -487,6 +489,7 @@ int main() {
     redisClusterSetOptionMaxRetry(cc, 1);
     status = redisClusterConnect2(cc);
     ASSERT_MSG(status == REDIS_OK, cc->errstr);
+    get_redis_version(cc);
 
     // Synchronous API
     test_command_to_single_node(cc);

@@ -263,6 +263,9 @@ void test_xadd(redisClusterContext *cc) {
 }
 
 void test_xautoclaim(redisClusterContext *cc) {
+    if (redis_version_less_than(6, 2))
+        return; /* Skip test, command not available. */
+
     redisReply *r;
 
     r = redisClusterCommand(
@@ -326,10 +329,14 @@ void test_xgroup(redisClusterContext *cc) {
     CHECK_REPLY_ERROR(cc, r, "BUSYGROUP");
     freeReplyObject(r);
 
-    r = redisClusterCommand(
-        cc, "XGROUP CREATECONSUMER mystream consumer-group-name myconsumer123");
-    CHECK_REPLY_INT(cc, r, 1);
-    freeReplyObject(r);
+    if (!redis_version_less_than(6, 2)) {
+        /* Test of subcommand CREATECONSUMER when available. */
+        r = redisClusterCommand(
+            cc,
+            "XGROUP CREATECONSUMER mystream consumer-group-name myconsumer123");
+        CHECK_REPLY_INT(cc, r, 1);
+        freeReplyObject(r);
+    }
 
     r = redisClusterCommand(
         cc, "XGROUP DELCONSUMER mystream consumer-group-name myconsumer123");
@@ -450,6 +457,7 @@ int main() {
     int status;
     status = redisClusterConnect2(cc);
     ASSERT_MSG(status == REDIS_OK, cc->errstr);
+    get_redis_version(cc);
 
     test_bitfield(cc);
     test_bitfield_ro(cc);

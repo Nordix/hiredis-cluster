@@ -10,8 +10,7 @@ REPLICAS=${REPLICAS:-1}
 ADDITIONAL_OPTIONS=${ADDITIONAL_OPTIONS:-""}
 ADDITIONAL_CLI_OPTIONS=${ADDITIONAL_CLI_OPTIONS:-""}
 
-if [ "$1" == "start" ]
-then
+if [ "$1" == "start" ]; then
     FIRST_PORT=${PORT}
     HOSTS=""
     for i in $(seq $NODES); do
@@ -27,8 +26,7 @@ then
     exit 0
 fi
 
-if [ "$1" == "stop" ]
-then
+if [ "$1" == "stop" ]; then
     for i in $(seq $NODES); do
         echo "Stopping redis on port $PORT..."
         docker rm -f redis-${PORT} &> /dev/null

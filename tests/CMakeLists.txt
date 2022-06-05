@@ -60,7 +60,7 @@ target_link_libraries(ct_async hiredis_cluster ${SSL_LIBRARY} ${LIBEVENT_LIBRARY
 add_test(NAME ct_async COMMAND "$<TARGET_FILE:ct_async>")
 set_tests_properties(ct_async PROPERTIES LABELS "CT")
 
-add_executable(ct_commands ct_commands.c)
+add_executable(ct_commands ct_commands.c test_utils.c)
 target_link_libraries(ct_commands hiredis_cluster ${SSL_LIBRARY})
 add_test(NAME ct_commands COMMAND "$<TARGET_FILE:ct_commands>")
 set_tests_properties(ct_commands PROPERTIES LABELS "CT")
@@ -87,7 +87,7 @@ target_link_libraries(ct_out_of_memory_handling hiredis_cluster ${SSL_LIBRARY} $
 add_test(NAME ct_out_of_memory_handling COMMAND "$<TARGET_FILE:ct_out_of_memory_handling>")
 set_tests_properties(ct_out_of_memory_handling PROPERTIES LABELS "CT")
 
-add_executable(ct_specific_nodes ct_specific_nodes.c)
+add_executable(ct_specific_nodes ct_specific_nodes.c test_utils.c)
 target_link_libraries(ct_specific_nodes hiredis_cluster ${SSL_LIBRARY} ${LIBEVENT_LIBRARY})
 add_test(NAME ct_specific_nodes COMMAND "$<TARGET_FILE:ct_specific_nodes>")
 set_tests_properties(ct_specific_nodes PROPERTIES LABELS "CT")
