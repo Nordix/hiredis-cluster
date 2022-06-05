@@ -65,7 +65,7 @@ target_link_libraries(ct_commands hiredis_cluster ${SSL_LIBRARY})
 add_test(NAME ct_commands COMMAND "$<TARGET_FILE:ct_commands>")
 set_tests_properties(ct_commands PROPERTIES LABELS "CT")
 
-add_executable(ct_connection ct_connection.c)
+add_executable(ct_connection ct_connection.c test_utils.c)
 target_link_libraries(ct_connection hiredis_cluster ${SSL_LIBRARY} ${LIBEVENT_LIBRARY})
 add_test(NAME ct_connection COMMAND "$<TARGET_FILE:ct_connection>")
 set_tests_properties(ct_connection PROPERTIES LABELS "CT")
