@@ -10,6 +10,11 @@ REPLICAS=${REPLICAS:-1}
 ADDITIONAL_OPTIONS=${ADDITIONAL_OPTIONS:-""}
 ADDITIONAL_CLI_OPTIONS=${ADDITIONAL_CLI_OPTIONS:-""}
 
+# Version specific options
+if [[ $REDIS_VERSION == 7* ]]; then
+    ADDITIONAL_OPTIONS="--enable-debug-command yes ${ADDITIONAL_OPTIONS}"
+fi
+
 if [ "$1" == "start" ]; then
     FIRST_PORT=${PORT}
     HOSTS=""

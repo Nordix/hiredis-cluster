@@ -218,7 +218,11 @@ void test_eval(redisClusterContext *cc) {
 
     reply = (redisReply *)redisClusterCommand(
         cc, "eval %s 1 %s", "return redis.call('get',KEYS[1])", "foo");
-    CHECK_REPLY_ERROR(cc, reply, "ERR Error running script");
+    if (redis_version_less_than(7, 0)) {
+        CHECK_REPLY_ERROR(cc, reply, "ERR Error running script");
+    } else {
+        CHECK_REPLY_ERROR(cc, reply, "WRONGTYPE");
+    }
     freeReplyObject(reply);
 
     // Two keys handled by different instances,
