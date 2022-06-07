@@ -25,8 +25,6 @@ jobs:
 
       - name: Generate makefiles
         shell: bash
-        env:
-          CC: ${{ matrix.compiler }}
         working-directory: build
         run: cmake $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=Release -DTEST_WITH_REDIS_VERSION=${{ matrix.redis-version }} ..
 

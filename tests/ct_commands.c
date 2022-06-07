@@ -466,7 +466,7 @@ int main() {
     int status;
     status = redisClusterConnect2(cc);
     ASSERT_MSG(status == REDIS_OK, cc->errstr);
-    get_redis_version(cc);
+    load_redis_version(cc);
 
     test_bitfield(cc);
     test_bitfield_ro(cc);

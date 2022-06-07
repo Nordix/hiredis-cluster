@@ -9,7 +9,7 @@ static int redis_version_minor;
 
 /* Helper to extract Redis version information. */
 #define REDIS_VERSION_FIELD "redis_version:"
-void get_redis_version(redisClusterContext *cc) {
+void load_redis_version(redisClusterContext *cc) {
     nodeIterator ni;
     cluster_node *node;
     char *eptr, *s, *e;
@@ -49,7 +49,7 @@ abort:
 /* Helper to verify Redis version information. */
 int redis_version_less_than(int major, int minor) {
     if (redis_version_major == 0) {
-        fprintf(stderr, "Error: Redis version not fetched, aborting..\n");
+        fprintf(stderr, "Error: Redis version not loaded, aborting..\n");
         exit(1);
     }
 

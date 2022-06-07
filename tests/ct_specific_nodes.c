@@ -489,7 +489,7 @@ int main() {
     redisClusterSetOptionMaxRetry(cc, 1);
     status = redisClusterConnect2(cc);
     ASSERT_MSG(status == REDIS_OK, cc->errstr);
-    get_redis_version(cc);
+    load_redis_version(cc);
 
     // Synchronous API
     test_command_to_single_node(cc);

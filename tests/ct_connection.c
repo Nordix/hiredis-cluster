@@ -24,7 +24,7 @@ void test_password_ok() {
     int status;
     status = redisClusterConnect2(cc);
     ASSERT_MSG(status == REDIS_OK, cc->errstr);
-    get_redis_version(cc);
+    load_redis_version(cc);
 
     // Test connection
     redisReply *reply;

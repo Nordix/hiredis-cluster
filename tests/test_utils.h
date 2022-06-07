@@ -73,5 +73,5 @@
 
 struct redisClusterContext;
 
-void get_redis_version(redisClusterContext *cc);
+void load_redis_version(redisClusterContext *cc);
 int redis_version_less_than(int major, int minor);
