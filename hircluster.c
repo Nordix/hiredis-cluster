@@ -850,7 +850,7 @@ dict *parse_cluster_slots(redisClusterContext *cc, redisReply *reply,
             } else {
                 elem_nodes = elem_slots->element[idx];
                 if (elem_nodes->type != REDIS_REPLY_ARRAY ||
-                    elem_nodes->elements != 3) {
+                    elem_nodes->elements < 2) {
                     __redisClusterSetError(
                         cc, REDIS_ERR_OTHER,
                         "Command(cluster slots) reply error: "

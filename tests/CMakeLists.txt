@@ -1,3 +1,5 @@
+SET(TEST_WITH_REDIS_VERSION "6.2.1" CACHE STRING "Redis version used when running tests.")
+
 if(ENABLE_SSL)
   # Generate SSL certs and keys when needed
   set(SSL_CONFIGS ca.crt ca.key ca.txt redis.crt redis.key client.crt client.key)
@@ -22,18 +24,15 @@ else()
   set(NO_IPV6 "true") # Ignore command
 endif()
 
-find_program(Docker_EXECUTABLE docker)
-set(CONTAINER "bjosv/redis-cluster:6.2.0") # When supporting password change to: grokzen/redis-cluster:X.X.X
-
 add_custom_target(start
-  COMMAND ${Docker_EXECUTABLE} run --name docker-cluster -d -p 7000-7006:7000-7006 ${CONTAINER} || (exit 0)
-  COMMAND ${Docker_EXECUTABLE} run --name docker-cluster-passw -d -e INITIAL_PORT=7100 -e PASSWORD="secretword" -p 7100-7106:7100-7106 ${CONTAINER} || (exit 0)
-  COMMAND ${NO_IPV6} ${Docker_EXECUTABLE} run --name docker-cluster-ipv6 -d -e INITIAL_PORT=7200 -e IP=:: -e BIND_ADDRESS=::1 --network host ${CONTAINER} || (exit 0)
-)
+  COMMAND REDIS_VERSION=${TEST_WITH_REDIS_VERSION} PORT=7000 ${CMAKE_SOURCE_DIR}/tests/scripts/redis-cluster start
+  COMMAND REDIS_VERSION=${TEST_WITH_REDIS_VERSION} PORT=7100 ADDITIONAL_OPTIONS='--requirepass secretword --masterauth secretword' ADDITIONAL_CLI_OPTIONS='-a secretword' ${CMAKE_SOURCE_DIR}/tests/scripts/redis-cluster start
+  COMMAND ${NO_IPV6} REDIS_VERSION=${TEST_WITH_REDIS_VERSION} PORT=7200 CLUSTER_HOST=::1 ADDITIONAL_OPTIONS='--bind ::1' ADDITIONAL_CLI_OPTIONS='-h ::1' ${CMAKE_SOURCE_DIR}/tests/scripts/redis-cluster start
+  )
 add_custom_target(stop
-  COMMAND ${Docker_EXECUTABLE} rm -f  docker-cluster || (exit 0)
-  COMMAND ${Docker_EXECUTABLE} rm -f  docker-cluster-passw || (exit 0)
-  COMMAND ${NO_IPV6} ${Docker_EXECUTABLE} rm -f  docker-cluster-ipv6 || (exit 0)
+  COMMAND PORT=7000 ${CMAKE_SOURCE_DIR}/tests/scripts/redis-cluster stop
+  COMMAND PORT=7100 ${CMAKE_SOURCE_DIR}/tests/scripts/redis-cluster stop
+  COMMAND ${NO_IPV6} PORT=7200 ${CMAKE_SOURCE_DIR}/tests/scripts/redis-cluster stop
 )
 
 # Find dependencies
@@ -61,12 +60,12 @@ target_link_libraries(ct_async hiredis_cluster ${SSL_LIBRARY} ${LIBEVENT_LIBRARY
 add_test(NAME ct_async COMMAND "$<TARGET_FILE:ct_async>")
 set_tests_properties(ct_async PROPERTIES LABELS "CT")
 
-add_executable(ct_commands ct_commands.c)
+add_executable(ct_commands ct_commands.c test_utils.c)
 target_link_libraries(ct_commands hiredis_cluster ${SSL_LIBRARY})
 add_test(NAME ct_commands COMMAND "$<TARGET_FILE:ct_commands>")
 set_tests_properties(ct_commands PROPERTIES LABELS "CT")
 
-add_executable(ct_connection ct_connection.c)
+add_executable(ct_connection ct_connection.c test_utils.c)
 target_link_libraries(ct_connection hiredis_cluster ${SSL_LIBRARY} ${LIBEVENT_LIBRARY})
 add_test(NAME ct_connection COMMAND "$<TARGET_FILE:ct_connection>")
 set_tests_properties(ct_connection PROPERTIES LABELS "CT")
@@ -88,7 +87,7 @@ target_link_libraries(ct_out_of_memory_handling hiredis_cluster ${SSL_LIBRARY} $
 add_test(NAME ct_out_of_memory_handling COMMAND "$<TARGET_FILE:ct_out_of_memory_handling>")
 set_tests_properties(ct_out_of_memory_handling PROPERTIES LABELS "CT")
 
-add_executable(ct_specific_nodes ct_specific_nodes.c)
+add_executable(ct_specific_nodes ct_specific_nodes.c test_utils.c)
 target_link_libraries(ct_specific_nodes hiredis_cluster ${SSL_LIBRARY} ${LIBEVENT_LIBRARY})
 add_test(NAME ct_specific_nodes COMMAND "$<TARGET_FILE:ct_specific_nodes>")
 set_tests_properties(ct_specific_nodes PROPERTIES LABELS "CT")

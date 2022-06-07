@@ -42,6 +42,9 @@ void test_bitfield(redisClusterContext *cc) {
 }
 
 void test_bitfield_ro(redisClusterContext *cc) {
+    if (redis_version_less_than(6, 0))
+        return; /* Skip test, command not available. */
+
     redisReply *reply;
 
     reply = (redisReply *)redisClusterCommand(cc, "SET bkey2 a"); // 97
@@ -215,7 +218,11 @@ void test_eval(redisClusterContext *cc) {
 
     reply = (redisReply *)redisClusterCommand(
         cc, "eval %s 1 %s", "return redis.call('get',KEYS[1])", "foo");
-    CHECK_REPLY_ERROR(cc, reply, "ERR Error running script");
+    if (redis_version_less_than(7, 0)) {
+        CHECK_REPLY_ERROR(cc, reply, "ERR Error running script");
+    } else {
+        CHECK_REPLY_ERROR(cc, reply, "WRONGTYPE");
+    }
     freeReplyObject(reply);
 
     // Two keys handled by different instances,
@@ -263,6 +270,9 @@ void test_xadd(redisClusterContext *cc) {
 }
 
 void test_xautoclaim(redisClusterContext *cc) {
+    if (redis_version_less_than(6, 2))
+        return; /* Skip test, command not available. */
+
     redisReply *r;
 
     r = redisClusterCommand(
@@ -326,10 +336,14 @@ void test_xgroup(redisClusterContext *cc) {
     CHECK_REPLY_ERROR(cc, r, "BUSYGROUP");
     freeReplyObject(r);
 
-    r = redisClusterCommand(
-        cc, "XGROUP CREATECONSUMER mystream consumer-group-name myconsumer123");
-    CHECK_REPLY_INT(cc, r, 1);
-    freeReplyObject(r);
+    if (!redis_version_less_than(6, 2)) {
+        /* Test of subcommand CREATECONSUMER when available. */
+        r = redisClusterCommand(
+            cc,
+            "XGROUP CREATECONSUMER mystream consumer-group-name myconsumer123");
+        CHECK_REPLY_INT(cc, r, 1);
+        freeReplyObject(r);
+    }
 
     r = redisClusterCommand(
         cc, "XGROUP DELCONSUMER mystream consumer-group-name myconsumer123");
@@ -356,10 +370,12 @@ void test_xinfo(redisClusterContext *cc) {
     CHECK_REPLY_TYPE(r, REDIS_REPLY_ARRAY);
     freeReplyObject(r);
 
-    /* Test of subcommand STREAM with arguments*/
-    r = redisClusterCommand(cc, "XINFO STREAM mystream FULL COUNT 1");
-    CHECK_REPLY_TYPE(r, REDIS_REPLY_ARRAY);
-    freeReplyObject(r);
+    if (!redis_version_less_than(6, 0)) {
+        /* Test of subcommand STREAM with arguments when available. */
+        r = redisClusterCommand(cc, "XINFO STREAM mystream FULL COUNT 1");
+        CHECK_REPLY_TYPE(r, REDIS_REPLY_ARRAY);
+        freeReplyObject(r);
+    }
 
     r = redisClusterCommand(cc, "XINFO GROUPS mystream");
     CHECK_REPLY_TYPE(r, REDIS_REPLY_ARRAY);
@@ -450,6 +466,7 @@ int main() {
     int status;
     status = redisClusterConnect2(cc);
     ASSERT_MSG(status == REDIS_OK, cc->errstr);
+    load_redis_version(cc);
 
     test_bitfield(cc);
     test_bitfield_ro(cc);
