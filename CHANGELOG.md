@@ -1,3 +1,10 @@
+### 0.8.0 - Jun 15, 2022
+
+* Basic Redis 7.0 support.
+* SSL/TCL handling in separate library.
+* Command timeout corrections.
+* Builds on Windows and macOS.
+
 ### 0.7.0 - Sep 22, 2021
 
 * Added support for stream commands in regular API.
