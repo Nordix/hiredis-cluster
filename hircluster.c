@@ -167,28 +167,6 @@ void listCommandFree(void *command) {
     command_destroy(cmd);
 }
 
-/* Helper function for the redisClusterCommand* family of functions.
- *
- * Write a formatted command to the output buffer. If the given context is
- * blocking, immediately read the reply into the "reply" pointer. When the
- * context is non-blocking, the "reply" pointer will not be used and the
- * command is simply appended to the write buffer.
- *
- * Returns the reply when a reply was succesfully retrieved. Returns NULL
- * otherwise. When NULL is returned in a blocking context, the error field
- * in the context will be set.
- */
-static void *__redisBlockForReply(redisContext *c) {
-    void *reply;
-
-    if (c->flags & REDIS_BLOCK) {
-        if (redisGetReply(c, &reply) != REDIS_OK)
-            return NULL;
-        return reply;
-    }
-    return NULL;
-}
-
 /* -----------------------------------------------------------------------------
  * Key space handling
  * -------------------------------------------------------------------------- */
@@ -2405,8 +2383,7 @@ ask_retry:
         return NULL;
     }
 
-    reply = __redisBlockForReply(c);
-    if (reply == NULL) {
+    if (redisGetReply(c, &reply) != REDIS_OK) {
         __redisClusterSetError(cc, c->err, c->errstr);
         return NULL;
     }
@@ -3096,7 +3073,7 @@ void *redisClusterCommandToNode(redisClusterContext *cc, cluster_node *node,
     redisContext *c;
     va_list ap;
     int ret;
-    redisReply *reply;
+    void *reply;
 
     c = ctx_get_by_node(cc, node);
     if (c == NULL) {
@@ -3115,8 +3092,7 @@ void *redisClusterCommandToNode(redisClusterContext *cc, cluster_node *node,
         return NULL;
     }
 
-    reply = __redisBlockForReply(c);
-    if (reply == NULL) {
+    if (redisGetReply(c, &reply) != REDIS_OK) {
         __redisClusterSetError(cc, c->err, c->errstr);
         return NULL;
     }
