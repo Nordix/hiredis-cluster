@@ -3360,14 +3360,12 @@ static int redisClusterSendAll(redisClusterContext *cc) {
             continue;
         }
 
-        if (c->flags & REDIS_BLOCK) {
-            /* Write until done */
-            do {
-                if (redisBufferWrite(c, &wdone) == REDIS_ERR) {
-                    return REDIS_ERR;
-                }
-            } while (!wdone);
-        }
+        /* Write until done */
+        do {
+            if (redisBufferWrite(c, &wdone) == REDIS_ERR) {
+                return REDIS_ERR;
+            }
+        } while (!wdone);
     }
 
     return REDIS_OK;
@@ -3530,8 +3528,10 @@ void redisClusterReset(redisClusterContext *cc) {
     if (cc->err) {
         redisClusterClearAll(cc);
     } else {
+        /* Write/flush each nodes output buffer to socket */
         redisClusterSendAll(cc);
 
+        /* Expect a reply for each pipelined request */
         do {
             status = redisClusterGetReply(cc, &reply);
             if (status == REDIS_OK) {
