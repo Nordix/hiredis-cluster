@@ -1910,8 +1910,7 @@ int redisClusterSetOptionTimeout(redisClusterContext *cc,
                 if (node->acon) {
                     redisAsyncSetTimeout(node->acon, tv);
                 }
-                if (node->con && node->con->flags & REDIS_CONNECTED &&
-                    node->con->err == 0) {
+                if (node->con && node->con->err == 0) {
                     redisSetTimeout(node->con, tv);
                 }
 
@@ -1927,8 +1926,7 @@ int redisClusterSetOptionTimeout(redisClusterContext *cc,
                         if (slave->acon) {
                             redisAsyncSetTimeout(slave->acon, tv);
                         }
-                        if (slave->con && slave->con->flags & REDIS_CONNECTED &&
-                            slave->con->err == 0) {
+                        if (slave->con && slave->con->err == 0) {
                             redisSetTimeout(slave->con, tv);
                         }
                     }
