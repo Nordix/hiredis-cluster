@@ -27,7 +27,7 @@ INSTALL_PKGCONF_PATH= $(INSTALL_LIBRARY_PATH)/$(PKGCONF_PATH)
 # Fallback to gcc when $CC is not in $PATH.
 CC:=$(shell sh -c 'type $${CC%% *} >/dev/null 2>/dev/null && echo $(CC) || echo gcc')
 OPTIMIZATION?=-O3
-WARNINGS=-Wall -W -Wstrict-prototypes -Wwrite-strings
+WARNINGS=-Wall -Wextra -pedantic -Werror -Wstrict-prototypes -Wwrite-strings
 DEBUG_FLAGS?= -g -ggdb
 REAL_CFLAGS=$(OPTIMIZATION) -fPIC $(CFLAGS) $(WARNINGS) $(DEBUG_FLAGS)
 REAL_LDFLAGS=$(LDFLAGS)
@@ -109,7 +109,7 @@ hiredis-cluster-example-tls: examples/src/example_tls.c
 examples: $(EXAMPLES)
 
 .c.o:
-	$(CC) -std=c99 -pedantic -c $(REAL_CFLAGS) $<
+	$(CC) -std=c99 -c $(REAL_CFLAGS) $<
 
 clean:
 	rm -rf $(DYLIBNAME) $(STLIBNAME) $(SSL_DYLIBNAME) $(SSL_STLIBNAME) $(PKGCONFNAME) $(SSL_PKGCONFNAME) examples/hiredis-cluster-example* *.o *.gcda *.gcno *.gcov
