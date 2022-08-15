@@ -29,7 +29,7 @@ CC:=$(shell sh -c 'type $${CC%% *} >/dev/null 2>/dev/null && echo $(CC) || echo 
 OPTIMIZATION?=-O3
 WARNINGS=-Wall -Wextra -pedantic -Werror -Wstrict-prototypes -Wwrite-strings
 DEBUG_FLAGS?= -g -ggdb
-REAL_CFLAGS=$(OPTIMIZATION) -fPIC $(CFLAGS) $(WARNINGS) $(DEBUG_FLAGS)
+REAL_CFLAGS=$(OPTIMIZATION) -std=c99 -fPIC $(CFLAGS) $(WARNINGS) $(DEBUG_FLAGS)
 REAL_LDFLAGS=$(LDFLAGS)
 
 DYLIBSUFFIX=so
@@ -72,7 +72,7 @@ endif
 
 all: $(DYLIBNAME) $(SSL_DYLIBNAME) $(STLIBNAME) $(SSL_STLIBNAME) $(PKGCONFNAME) $(SSL_PKGCONFNAME)
 
-# Deps (use make dep to generate this)
+# Deps (use `USE_SSL=1 make dep` to generate this)
 adlist.o: adlist.c adlist.h hiutil.h
 command.o: command.c command.h adlist.h hiarray.h hiutil.h win32.h
 crc16.o: crc16.c hiutil.h
@@ -109,7 +109,7 @@ hiredis-cluster-example-tls: examples/src/example_tls.c
 examples: $(EXAMPLES)
 
 .c.o:
-	$(CC) -std=c99 -c $(REAL_CFLAGS) $<
+	$(CC) -c $(REAL_CFLAGS) $<
 
 clean:
 	rm -rf $(DYLIBNAME) $(STLIBNAME) $(SSL_DYLIBNAME) $(SSL_STLIBNAME) $(PKGCONFNAME) $(SSL_PKGCONFNAME) examples/hiredis-cluster-example* *.o *.gcda *.gcno *.gcov
