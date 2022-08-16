@@ -27,7 +27,7 @@ INSTALL_PKGCONF_PATH= $(INSTALL_LIBRARY_PATH)/$(PKGCONF_PATH)
 # Fallback to gcc when $CC is not in $PATH.
 CC:=$(shell sh -c 'type $${CC%% *} >/dev/null 2>/dev/null && echo $(CC) || echo gcc')
 OPTIMIZATION?=-O3
-WARNINGS=-Wall -Wextra -pedantic -Werror -Wstrict-prototypes -Wwrite-strings
+WARNINGS=-Wall -Wextra -pedantic -Werror -Wstrict-prototypes -Wwrite-strings -Wno-missing-field-initializers
 DEBUG_FLAGS?= -g -ggdb
 REAL_CFLAGS=$(OPTIMIZATION) -std=c99 -fPIC $(CFLAGS) $(WARNINGS) $(DEBUG_FLAGS)
 REAL_LDFLAGS=$(LDFLAGS)
