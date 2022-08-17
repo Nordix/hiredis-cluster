@@ -62,7 +62,7 @@ add_library(hiredis_cluster
 
 if(NOT MSVC)
   target_compile_options(hiredis_cluster PRIVATE -Wall -Wextra -pedantic -Werror
-    -Wstrict-prototypes -Wwrite-strings)
+    -Wstrict-prototypes -Wwrite-strings -Wno-missing-field-initializers)
 
   # Add extra defines when CMAKE_BUILD_TYPE is set to Debug
   set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -DHI_ASSERT_PANIC -DHI_HAVE_BACKTRACE")
