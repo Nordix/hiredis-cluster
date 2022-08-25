@@ -53,7 +53,6 @@
 #define REDIS_ERROR_MOVED "MOVED"
 #define REDIS_ERROR_ASK "ASK"
 #define REDIS_ERROR_TRYAGAIN "TRYAGAIN"
-#define REDIS_ERROR_CROSSSLOT "CROSSSLOT"
 #define REDIS_ERROR_CLUSTERDOWN "CLUSTERDOWN"
 
 #define REDIS_STATUS_OK "OK"
@@ -90,7 +89,6 @@ typedef enum CLUSTER_ERR_TYPE {
     CLUSTER_ERR_MOVED,
     CLUSTER_ERR_ASK,
     CLUSTER_ERR_TRYAGAIN,
-    CLUSTER_ERR_CROSSSLOT,
     CLUSTER_ERR_CLUSTERDOWN,
     CLUSTER_ERR_SENTINEL
 } CLUSTER_ERR_TYPE;
@@ -242,10 +240,6 @@ static int cluster_reply_error_type(redisReply *reply) {
                    strncmp(reply->str, REDIS_ERROR_TRYAGAIN,
                            strlen(REDIS_ERROR_TRYAGAIN)) == 0) {
             return CLUSTER_ERR_TRYAGAIN;
-        } else if ((int)strlen(REDIS_ERROR_CROSSSLOT) < reply->len &&
-                   strncmp(reply->str, REDIS_ERROR_CROSSSLOT,
-                           strlen(REDIS_ERROR_CROSSSLOT)) == 0) {
-            return CLUSTER_ERR_CROSSSLOT;
         } else if ((int)strlen(REDIS_ERROR_CLUSTERDOWN) < reply->len &&
                    strncmp(reply->str, REDIS_ERROR_CLUSTERDOWN,
                            strlen(REDIS_ERROR_CLUSTERDOWN)) == 0) {
@@ -2433,7 +2427,6 @@ ask_retry:
 
             break;
         case CLUSTER_ERR_TRYAGAIN:
-        case CLUSTER_ERR_CROSSSLOT:
         case CLUSTER_ERR_CLUSTERDOWN:
             freeReplyObject(reply);
             reply = NULL;
@@ -3989,7 +3982,6 @@ static void redisClusterAsyncRetryCallback(redisAsyncContext *ac, void *r,
 
             break;
         case CLUSTER_ERR_TRYAGAIN:
-        case CLUSTER_ERR_CROSSSLOT:
         case CLUSTER_ERR_CLUSTERDOWN:
             ac_retry = ac;
 
