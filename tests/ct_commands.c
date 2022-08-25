@@ -226,11 +226,12 @@ void test_eval(redisClusterContext *cc) {
     freeReplyObject(reply);
 
     // Two keys handled by different instances,
-    // will be retried multiple times and fail due to CROSSSLOT.
+    // will fail due to CROSSSLOT.
     reply = (redisReply *)redisClusterCommand(
         cc, "eval %s 2 %s %s %s %s", "return {KEYS[1],KEYS[2],ARGV[1],ARGV[2]}",
         "key1", "key2", "first", "second");
-    assert(reply == NULL);
+    CHECK_REPLY_ERROR(cc, reply, "CROSSSLOT");
+    freeReplyObject(reply);
 }
 
 void test_xack(redisClusterContext *cc) {
