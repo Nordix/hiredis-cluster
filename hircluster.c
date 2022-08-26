@@ -1223,7 +1223,7 @@ static int cluster_update_route_by_addr(redisClusterContext *cc, const char *ip,
                                         int port) {
     redisContext *c = NULL;
     redisReply *reply = NULL;
-    dict *nodes = NULL;
+    dict *oldnodes, *nodes = NULL;
     struct hiarray *slots = NULL;
     cluster_node *master;
     cluster_slot *slot, **slot_elem;
@@ -1383,10 +1383,14 @@ static int cluster_update_route_by_addr(redisClusterContext *cc, const char *ip,
 
     // Move all hiredis contexts in cc->nodes to nodes
     cluster_nodes_swap_ctx(cc->nodes, nodes);
-    if (cc->nodes != NULL) {
-        dictRelease(cc->nodes);
-    }
+
+    /* Replace cc->nodes before releasing the old dict since */
+    /* the release procedure might access cc->nodes. */
+    oldnodes = cc->nodes;
     cc->nodes = nodes;
+    if (oldnodes != NULL) {
+        dictRelease(oldnodes);
+    }
 
     if (cc->slots != NULL) {
         cc->slots->nelem = 0;
