@@ -3634,7 +3634,10 @@ redisAsyncContext *actx_get_by_node(redisClusterAsyncContext *acc,
         if (ac->c.err == 0) {
             return ac;
         } else {
-            NOT_REACHED();
+            /* Disconnect ongoing and __redisAsyncDisconnect() will eventually */
+            /* call unlinkAsyncContextAndNode() before freeing the context.    */
+            __redisClusterAsyncSetError(acc, ac->c.err, ac->c.errstr);
+            return NULL;
         }
     }
 
@@ -3749,9 +3752,6 @@ actx_get_after_update_route_by_slot(redisClusterAsyncContext *acc,
     ac = actx_get_by_node(acc, node);
     if (ac == NULL) {
         /* Specific error already set */
-        return NULL;
-    } else if (ac->err) {
-        __redisClusterAsyncSetError(acc, ac->err, ac->errstr);
         return NULL;
     }
 
@@ -3980,10 +3980,6 @@ static void redisClusterAsyncRetryCallback(redisAsyncContext *ac, void *r,
             if (ac_retry == NULL) {
                 /* Specific error already set */
                 goto done;
-            } else if (ac_retry->err) {
-                __redisClusterAsyncSetError(acc, ac_retry->err,
-                                            ac_retry->errstr);
-                goto done;
             }
 
             ret = redisAsyncCommand(ac_retry, NULL, NULL, REDIS_COMMAND_ASKING);
@@ -4124,9 +4120,6 @@ int redisClusterAsyncFormattedCommand(redisClusterAsyncContext *acc,
     if (ac == NULL) {
         /* Specific error already set */
         goto error;
-    } else if (ac->err) {
-        __redisClusterAsyncSetError(acc, ac->err, ac->errstr);
-        goto error;
     }
 
     cad = cluster_async_data_create();
@@ -4177,9 +4170,6 @@ int redisClusterAsyncFormattedCommandToNode(redisClusterAsyncContext *acc,
     ac = actx_get_by_node(acc, node);
     if (ac == NULL) {
         /* Specific error already set */
-        return REDIS_ERR;
-    } else if (ac->err) {
-        __redisClusterAsyncSetError(acc, ac->err, ac->errstr);
         return REDIS_ERR;
     }
 
