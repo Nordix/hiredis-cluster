@@ -1387,8 +1387,8 @@ static int cluster_update_route_by_addr(redisClusterContext *cc, const char *ip,
     // Move all hiredis contexts in cc->nodes to nodes
     cluster_nodes_swap_ctx(cc->nodes, nodes);
 
-    /* Replace cc->nodes before releasing the old dict since */
-    /* the release procedure might access cc->nodes. */
+    /* Replace cc->nodes before releasing the old dict since
+     * the release procedure might access cc->nodes. */
     oldnodes = cc->nodes;
     cc->nodes = nodes;
     if (oldnodes != NULL) {
