@@ -3637,8 +3637,11 @@ redisAsyncContext *actx_get_by_node(redisClusterAsyncContext *acc,
         if (ac->c.err == 0) {
             return ac;
         } else {
-            /* Disconnect ongoing and __redisAsyncDisconnect() will eventually */
-            /* call unlinkAsyncContextAndNode() before freeing the context.    */
+            /* The cluster node has a hiredis context with errors. Hiredis
+             * will asynchronously destruct the context and unlink it from
+             * the cluster node object. Return an error until done.
+             * An example scenario is when sending a command from a command
+             * callback, which has a NULL reply due to a disconnect. */
             __redisClusterAsyncSetError(acc, ac->c.err, ac->c.errstr);
             return NULL;
         }
