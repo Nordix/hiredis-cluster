@@ -280,8 +280,8 @@ static void cluster_node_deinit(cluster_node *node) {
     node->con = NULL;
 
     if (node->acon != NULL) {
-        /* Since the cluster node is deleted the async context should not update */
-        /* the cluster_node via it's dataCleanup and unlinkAsyncContextAndNode() */
+        /* Since the cluster node is deleted the async context should not update
+         * the cluster_node via it's dataCleanup and unlinkAsyncContextAndNode() */
         node->acon->data = NULL;
         redisAsyncFree(node->acon);
     }
