@@ -1,3 +1,9 @@
+### 0.8.1 - Aug 31, 2022
+
+* Fixed crash and use-after-free in the asynchronous API.
+* Use identical warning flags in CMake and Makefile.
+* Corrected CROSSSLOT errors to not to be retried.
+
 ### 0.8.0 - Jun 15, 2022
 
 * Basic Redis 7.0 support.
