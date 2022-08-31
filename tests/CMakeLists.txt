@@ -165,12 +165,10 @@ add_test(NAME moved-redirect-test
          COMMAND "${CMAKE_SOURCE_DIR}/tests/scripts/moved-redirect-test.sh"
                  "$<TARGET_FILE:clusterclient>"
                  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/tests/scripts/")
-# The test "moved-redirect-test-async" below triggers a warning when running
-# with santitizers. TODO: Fix this problem and uncomment the test case below.
-# add_test(NAME moved-redirect-test-async
-#          COMMAND "${CMAKE_SOURCE_DIR}/tests/scripts/moved-redirect-test.sh"
-#          "$<TARGET_FILE:clusterclient_async>"
-#          WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/tests/scripts/")
+add_test(NAME moved-redirect-test-async
+         COMMAND "${CMAKE_SOURCE_DIR}/tests/scripts/moved-redirect-test.sh"
+         "$<TARGET_FILE:clusterclient_async>"
+         WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/tests/scripts/")
 add_test(NAME dbsize-to-all-nodes-test
          COMMAND "${CMAKE_SOURCE_DIR}/tests/scripts/dbsize-to-all-nodes-test.sh"
                  "$<TARGET_FILE:clusterclient_all_nodes>"

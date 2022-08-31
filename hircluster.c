@@ -274,6 +274,9 @@ static void cluster_node_deinit(cluster_node *node) {
     node->con = NULL;
 
     if (node->acon != NULL) {
+        /* Since the cluster node is deleted the async context should not update
+         * the cluster_node via it's dataCleanup and unlinkAsyncContextAndNode() */
+        node->acon->data = NULL;
         redisAsyncFree(node->acon);
     }
 
@@ -1217,7 +1220,7 @@ static int cluster_update_route_by_addr(redisClusterContext *cc, const char *ip,
                                         int port) {
     redisContext *c = NULL;
     redisReply *reply = NULL;
-    dict *nodes = NULL;
+    dict *oldnodes, *nodes = NULL;
     struct hiarray *slots = NULL;
     cluster_node *master;
     cluster_slot *slot, **slot_elem;
@@ -1377,10 +1380,14 @@ static int cluster_update_route_by_addr(redisClusterContext *cc, const char *ip,
 
     // Move all hiredis contexts in cc->nodes to nodes
     cluster_nodes_swap_ctx(cc->nodes, nodes);
-    if (cc->nodes != NULL) {
-        dictRelease(cc->nodes);
-    }
+
+    /* Replace cc->nodes before releasing the old dict since
+     * the release procedure might access cc->nodes. */
+    oldnodes = cc->nodes;
     cc->nodes = nodes;
+    if (oldnodes != NULL) {
+        dictRelease(oldnodes);
+    }
 
     if (cc->slots != NULL) {
         cc->slots->nelem = 0;
@@ -3623,7 +3630,13 @@ redisAsyncContext *actx_get_by_node(redisClusterAsyncContext *acc,
         if (ac->c.err == 0) {
             return ac;
         } else {
-            NOT_REACHED();
+            /* The cluster node has a hiredis context with errors. Hiredis
+             * will asynchronously destruct the context and unlink it from
+             * the cluster node object. Return an error until done.
+             * An example scenario is when sending a command from a command
+             * callback, which has a NULL reply due to a disconnect. */
+            __redisClusterAsyncSetError(acc, ac->c.err, ac->c.errstr);
+            return NULL;
         }
     }
 
@@ -3738,9 +3751,6 @@ actx_get_after_update_route_by_slot(redisClusterAsyncContext *acc,
     ac = actx_get_by_node(acc, node);
     if (ac == NULL) {
         /* Specific error already set */
-        return NULL;
-    } else if (ac->err) {
-        __redisClusterAsyncSetError(acc, ac->err, ac->errstr);
         return NULL;
     }
 
@@ -3969,10 +3979,6 @@ static void redisClusterAsyncRetryCallback(redisAsyncContext *ac, void *r,
             if (ac_retry == NULL) {
                 /* Specific error already set */
                 goto done;
-            } else if (ac_retry->err) {
-                __redisClusterAsyncSetError(acc, ac_retry->err,
-                                            ac_retry->errstr);
-                goto done;
             }
 
             ret = redisAsyncCommand(ac_retry, NULL, NULL, REDIS_COMMAND_ASKING);
@@ -4112,9 +4118,6 @@ int redisClusterAsyncFormattedCommand(redisClusterAsyncContext *acc,
     if (ac == NULL) {
         /* Specific error already set */
         goto error;
-    } else if (ac->err) {
-        __redisClusterAsyncSetError(acc, ac->err, ac->errstr);
-        goto error;
     }
 
     cad = cluster_async_data_create();
@@ -4165,9 +4168,6 @@ int redisClusterAsyncFormattedCommandToNode(redisClusterAsyncContext *acc,
     ac = actx_get_by_node(acc, node);
     if (ac == NULL) {
         /* Specific error already set */
-        return REDIS_ERR;
-    } else if (ac->err) {
-        __redisClusterAsyncSetError(acc, ac->err, ac->errstr);
         return REDIS_ERR;
     }
 
