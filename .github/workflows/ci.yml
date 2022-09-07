@@ -135,3 +135,21 @@ jobs:
           mkdir build && cd build
           cmake .. -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=C:\vcpkg\scripts\buildsystems\vcpkg.cmake
           ninja -v
+
+  windows-mingw64:
+    name: Windows (MinGW64)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up MinGW
+        uses: egor-tensin/setup-mingw@v2
+        with:
+          platform: x64
+      - name: Prepare
+        run: |
+          choco install -y ninja
+      - name: Build
+        run: |
+          mkdir build && cd build
+          cmake .. -G Ninja -DDISABLE_TESTS=ON
+          cmake --build .
