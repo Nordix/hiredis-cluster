@@ -146,10 +146,14 @@ jobs:
         with:
           platform: x64
       - name: Prepare
+        env:
+          VCPKG_DEFAULT_TRIPLET: x64-mingw-dynamic
+          VCPKG_DEFAULT_HOST_TRIPLET: x64-mingw-dynamic
         run: |
           choco install -y ninja
+          vcpkg install libevent
       - name: Build
         run: |
           mkdir build && cd build
-          cmake .. -G Ninja -DDISABLE_TESTS=ON
+          cmake .. -G Ninja -DVCPKG_TARGET_TRIPLET=x64-mingw-dynamic -DCMAKE_TOOLCHAIN_FILE=C:\vcpkg\scripts\buildsystems\vcpkg.cmake
           cmake --build .

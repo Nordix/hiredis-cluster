@@ -44,14 +44,14 @@ find_library(LIBEVENT_LIBRARY event HINTS /usr/lib/x86_64-linux-gnu)
 find_path(LIBEVENT_INCLUDES event2/event.h)
 include_directories(${LIBEVENT_INCLUDES})
 
-if(MSVC)
+if(MSVC OR MINGW)
   find_library(LIBEVENT_LIBRARY Libevent)
 else()
   add_compile_options(-Wall -Wextra -pedantic -Werror)
+  # Debug mode for tests
+  set(CMAKE_BUILD_TYPE "Debug" CACHE STRING "" FORCE)
 endif()
 
-# Debug mode for tests
-set(CMAKE_BUILD_TYPE "Debug" CACHE STRING "" FORCE)
 # Make sure ctest gives the output when tests fail
 list(APPEND CMAKE_CTEST_ARGUMENTS "--output-on-failure")
 
