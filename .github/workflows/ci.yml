@@ -135,3 +135,25 @@ jobs:
           mkdir build && cd build
           cmake .. -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=C:\vcpkg\scripts\buildsystems\vcpkg.cmake
           ninja -v
+
+  windows-mingw64:
+    name: Windows (MinGW64)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up MinGW
+        uses: egor-tensin/setup-mingw@v2
+        with:
+          platform: x64
+      - name: Prepare
+        env:
+          VCPKG_DEFAULT_TRIPLET: x64-mingw-dynamic
+          VCPKG_DEFAULT_HOST_TRIPLET: x64-mingw-dynamic
+        run: |
+          choco install -y ninja
+          vcpkg install libevent
+      - name: Build
+        run: |
+          mkdir build && cd build
+          cmake .. -G Ninja -DVCPKG_TARGET_TRIPLET=x64-mingw-dynamic -DCMAKE_TOOLCHAIN_FILE=C:\vcpkg\scripts\buildsystems\vcpkg.cmake
+          cmake --build .
