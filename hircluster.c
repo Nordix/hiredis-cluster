@@ -3882,10 +3882,11 @@ static void redisClusterAsyncRetryCallback(redisAsyncContext *ac, void *r,
         // If you have a better idea, please contact with me. Thank you.
         // My email: diguo58@gmail.com
 
-        node = (cluster_node *)(ac->data);
-        ASSERT(node != NULL);
-
         __redisClusterAsyncSetError(acc, ac->err, ac->errstr);
+
+        node = (cluster_node *)ac->data;
+        if (node == NULL)
+            goto done; /* Node already removed from topology */
 
         if (cc->update_route_time != 0) {
             now = hi_usec_now();
