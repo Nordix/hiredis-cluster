@@ -3852,7 +3852,7 @@ static void redisClusterAsyncRetryCallback(redisAsyncContext *ac, void *r,
     int error_type;
     cluster_node *node;
     struct cmd *command;
-    int64_t now, next;
+    int64_t now;
 
     if (cad == NULL) {
         goto error;
@@ -3926,7 +3926,7 @@ static void redisClusterAsyncRetryCallback(redisAsyncContext *ac, void *r,
                 hi_atoi(cluster_timeout_str, cluster_timeout_str_len);
             hi_free(cluster_timeout_str);
 
-            if (cluster_timeout <= 0) {
+            if (cluster_timeout < 0) {
                 __redisClusterAsyncSetError(
                     acc, REDIS_ERR_OTHER,
                     "cluster_timeout_str convert to integer error");
@@ -3940,9 +3940,7 @@ static void redisClusterAsyncRetryCallback(redisAsyncContext *ac, void *r,
                 goto done;
             }
 
-            next = now + (cluster_timeout * 1000LL);
-
-            cc->update_route_time = next;
+            cc->update_route_time = now + (cluster_timeout * 1000LL);
         }
 
         goto done;
