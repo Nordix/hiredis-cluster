@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 #
 # Simulate a 2 node cluster.
 # - Node 1 will handle topology requests.
@@ -95,14 +95,22 @@ if [ $clientexit -ne 0 ]; then
     exit $clientexit
 fi
 
-# Check the output from clusterclient
-cmp "$testname.out" <<'EOF' || exit 99
-OK
+# Check the output from clusterclient, which depends on the hiredis version used.
+# hiredis v1.1.0
+expected1="OK
+error: Timeout
+error: Timeout
+error: Timeout
+error: Timeout"
+
+# hiredis < v1.1.0
+expected2="OK
 unknown error
 unknown error
 unknown error
-unknown error
-EOF
+unknown error"
+
+cmp "$testname.out" <(echo "$expected1") || cmp "$testname.out" <(echo "$expected2") || exit 99
 
 # Clean up
 rm "$testname.out"
