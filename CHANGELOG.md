@@ -1,3 +1,14 @@
+### 0.9.0 - Dec 22, 2022
+
+* Fixed a crash in the asynchronous API triggered by timed out commands.
+* Fixed a crash when using "CLUSTER NODES" on a non-ready cluster.
+* Fixed a crash when sending commands from a failure-reply callback.
+* Corrected and enabled connection timeout in the asynchronous API.
+* Corrected the handling of multiple ASK-redirect reply callbacks.
+* Updated hiredis to v1.1.0 when the CMake build handles the download.
+* Removed the unused cluster_slots array in the cluster context.
+* Updates to resolve build issues on Windows platforms.
+
 ### 0.8.1 - Aug 31, 2022
 
 * Fixed crash and use-after-free in the asynchronous API.
