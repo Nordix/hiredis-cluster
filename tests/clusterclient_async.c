@@ -77,9 +77,9 @@ int main(int argc, char **argv) {
     redisClusterAsyncSetDisconnectCallback(acc, disconnectCallback);
     redisClusterSetOptionAddNodes(acc->cc, initnode);
     redisClusterSetOptionRouteUseSlots(acc->cc);
-    redisClusterConnect2(acc->cc);
-    if (acc->err) {
-        printf("Connect error: %s\n", acc->errstr);
+
+    if (redisClusterConnect2(acc->cc) != REDIS_OK) {
+        printf("Connect error: %s\n", acc->cc->errstr);
         exit(-1);
     }
 
