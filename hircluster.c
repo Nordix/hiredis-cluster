@@ -1363,6 +1363,11 @@ static int cluster_update_route_by_addr(redisClusterContext *cc, const char *ip,
         }
     }
 
+    if (hiarray_n(slots) == 0) {
+        __redisClusterSetError(cc, REDIS_ERR_OTHER, "No slot information");
+        goto error; // Cluster topology is not yet known
+    }
+
     hiarray_sort(slots, cluster_slot_start_cmp);
     for (j = 0; j < hiarray_n(slots); j++) {
         slot_elem = hiarray_get(slots, j);
