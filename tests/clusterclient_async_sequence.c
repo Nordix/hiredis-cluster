@@ -111,9 +111,9 @@ int main(int argc, char **argv) {
     redisClusterSetOptionRouteUseSlots(acc->cc);
     redisClusterSetOptionTimeout(acc->cc, timeout);
     redisClusterSetOptionMaxRetry(acc->cc, 1);
-    redisClusterConnect2(acc->cc);
-    if (acc->err) {
-        printf("Connect error: %s\n", acc->errstr);
+
+    if (redisClusterConnect2(acc->cc) != REDIS_OK) {
+        printf("Connect error: %s\n", acc->cc->errstr);
         exit(-1);
     }
 

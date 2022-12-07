@@ -28,10 +28,9 @@ int main(int argc, char **argv) {
     redisClusterSetOptionRouteUseSlots(cc);
     redisClusterSetOptionParseSlaves(cc);
     redisClusterSetOptionEnableSSL(cc, ssl);
-    redisClusterConnect2(cc);
-    if (cc && cc->err) {
+
+    if (redisClusterConnect2(cc) != REDIS_OK) {
         printf("Error: %s\n", cc->errstr);
-        // handle error
         exit(-1);
     }
 
