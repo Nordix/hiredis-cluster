@@ -95,7 +95,7 @@ int main(int argc, char **argv) {
 
     if (redisClusterConnect2(acc->cc) != REDIS_OK) {
         printf("Connect error: %s\n", acc->cc->errstr);
-        exit(1);
+        exit(2);
     }
 
     int status;

@@ -44,7 +44,7 @@ if [ $serverexit -ne 0 ]; then
 fi
 
 # Check exit status on client, which SHOULD fail.
-if [ $clientexit -ne 1 ]; then
+if [ $clientexit -ne 2 ]; then
     echo "$clientprog exited with status $clientexit"
     exit $clientexit
 fi
