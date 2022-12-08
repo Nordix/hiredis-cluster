@@ -65,25 +65,40 @@ void disconnectCallback(const redisAsyncContext *ac, int status) {
 }
 
 int main(int argc, char **argv) {
-    if (argc <= 1) {
-        fprintf(stderr, "Usage: clusterclient_async HOST:PORT\n");
+    int use_cluster_slots = 1; // Get topology via CLUSTER SLOTS
+
+    int optind;
+    for (optind = 1; optind < argc && argv[optind][0] == '-'; optind++) {
+        if (strcmp(argv[optind], "-n") == 0) {
+            use_cluster_slots = 0; // Get topology via CLUSTER NODES
+        } else {
+            fprintf(stderr, "Unknown argument: '%s'\n", argv[optind]);
+        }
+    }
+
+    if (optind >= argc) {
+        fprintf(stderr, "Usage: clusterclient_async [-n] HOST:PORT\n");
+        fprintf(stderr, "Options:\n");
+        fprintf(stderr, " -n  Get cluster topology using CLUSTER NODES\n");
         exit(1);
     }
-    const char *initnode = argv[1];
+    const char *initnode = argv[optind];
 
     redisClusterAsyncContext *acc = redisClusterAsyncContextInit();
     assert(acc);
     redisClusterAsyncSetConnectCallback(acc, connectCallback);
     redisClusterAsyncSetDisconnectCallback(acc, disconnectCallback);
     redisClusterSetOptionAddNodes(acc->cc, initnode);
-    redisClusterSetOptionRouteUseSlots(acc->cc);
-    redisClusterConnect2(acc->cc);
-    if (acc->err) {
-        printf("Connect error: %s\n", acc->errstr);
-        exit(-1);
+    if (use_cluster_slots) {
+        redisClusterSetOptionRouteUseSlots(acc->cc);
     }
 
-    int status;
+    int status = redisClusterConnect2(acc->cc);
+    if (status != REDIS_OK) {
+        printf("Connect error: %s\n", acc->cc->errstr);
+        exit(1);
+    }
+
     struct event_base *base = event_base_new();
     status = redisClusterLibeventAttach(acc, base);
     assert(status == REDIS_OK);
