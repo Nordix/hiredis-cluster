@@ -93,12 +93,12 @@ int main(int argc, char **argv) {
         redisClusterSetOptionRouteUseSlots(acc->cc);
     }
 
-    int status = redisClusterConnect2(acc->cc);
-    if (status != REDIS_OK) {
+    if (redisClusterConnect2(acc->cc) != REDIS_OK) {
         printf("Connect error: %s\n", acc->cc->errstr);
         exit(1);
     }
 
+    int status;
     struct event_base *base = event_base_new();
     status = redisClusterLibeventAttach(acc, base);
     assert(status == REDIS_OK);

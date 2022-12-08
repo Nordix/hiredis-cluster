@@ -23,8 +23,8 @@ int main(int argc, char **argv) {
     redisClusterSetOptionAddNodes(cc, initnode);
     redisClusterSetOptionConnectTimeout(cc, timeout);
     redisClusterSetOptionRouteUseSlots(cc);
-    redisClusterConnect2(cc);
-    if (cc && cc->err) {
+
+    if (redisClusterConnect2(cc) != REDIS_OK) {
         fprintf(stderr, "Connect error: %s\n", cc->errstr);
         exit(100);
     }
