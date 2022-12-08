@@ -69,17 +69,16 @@ int main(int argc, char **argv) {
 
     int optind;
     for (optind = 1; optind < argc && argv[optind][0] == '-'; optind++) {
-        if (strcmp(argv[optind], "-n") == 0) {
-            use_cluster_slots = 0; // Get topology via CLUSTER NODES
+        if (strcmp(argv[optind], "--use-cluster-nodes") == 0) {
+            use_cluster_slots = 0; // Use the default CLUSTER NODES instead
         } else {
             fprintf(stderr, "Unknown argument: '%s'\n", argv[optind]);
         }
     }
 
     if (optind >= argc) {
-        fprintf(stderr, "Usage: clusterclient_async [-n] HOST:PORT\n");
-        fprintf(stderr, "Options:\n");
-        fprintf(stderr, " -n  Get cluster topology using CLUSTER NODES\n");
+        fprintf(stderr,
+                "Usage: clusterclient_async [--use-cluster-nodes] HOST:PORT\n");
         exit(1);
     }
     const char *initnode = argv[optind];

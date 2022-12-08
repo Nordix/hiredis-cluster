@@ -30,8 +30,8 @@ server=$!
 # Wait until server is ready to accept client connection
 wait $syncpid;
 
-# Run client and use CLUSTER NODES to get topology (-n)
-timeout 3s "$clientprog" -n 127.0.0.1:7400 > "$testname.out"
+# Run client and use CLUSTER NODES to get topology
+timeout 3s "$clientprog" --use-cluster-nodes 127.0.0.1:7400 > "$testname.out"
 clientexit=$?
 
 # Wait for server to exit
