@@ -183,3 +183,7 @@ add_test(NAME timeout-handling-test
          COMMAND "${CMAKE_SOURCE_DIR}/tests/scripts/timeout-handling-test.sh"
                  "$<TARGET_FILE:clusterclient_async_sequence>"
          WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/tests/scripts/")
+add_test(NAME connect-error-using-cluster-nodes-test
+         COMMAND "${CMAKE_SOURCE_DIR}/tests/scripts/connect-error-using-cluster-nodes-test.sh"
+                 "$<TARGET_FILE:clusterclient_async>"
+         WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/tests/scripts/")
