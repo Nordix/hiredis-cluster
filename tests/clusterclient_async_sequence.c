@@ -134,6 +134,7 @@ int main(int argc, char **argv) {
     redisClusterSetOptionAddNodes(acc->cc, initnode);
     redisClusterSetOptionRouteUseSlots(acc->cc);
     redisClusterSetOptionTimeout(acc->cc, timeout);
+    redisClusterSetOptionConnectTimeout(acc->cc, timeout);
     redisClusterSetOptionMaxRetry(acc->cc, 1);
 
     if (redisClusterConnect2(acc->cc) != REDIS_OK) {
