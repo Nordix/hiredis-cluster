@@ -20,6 +20,8 @@ EXPECT CLOSE
 EXPECT CONNECT
 EXPECT ["GET", "foo"]
 SEND -ASK 12182 127.0.0.1:7402
+EXPECT ["GET", "foo"]
+SEND -ASK 12182 127.0.0.1:7402
 EXPECT CLOSE
 EOF
 server1=$!
@@ -27,6 +29,10 @@ server1=$!
 # Start simulated redis node #2
 timeout 5s ./simulated-redis.pl -p 7402 -d --sigcont $syncpid2 <<'EOF' &
 EXPECT CONNECT
+EXPECT ["ASKING"]
+SEND +OK
+EXPECT ["GET", "foo"]
+SEND "bar"
 EXPECT ["ASKING"]
 SEND +OK
 EXPECT ["GET", "foo"]
@@ -39,7 +45,10 @@ server2=$!
 wait $syncpid1 $syncpid2;
 
 # Run client
-echo 'GET foo' | timeout 3s "$clientprog" 127.0.0.1:7401 > "$testname.out"
+timeout 3s "$clientprog" 127.0.0.1:7401 > "$testname.out" <<'EOF'
+GET foo
+GET foo
+EOF
 clientexit=$?
 
 # Wait for servers to exit
@@ -61,7 +70,7 @@ if [ $clientexit -ne 0 ]; then
 fi
 
 # Check the output from clusterclient
-echo 'bar' | cmp "$testname.out" - || exit 99
+printf 'bar\nbar\n' | cmp "$testname.out" - || exit 99
 
 # Clean up
 rm "$testname.out"
