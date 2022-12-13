@@ -2261,6 +2261,7 @@ static cluster_node *node_get_by_ask_error_reply(redisClusterContext *cc,
         return NULL;
     }
 
+    /* Expecting ["ASK", "<slot>", "<endpoint>:<port>"] */
     part = sdssplitlen(reply->str, reply->len, " ", 1, &part_len);
     if (part == NULL) {
         goto oom;
@@ -2279,7 +2280,7 @@ static cluster_node *node_get_by_ask_error_reply(redisClusterContext *cc,
                 if (node == NULL) {
                     goto oom;
                 }
-                node->addr = part[1];
+                node->addr = part[2];
                 node->host = ip_port[0];
                 node->port = hi_atoi(ip_port[1], sdslen(ip_port[1]));
                 node->role = REDIS_ROLE_MASTER;
@@ -2295,7 +2296,7 @@ static cluster_node *node_get_by_ask_error_reply(redisClusterContext *cc,
                     goto oom;
                 }
 
-                part[1] = NULL;
+                part[2] = NULL; /* Memory now handled by cluster_node in dict */
                 ip_port[0] = NULL;
             } else {
                 node = de->val;
