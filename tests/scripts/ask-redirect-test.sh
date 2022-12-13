@@ -20,6 +20,7 @@ EXPECT CLOSE
 EXPECT CONNECT
 EXPECT ["GET", "foo"]
 SEND -ASK 12182 127.0.0.1:7402
+# A second redirect is needed to test reuse of the new cluster_node
 EXPECT ["GET", "foo"]
 SEND -ASK 12182 127.0.0.1:7402
 EXPECT CLOSE
