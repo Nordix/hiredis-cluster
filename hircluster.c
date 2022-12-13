@@ -3609,7 +3609,12 @@ redisAsyncContext *actx_get_by_node(redisClusterAsyncContext *acc,
         return NULL;
     }
 
-    ac = redisAsyncConnect(node->host, node->port);
+    redisOptions options = {0};
+    REDIS_OPTIONS_SET_TCP(&options, node->host, node->port);
+    options.connect_timeout = acc->cc->connect_timeout;
+    options.command_timeout = acc->cc->command_timeout;
+
+    ac = redisAsyncConnectWithOptions(&options);
     if (ac == NULL) {
         __redisClusterAsyncSetError(acc, REDIS_ERR_OOM, "Out of memory");
         return NULL;
@@ -3623,13 +3628,6 @@ redisAsyncContext *actx_get_by_node(redisClusterAsyncContext *acc,
 
     if (acc->cc->ssl &&
         acc->cc->ssl_init_fn(&ac->c, acc->cc->ssl) != REDIS_OK) {
-        __redisClusterAsyncSetError(acc, ac->c.err, ac->c.errstr);
-        redisAsyncFree(ac);
-        return NULL;
-    }
-
-    if (acc->cc->command_timeout &&
-        redisAsyncSetTimeout(ac, *acc->cc->command_timeout) != REDIS_OK) {
         __redisClusterAsyncSetError(acc, ac->c.err, ac->c.errstr);
         redisAsyncFree(ac);
         return NULL;

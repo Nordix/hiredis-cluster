@@ -191,3 +191,7 @@ add_test(NAME command-from-callback-test
          COMMAND "${CMAKE_SOURCE_DIR}/tests/scripts/command-from-callback-test.sh"
                  "$<TARGET_FILE:clusterclient_async_sequence>"
          WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/tests/scripts/")
+add_test(NAME ask-redirect-connection-error-test
+         COMMAND "${CMAKE_SOURCE_DIR}/tests/scripts/ask-redirect-connection-error-test.sh"
+                 "$<TARGET_FILE:clusterclient_async_sequence>"
+         WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/tests/scripts/")
