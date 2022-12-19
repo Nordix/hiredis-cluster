@@ -1355,6 +1355,16 @@ static int cluster_update_route_by_addr(redisClusterContext *cc, const char *ip,
         }
     }
 
+    /* Update slot-to-node table before changing cc->nodes since
+     * removal of nodes might trigger user callbacks which may
+     * send commands, which depend on the slot-to-node table. */
+    if (cc->table != NULL) {
+        hi_free(cc->table);
+    }
+    cc->table = table;
+
+    cc->route_version++;
+
     // Move all hiredis contexts in cc->nodes to nodes
     cluster_nodes_swap_ctx(cc->nodes, nodes);
 
@@ -1365,13 +1375,6 @@ static int cluster_update_route_by_addr(redisClusterContext *cc, const char *ip,
     if (oldnodes != NULL) {
         dictRelease(oldnodes);
     }
-
-    if (cc->table != NULL) {
-        hi_free(cc->table);
-    }
-    cc->table = table;
-
-    cc->route_version++;
 
     freeReplyObject(reply);
 
