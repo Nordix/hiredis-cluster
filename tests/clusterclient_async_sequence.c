@@ -5,13 +5,16 @@
  * The behaviour is similar to that of clusterclient_async.c, but it sends the
  * next command after receiving a reply from the previous command.
  * It is still possible to send multiple commands at once like in
- # clusterclient_async.c using following action commands:
- #
- # !async - Send multiple commands and then wait for their responses.
- #          Will send all following commands until EOF or the command `!sync`
- #
- # !sync  - Send a single command and wait for its response before sending next
- #          command. This is the default behaviour.
+ * clusterclient_async.c using following action commands:
+ *
+ * !async  - Send multiple commands and then wait for their responses.
+ *           Will send all following commands until EOF or the command `!sync`
+ *
+ * !sync   - Send a single command and wait for its response before sending next
+ *           command. This is the default behaviour.
+ *
+ * !resend - Resend a failed command from its reply callback.
+ *           Will resend all following failed commands until EOF.
  *
  * An example input of first sending 2 commands and waiting for their responses,
  * before sending a single command and waiting for its response:
@@ -32,19 +35,33 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define CMD_SIZE 256
+#define HISTORY_DEPTH 16
+
+char cmd_history[HISTORY_DEPTH][CMD_SIZE];
+
 int num_running = 0;
+int resend_failed_cmd = 0;
 
 void sendNextCommand(int, short, void *);
 
 void replyCallback(redisClusterAsyncContext *acc, void *r, void *privdata) {
-    UNUSED(privdata);
     redisReply *reply = (redisReply *)r;
+    intptr_t cmd_id = (intptr_t)privdata; /* Id to corresponding cmd */
 
     if (reply == NULL) {
         if (acc->err) {
             printf("error: %s\n", acc->errstr);
         } else {
             printf("unknown error\n");
+        }
+
+        if (resend_failed_cmd) {
+            printf("resend '%s'\n", cmd_history[cmd_id]);
+            if (redisClusterAsyncCommand(acc, replyCallback, (void *)cmd_id,
+                                         cmd_history[cmd_id]) != REDIS_OK)
+                printf("send error\n");
+            return;
         }
     } else {
         printf("%s\n", reply->str);
@@ -63,8 +80,8 @@ void sendNextCommand(int fd, short kind, void *arg) {
     redisClusterAsyncContext *acc = arg;
     int async = 0;
 
-    char cmd[256];
-    while (fgets(cmd, 256, stdin)) {
+    char cmd[CMD_SIZE];
+    while (fgets(cmd, CMD_SIZE, stdin)) {
         size_t len = strlen(cmd);
         if (cmd[len - 1] == '\n') /* Chop trailing line break */
             cmd[len - 1] = '\0';
@@ -80,10 +97,17 @@ void sendNextCommand(int fd, short kind, void *arg) {
                 if (async)
                     return; /* We are done sending commands */
             }
+            if (strcmp(cmd, "!resend") == 0) /* Enable resend of failed cmd */
+                resend_failed_cmd = 1;
             continue; /* Skip line */
         }
 
-        int status = redisClusterAsyncCommand(acc, replyCallback, cmd, cmd);
+        /* Copy command string to history buffer */
+        assert(num_running < HISTORY_DEPTH);
+        strcpy(cmd_history[num_running], cmd);
+
+        int status = redisClusterAsyncCommand(
+            acc, replyCallback, (void *)((intptr_t)num_running), cmd);
         ASSERT_MSG(status == REDIS_OK, acc->errstr);
         num_running++;
 
