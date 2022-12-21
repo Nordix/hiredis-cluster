@@ -117,7 +117,6 @@ typedef struct redisClusterContext {
     char *password;                  /* Authentication password */
 
     struct dict *nodes;     /* Known cluster_nodes*/
-    struct hiarray *slots;  /* Sorted array of cluster_slots */
     uint64_t route_version; /* Increased when the node lookup table changes */
     cluster_node **table;   /* cluster_node lookup table */
 
