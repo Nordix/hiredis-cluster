@@ -63,8 +63,6 @@
 #define REDIS_COMMAND_ASKING "ASKING"
 #define REDIS_COMMAND_PING "PING"
 
-#define REDIS_PROTOCOL_ASKING "*1\r\n$6\r\nASKING\r\n"
-
 #define IP_PORT_SEPARATOR ':'
 
 #define PORT_CPORT_SEPARATOR '@'
@@ -641,12 +639,6 @@ static void cluster_nodes_swap_ctx(dict *nodes_f, dict *nodes_t) {
     }
 }
 
-static int cluster_slot_start_cmp(const void *t1, const void *t2) {
-    const cluster_slot *const *s1 = t1, *const *s2 = t2;
-
-    return (*s1)->start > (*s2)->start ? 1 : -1;
-}
-
 static int cluster_master_slave_mapping_with_name(redisClusterContext *cc,
                                                   dict **nodes,
                                                   cluster_node *node,
@@ -956,7 +948,7 @@ dict *parse_cluster_nodes(redisClusterContext *cc, char *str, int str_len,
     char *pos, *start, *end, *line_start, *line_end;
     char *role;
     int role_len;
-    int slot_start, slot_end;
+    int slot_start, slot_end, slot_ranges_found = 0;
     sds *part = NULL, *slot_start_end = NULL;
     int count_part = 0, count_slot_start_end = 0;
     int k;
@@ -1152,6 +1144,7 @@ dict *parse_cluster_nodes(redisClusterContext *cc, char *str, int str_len,
                         slot_end >= REDIS_CLUSTER_SLOTS) {
                         continue;
                     }
+                    slot_ranges_found += 1;
 
                     slot = cluster_slot_create(master);
                     if (slot == NULL) {
@@ -1191,6 +1184,11 @@ dict *parse_cluster_nodes(redisClusterContext *cc, char *str, int str_len,
         }
     }
 
+    if (slot_ranges_found == 0) {
+        __redisClusterSetError(cc, REDIS_ERR_OTHER, "No slot information");
+        goto error;
+    }
+
     if (nodes_name != NULL) {
         dictRelease(nodes_name);
     }
@@ -1220,14 +1218,8 @@ static int cluster_update_route_by_addr(redisClusterContext *cc, const char *ip,
                                         int port) {
     redisContext *c = NULL;
     redisReply *reply = NULL;
-    dict *oldnodes, *nodes = NULL;
-    struct hiarray *slots = NULL;
-    cluster_node *master;
-    cluster_slot *slot, **slot_elem;
-    dictEntry *den;
-    listNode *lnode;
+    dict *nodes = NULL;
     cluster_node **table = NULL;
-    uint32_t j, k;
 
     if (cc == NULL) {
         return REDIS_ERR;
@@ -1319,21 +1311,18 @@ static int cluster_update_route_by_addr(redisClusterContext *cc, const char *ip,
         goto error;
     }
 
+    /* Create a slot to cluster_node lookup table */
     table = hi_calloc(REDIS_CLUSTER_SLOTS, sizeof(cluster_node *));
     if (table == NULL) {
-        goto oom;
-    }
-
-    slots = hiarray_create(dictSize(nodes), sizeof(cluster_slot *));
-    if (slots == NULL) {
         goto oom;
     }
 
     dictIterator di;
     dictInitIterator(&di, nodes);
 
-    while ((den = dictNext(&di))) {
-        master = dictGetEntryVal(den);
+    dictEntry *de;
+    while ((de = dictNext(&di))) {
+        cluster_node *master = dictGetEntryVal(de);
         if (master->role != REDIS_ROLE_MASTER) {
             __redisClusterSetError(cc, REDIS_ERR_OTHER,
                                    "Node role must be master");
@@ -1347,39 +1336,22 @@ static int cluster_update_route_by_addr(redisClusterContext *cc, const char *ip,
         listIter li;
         listRewind(master->slots, &li);
 
-        while ((lnode = listNext(&li))) {
-            slot = listNodeValue(lnode);
+        listNode *ln;
+        while ((ln = listNext(&li))) {
+            cluster_slot *slot = listNodeValue(ln);
             if (slot->start > slot->end || slot->end >= REDIS_CLUSTER_SLOTS) {
                 __redisClusterSetError(cc, REDIS_ERR_OTHER,
                                        "Slot region for node is error");
                 goto error;
             }
-
-            slot_elem = hiarray_push(slots);
-            if (slot_elem == NULL) {
-                goto oom;
+            for (uint32_t i = slot->start; i <= slot->end; i++) {
+                if (table[i] != NULL) {
+                    __redisClusterSetError(cc, REDIS_ERR_OTHER,
+                                           "Different node holds same slot");
+                    goto error;
+                }
+                table[i] = master;
             }
-            *slot_elem = slot;
-        }
-    }
-
-    if (hiarray_n(slots) == 0) {
-        __redisClusterSetError(cc, REDIS_ERR_OTHER, "No slot information");
-        goto error; // Cluster topology is not yet known
-    }
-
-    hiarray_sort(slots, cluster_slot_start_cmp);
-    for (j = 0; j < hiarray_n(slots); j++) {
-        slot_elem = hiarray_get(slots, j);
-
-        for (k = (*slot_elem)->start; k <= (*slot_elem)->end; k++) {
-            if (table[k] != NULL) {
-                __redisClusterSetError(cc, REDIS_ERR_OTHER,
-                                       "Different node holds same slot");
-                goto error;
-            }
-
-            table[k] = (*slot_elem)->node;
         }
     }
 
@@ -1388,17 +1360,11 @@ static int cluster_update_route_by_addr(redisClusterContext *cc, const char *ip,
 
     /* Replace cc->nodes before releasing the old dict since
      * the release procedure might access cc->nodes. */
-    oldnodes = cc->nodes;
+    dict *oldnodes = cc->nodes;
     cc->nodes = nodes;
     if (oldnodes != NULL) {
         dictRelease(oldnodes);
     }
-
-    if (cc->slots != NULL) {
-        cc->slots->nelem = 0;
-        hiarray_destroy(cc->slots);
-    }
-    cc->slots = slots;
 
     if (cc->table != NULL) {
         hi_free(cc->table);
@@ -1420,14 +1386,6 @@ oom:
 error:
     if (table != NULL) {
         hi_free(table);
-    }
-    if (slots != NULL) {
-        if (slots == cc->slots) {
-            cc->slots = NULL;
-        }
-
-        slots->nelem = 0;
-        hiarray_destroy(slots);
     }
     if (nodes != NULL) {
         if (nodes == cc->nodes) {
@@ -1512,12 +1470,6 @@ void redisClusterFree(redisClusterContext *cc) {
     if (cc->table != NULL) {
         hi_free(cc->table);
         cc->table = NULL;
-    }
-
-    if (cc->slots != NULL) {
-        cc->slots->nelem = 0;
-        hiarray_destroy(cc->slots);
-        cc->slots = NULL;
     }
 
     if (cc->nodes != NULL) {
