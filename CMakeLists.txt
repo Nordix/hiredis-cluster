@@ -74,6 +74,11 @@ set_target_properties(hiredis_cluster
     VERSION "${HIREDIS_CLUSTER_SONAME}")
 
 if(DOWNLOAD_HIREDIS)
+  if(${CMAKE_VERSION} VERSION_LESS "3.20")
+    message(FATAL_ERROR
+      "Downloading of the dependency 'hiredis' requires CMake >= v3.20.\n"
+      "Upgrade CMake or manually install 'hiredis' and use -DDOWNLOAD_HIREDIS=OFF")
+  endif()
   message("Downloading dependency 'hiredis'..")
 
   include(FetchContent)
