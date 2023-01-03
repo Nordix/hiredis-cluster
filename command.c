@@ -228,6 +228,10 @@ static int redis_argn(struct cmd *r) {
 
     case CMD_REQ_REDIS_LPUSH:
     case CMD_REQ_REDIS_RPUSH:
+    case CMD_REQ_REDIS_BLPOP:
+    case CMD_REQ_REDIS_BRPOP:
+    case CMD_REQ_REDIS_BLMOVE:
+    case CMD_REQ_REDIS_BRPOPLPUSH:
 
     case CMD_REQ_REDIS_SADD:
     case CMD_REQ_REDIS_SDIFF:
@@ -389,6 +393,8 @@ static inline cmd_type_t redis_parse_cmd_verb(const char *m, int len) {
                !strncasecmp(m, "hmset", 5) ? CMD_REQ_REDIS_HMSET :
                !strncasecmp(m, "hvals", 5) ? CMD_REQ_REDIS_HVALS :
                !strncasecmp(m, "hscan", 5) ? CMD_REQ_REDIS_HSCAN :
+               !strncasecmp(m, "blpop", 5) ? CMD_REQ_REDIS_BLPOP :
+               !strncasecmp(m, "brpop", 5) ? CMD_REQ_REDIS_BRPOP :
                !strncasecmp(m, "lpush", 5) ? CMD_REQ_REDIS_LPUSH :
                !strncasecmp(m, "ltrim", 5) ? CMD_REQ_REDIS_LTRIM :
                !strncasecmp(m, "rpush", 5) ? CMD_REQ_REDIS_RPUSH :
@@ -416,6 +422,7 @@ static inline cmd_type_t redis_parse_cmd_verb(const char *m, int len) {
                !strncasecmp(m, "hsetnx", 6) ? CMD_REQ_REDIS_HSETNX :
                !strncasecmp(m, "incrby", 6) ? CMD_REQ_REDIS_INCRBY :
                !strncasecmp(m, "lindex", 6) ? CMD_REQ_REDIS_LINDEX :
+               !strncasecmp(m, "blmove", 6) ? CMD_REQ_REDIS_BLMOVE :
                !strncasecmp(m, "lpushx", 6) ? CMD_REQ_REDIS_LPUSHX :
                !strncasecmp(m, "lrange", 6) ? CMD_REQ_REDIS_LRANGE :
                !strncasecmp(m, "rpushx", 6) ? CMD_REQ_REDIS_RPUSHX :
@@ -463,6 +470,7 @@ static inline cmd_type_t redis_parse_cmd_verb(const char *m, int len) {
                                                  CMD_UNKNOWN;
     case 10:
         return !strncasecmp(m, "sdiffstore", 10) ? CMD_REQ_REDIS_SDIFFSTORE :
+               !strncasecmp(m, "brpoplpush", 10) ? CMD_REQ_REDIS_BRPOPLPUSH :
                !strncasecmp(m, "xautoclaim", 10) ? CMD_REQ_REDIS_XAUTOCLAIM :
                                                    CMD_UNKNOWN;
     case 11:

@@ -94,7 +94,11 @@ typedef enum cmd_parse_result {
     ACTION(REQ_REDIS_HSETNX)                                                   \
     ACTION(REQ_REDIS_HSCAN)                                                    \
     ACTION(REQ_REDIS_HVALS)                                                    \
-    ACTION(REQ_REDIS_LINDEX) /* redis requests - lists */                      \
+    ACTION(REQ_REDIS_BLPOP) /* redis requests - lists */                       \
+    ACTION(REQ_REDIS_BLMOVE)                                                   \
+    ACTION(REQ_REDIS_BRPOP)                                                    \
+    ACTION(REQ_REDIS_BRPOPLPUSH)                                               \
+    ACTION(REQ_REDIS_LINDEX)                                                   \
     ACTION(REQ_REDIS_LINSERT)                                                  \
     ACTION(REQ_REDIS_LLEN)                                                     \
     ACTION(REQ_REDIS_LPOP)                                                     \
