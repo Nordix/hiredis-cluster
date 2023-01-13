@@ -117,7 +117,15 @@ else()
   message("Expecting to find dependencies in path..")
 endif()
 
-find_package(hiredis REQUIRED)
+find_package(hiredis QUIET)
+if(NOT hiredis_FOUND)
+  message("CMake package for 'hiredis' not found, searching for the library..")
+  find_library(HIREDIS_LIB hiredis REQUIRED)
+  find_path(HIREDIS_INCLUDES hiredis/hiredis.h)
+  add_library(hiredis UNKNOWN IMPORTED GLOBAL)
+  set_target_properties(hiredis PROPERTIES IMPORTED_LOCATION ${HIREDIS_LIB})
+  set_target_properties(hiredis PROPERTIES INTERFACE_INCLUDE_DIRECTORIES ${HIREDIS_INCLUDES})
+endif()
 
 if(NOT TARGET hiredis::hiredis)
   # Add target to support older hiredis releases
@@ -136,7 +144,15 @@ else()
 endif()
 
 if(ENABLE_SSL)
-  find_package(hiredis_ssl REQUIRED)
+  find_package(hiredis_ssl QUIET)
+  if(NOT hiredis_ssl_FOUND)
+    message("CMake package for 'hiredis_ssl' not found, searching for the library..")
+    find_library(HIREDIS_SSL_LIB hiredis_ssl REQUIRED)
+    find_path(HIREDIS_SSL_INCLUDES hiredis/hiredis_ssl.h)
+    add_library(hiredis_ssl UNKNOWN IMPORTED GLOBAL)
+    set_target_properties(hiredis_ssl PROPERTIES IMPORTED_LOCATION ${HIREDIS_SSL_LIB})
+    set_target_properties(hiredis_ssl PROPERTIES INTERFACE_INCLUDE_DIRECTORIES ${HIREDIS_SSL_INCLUDES})
+  endif()
 
   if(NOT TARGET hiredis::hiredis_ssl)
     # Add target to support older hiredis releases
