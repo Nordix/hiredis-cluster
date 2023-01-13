@@ -103,6 +103,7 @@ jobs:
       run: |
         examples/using_cmake_externalproject/build.sh
         examples/using_cmake_separate/build.sh
+        examples/using_cmake_and_make_mixed/build.sh
         examples/using_make/build.sh
 
   macos:
