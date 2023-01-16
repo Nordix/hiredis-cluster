@@ -32,9 +32,7 @@
     {                                                                          \
         CHECK_REPLY(_ctx, _reply);                                             \
         CHECK_REPLY_TYPE(_reply, REDIS_REPLY_INTEGER);                         \
-        char tmp[300];                                                         \
-        snprintf(tmp, 300, "unexpected value %lld %s", _reply->integer, _ctx->errstr); \
-        ASSERT_MSG((_reply->integer == _value), tmp); \
+        ASSERT_MSG((_reply->integer == _value), _ctx->errstr);                 \
     }
 
 #define CHECK_REPLY_STR(_ctx, _reply, _str)                                    \
