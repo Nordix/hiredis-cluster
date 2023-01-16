@@ -1,8 +1,8 @@
 /* Some unit tests that don't require Redis to be running. */
 
-#include "hircluster.h"
 #include "command.h"
 #include "hiarray.h"
+#include "hircluster.h"
 #include "test_utils.h"
 
 #include <assert.h>
@@ -11,12 +11,12 @@
 #include <string.h>
 
 /* Helper for the macro ASSERT_KEYS below. */
-void check_keys(char **keys, int numkeys, struct cmd *command,
-                char *file, int line) {
+void check_keys(char **keys, int numkeys, struct cmd *command, char *file,
+                int line) {
     int actual_numkeys = (int)hiarray_n(command->keys);
     if (actual_numkeys != numkeys) {
-        fprintf(stderr, "%s:%d: Expected %d keys but got %d\n",
-                file, line, numkeys, actual_numkeys);
+        fprintf(stderr, "%s:%d: Expected %d keys but got %d\n", file, line,
+                numkeys, actual_numkeys);
         assert(actual_numkeys == numkeys);
     }
     for (int i = 0; i < numkeys; i++) {
@@ -34,11 +34,11 @@ void check_keys(char **keys, int numkeys, struct cmd *command,
 }
 
 /* Checks that a command (struct cmd *) has the given keys (strings). */
-#define ASSERT_KEYS(command, ...)                                       \
-    do {                                                                \
-        char *expected_keys[] = {__VA_ARGS__};                          \
-        size_t n = sizeof(expected_keys) / sizeof(char *);              \
-        check_keys(expected_keys, n, command, __FILE__, __LINE__);      \
+#define ASSERT_KEYS(command, ...)                                              \
+    do {                                                                       \
+        char *expected_keys[] = {__VA_ARGS__};                                 \
+        size_t n = sizeof(expected_keys) / sizeof(char *);                     \
+        check_keys(expected_keys, n, command, __FILE__, __LINE__);             \
     } while (0)
 
 void test_redis_parse_error_nonresp(void) {
@@ -102,7 +102,8 @@ void test_redis_parse_cmd_xgroup_destroy_no_key(void) {
     c->clen = redisFormatCommand(&c->cmd, "xgroup destroy");
     redis_parse_cmd(c);
     ASSERT_MSG(c->result == CMD_PARSE_ERROR, "Parse not OK");
-    const char *expected_error = "Failed to find keys of command XGROUP DESTROY";
+    const char *expected_error =
+        "Failed to find keys of command XGROUP DESTROY";
     ASSERT_MSG(!strncmp(c->errstr, expected_error, strlen(expected_error)),
                c->errstr);
     command_destroy(c);
@@ -115,9 +116,6 @@ void test_redis_parse_cmd_xgroup_destroy_ok(void) {
     ASSERT_KEYS(c, "mystream");
     command_destroy(c);
 }
-
-
-// HSET myhash field3 hsetvalue3
 
 int main() {
     test_redis_parse_error_nonresp();
