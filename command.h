@@ -48,7 +48,7 @@ typedef enum cmd_parse_result {
 typedef enum cmd_type {
     CMD_UNKNOWN,
 /* Request commands */
-#define COMMAND(_type, _name, _subname, _arity, _keymethod, _keypos)    \
+#define COMMAND(_type, _name, _subname, _arity, _keymethod, _keypos)           \
     CMD_REQ_REDIS_##_type,
 #include "cmddef.h"
 #undef COMMAND

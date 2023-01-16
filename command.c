@@ -53,7 +53,6 @@ typedef enum {
     KEYPOS_KEYNUM
 } cmd_keypos;
 
-
 typedef struct {
     cmd_type_t type;           /* A constant identifying the command. */
     const char *name;          /* Command name */
@@ -65,15 +64,13 @@ typedef struct {
 
 /* Populate the table with code in cmddef.h generated from Redis JSON files. */
 static cmddef redis_commands[] = {
-#define COMMAND(_type, _name, _subname, _arity, _keymethod, _keypos)    \
-    {                                                                   \
-        .type = CMD_REQ_REDIS_##_type,                                  \
-        .name = _name,                                                  \
-        .subname = _subname,                                            \
-        .firstkeymethod = KEYPOS_##_keymethod,                          \
-        .firstkeypos = _keypos,                                         \
-        .arity=_arity                                                   \
-    },
+#define COMMAND(_type, _name, _subname, _arity, _keymethod, _keypos)           \
+    {.type = CMD_REQ_REDIS_##_type,                                            \
+     .name = _name,                                                            \
+     .subname = _subname,                                                      \
+     .firstkeymethod = KEYPOS_##_keymethod,                                    \
+     .firstkeypos = _keypos,                                                   \
+     .arity = _arity},
 #include "cmddef.h"
 #undef COMMAND
 };
@@ -82,8 +79,8 @@ static cmddef redis_commands[] = {
  * to lookup the command. The function returns CMD_UNKNOWN on failure. On
  * success, the command type is returned and *firstkey and *arity are
  * populated. */
-cmddef *redis_lookup_cmd(const char *arg0, uint32_t arg0_len,
-                         const char *arg1, uint32_t arg1_len) {
+cmddef *redis_lookup_cmd(const char *arg0, uint32_t arg0_len, const char *arg1,
+                         uint32_t arg1_len) {
     int num_commands = sizeof(redis_commands) / sizeof(cmddef);
     /* Find the command using binary search. */
     int left = 0, right = num_commands - 1;
@@ -386,11 +383,14 @@ error:
     }
 
     if (info != NULL && info->subname != NULL)
-        snprintf(r->errstr, 100, "Failed to find keys of command %s %s", info->name, info->subname);
+        snprintf(r->errstr, 100, "Failed to find keys of command %s %s",
+                 info->name, info->subname);
     else if (info != NULL)
-        snprintf(r->errstr, 100, "Failed to find keys of command %s", info->name);
+        snprintf(r->errstr, 100, "Failed to find keys of command %s",
+                 info->name);
     else if (r->type == CMD_UNKNOWN && arg0 != NULL && arg1 != NULL)
-        snprintf(r->errstr, 100, "Unknown command %.*s %.*s", arg0_len, arg0, arg1_len, arg1);
+        snprintf(r->errstr, 100, "Unknown command %.*s %.*s", arg0_len, arg0,
+                 arg1_len, arg1);
     else if (r->type == CMD_UNKNOWN && arg0 != NULL)
         snprintf(r->errstr, 100, "Unknown command %.*s", arg0_len, arg0);
     else
