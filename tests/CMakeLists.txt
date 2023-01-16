@@ -92,6 +92,11 @@ target_link_libraries(ct_specific_nodes hiredis_cluster ${SSL_LIBRARY} ${LIBEVEN
 add_test(NAME ct_specific_nodes COMMAND "$<TARGET_FILE:ct_specific_nodes>")
 set_tests_properties(ct_specific_nodes PROPERTIES LABELS "CT")
 
+add_executable(ct_unit ct_unit.c test_utils.c)
+target_link_libraries(ct_unit hiredis_cluster ${SSL_LIBRARY})
+add_test(NAME ct_unit COMMAND "$<TARGET_FILE:ct_unit>")
+set_tests_properties(ct_unit PROPERTIES LABELS "CT")
+
 if(ENABLE_SSL)
   # Executable: tls
   add_executable(example_tls main_tls.c)

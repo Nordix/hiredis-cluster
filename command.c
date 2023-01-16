@@ -46,18 +46,34 @@
 
 static uint64_t cmd_id = 0; /* command id counter */
 
+typedef enum {
+    KEYPOS_NONE,
+    KEYPOS_UNKNOWN,
+    KEYPOS_INDEX,
+    KEYPOS_KEYNUM
+} cmd_keypos;
+
+
 typedef struct {
-    cmd_type_t type;     /* A constant identifying the command. */
-    const char *name;    /* Command name */
-    const char *subname; /* Subcommand name or NULL */
-    int firstkey; /* Position of first key, 0 for no key, -1 for unknown */
-    int arity;    /* Arity, where negative number means minimum num args. */
+    cmd_type_t type;           /* A constant identifying the command. */
+    const char *name;          /* Command name */
+    const char *subname;       /* Subcommand name or NULL */
+    cmd_keypos firstkeymethod; /* First key none, unknown, pos or keynum */
+    int8_t firstkeypos;        /* Position of first key or the  arg */
+    int8_t arity;              /* Arity, neg number means min num args */
 } cmddef;
 
-/* Populate the table with code generated from Redis JSON files. */
+/* Populate the table with code in cmddef.h generated from Redis JSON files. */
 static cmddef redis_commands[] = {
-#define COMMAND(_type, _name, _subname, _firstkey, _arity)                     \
-    {CMD_REQ_REDIS_##_type, _name, _subname, _firstkey, _arity},
+#define COMMAND(_type, _name, _subname, _arity, _keymethod, _keypos)    \
+    {                                                                   \
+        .type = CMD_REQ_REDIS_##_type,                                  \
+        .name = _name,                                                  \
+        .subname = _subname,                                            \
+        .firstkeymethod = KEYPOS_##_keymethod,                          \
+        .firstkeypos = _keypos,                                         \
+        .arity=_arity                                                   \
+    },
 #include "cmddef.h"
 #undef COMMAND
 };
@@ -66,27 +82,41 @@ static cmddef redis_commands[] = {
  * to lookup the command. The function returns CMD_UNKNOWN on failure. On
  * success, the command type is returned and *firstkey and *arity are
  * populated. */
-cmd_type_t redis_lookup_cmd(const char *arg0, uint32_t arg0_len,
-                            const char *arg1, uint32_t arg1_len, int *firstkey,
-                            int *arity) {
+cmddef *redis_lookup_cmd(const char *arg0, uint32_t arg0_len,
+                         const char *arg1, uint32_t arg1_len) {
     int num_commands = sizeof(redis_commands) / sizeof(cmddef);
-    for (int i = 0; i < num_commands; i++) {
+    /* Find the command using binary search. */
+    int left = 0, right = num_commands - 1;
+    while (left <= right) {
+        int i = (left + right) / 2;
         cmddef *c = &redis_commands[i];
 
-        if (strncasecmp(c->name, arg0, arg0_len))
-            continue; /* Command mismatch. */
+        int cmp = strncasecmp(c->name, arg0, arg0_len);
+        if (cmp == 0 && strlen(c->name) > arg0_len)
+            cmp = 1; /* "HGETALL" vs "HGET" */
 
-        if (c->subname != NULL) {
-            if (arg1 == NULL || strncasecmp(c->subname, arg1, arg1_len))
-                continue; /* Subcommand mismatch. */
+        /* If command name matches, compare subcommand if any */
+        if (cmp == 0 && c->subname != NULL) {
+            if (arg1 == NULL) {
+                /* Command has subcommands, but none given. */
+                return NULL;
+            } else {
+                cmp = strncasecmp(c->subname, arg1, arg1_len);
+                if (cmp == 0 && strlen(c->subname) > arg1_len)
+                    cmp = 1;
+            }
         }
 
-        /* Found it. */
-        *firstkey = c->firstkey;
-        *arity = c->arity;
-        return c->type;
+        if (cmp < 0) {
+            left = i + 1;
+        } else if (cmp > 0) {
+            right = i - 1;
+        } else {
+            /* Found it. */
+            return c;
+        }
     }
-    return CMD_UNKNOWN;
+    return NULL;
 }
 
 /*
@@ -125,33 +155,10 @@ static int redis_argkvx(struct cmd *r) {
     return 0;
 }
 
-/*
- * Return true, if the redis command has the same syntax as EVAL. These commands
- * have a special format with exactly 2 arguments, followed by one or more keys,
- * followed by zero or more arguments (the documentation online seems to suggest
- * that at least one argument is required, but that shouldn't be the case).
- */
-static int redis_argeval(struct cmd *r) {
-    switch (r->type) {
-    case CMD_REQ_REDIS_EVAL:
-    case CMD_REQ_REDIS_EVAL_RO:
-    case CMD_REQ_REDIS_EVALSHA:
-    case CMD_REQ_REDIS_EVALSHA_RO:
-    case CMD_REQ_REDIS_FCALL:
-    case CMD_REQ_REDIS_FCALL_RO:
-        return 1;
-
-    default:
-        break;
-    }
-
-    return 0;
-}
-
 /* Parses a bulk string starting at 'p' and ending somewhere before 'end'.
  * Returns the remaining of the input after consuming the bulk string. The
- * parsed string and its length are returned by reference. On parse error, NULL
- * is returned. */
+ * pointers *str and *len are pointed to the parsed string and its length. On
+ * parse error, NULL is returned. */
 char *redis_parse_bulk(char *p, char *end, char **str, uint32_t *len) {
     uint32_t length = 0;
     if (p >= end || *p++ != '$')
@@ -163,8 +170,10 @@ char *redis_parse_bulk(char *p, char *end, char **str, uint32_t *len) {
         return NULL;
     if (p >= end || *p++ != LF)
         return NULL;
-    *str = p;
-    *len = length;
+    if (str)
+        *str = p;
+    if (len)
+        *len = length;
     p += length;
     if (p >= end || *p++ != CR)
         return NULL;
@@ -201,13 +210,15 @@ void redis_parse_cmd(struct cmd *r) {
     ASSERT(r->cmd != NULL && r->clen > 0);
     char *p = r->cmd;
     char *end = r->cmd + r->clen;
-    uint32_t rnarg = 0;              /* Number of args including cmd name */
-    char *arg0, *arg1 = NULL;        /* The first two args */
-    uint32_t arg0_len, arg1_len = 0; /* The first two args' lengths */
-    int firstkey;                    /* Position of the first key */
-    int arity;                       /* Arity of the command */
+    uint32_t rnarg = 0;                  /* Number of args including cmd name */
+    int argidx = -1;                     /* Index of last parsed arg */
+    char *arg;                           /* Last parsed arg */
+    uint32_t arglen;                     /* Length of arg */
+    char *arg0 = NULL, *arg1 = NULL;     /* The first two args */
+    uint32_t arg0_len = 0, arg1_len = 0; /* Lengths of arg0 and arg1 */
+    cmddef *info = NULL;                 /* Command info, when found */
 
-    /* A command line is multi-bulk. */
+    /* Check that the command line is multi-bulk. */
     if (*p++ != '*')
         goto error;
 
@@ -227,78 +238,117 @@ void redis_parse_cmd(struct cmd *r) {
     p = redis_parse_bulk(p, end, &arg0, &arg0_len);
     if (p == NULL)
         goto error;
+    argidx++;
     if (rnarg > 1) {
         p = redis_parse_bulk(p, end, &arg1, &arg1_len);
         if (p == NULL)
             goto error;
+        argidx++;
     }
 
     /* Lookup command. */
-    r->type =
-        redis_lookup_cmd(arg0, arg0_len, arg1, arg1_len, &firstkey, &arity);
-    if (r->type == CMD_UNKNOWN)
+    if ((info = redis_lookup_cmd(arg0, arg0_len, arg1, arg1_len)) == NULL)
         goto error; /* Command not found. */
-    if (arity >= 0 && (int)rnarg != arity)
-        goto error; /* Exact arity check. */
-    if (arity < 0 && (int)rnarg < -arity)
-        goto error; /* Minimum arity check. */
-    if (firstkey == 0)
+    r->type = info->type;
+
+    /* Arity check (negative arity means minimum num args) */
+    if ((info->arity >= 0 && (int)rnarg != info->arity) ||
+        (info->arity < 0 && (int)rnarg < -info->arity)) {
+        goto error;
+    }
+    if (info->firstkeymethod == KEYPOS_NONE)
         goto done; /* Command takes no keys. */
+    if (arg1 == NULL)
+        goto error; /* Command takes keys, but no args given. Quick abort. */
+
+    /* Below we assume arg1 != NULL, */
 
     /* Handle commands where firstkey depends on special logic. */
-    if (firstkey < 0) {
-        if (redis_argeval(r)) {
-            /* Syntax: EVAL script numkeys [ key ... ] [ arg ... ] */
-            char *numkeys;
-            uint32_t numkeys_len;
-            p = redis_parse_bulk(p, end, &numkeys, &numkeys_len);
-            if (p == NULL)
-                goto error;
-            if (!strncmp("0", numkeys, numkeys_len)) {
-                /* Zero keys in this command line. */
-                goto done;
-            } else {
-                /* The first key is arg3. */
-                char *key;
-                uint32_t keylen;
-                p = redis_parse_bulk(p, end, &key, &keylen);
-                if (p == NULL)
-                    goto error;
-                struct keypos *kpos = hiarray_push(r->keys);
-                if (kpos == NULL)
-                    goto oom;
-                kpos->start = key;
-                kpos->end = key + keylen;
-                goto done;
-            }
-        } else if (r->type == CMD_REQ_REDIS_MIGRATE) {
-            /* MIGRATE host port <key | ""> destination-db timeout [COPY]
-             * [REPLACE] [[AUTH password] | [AUTH2 username password]] [KEYS key
-             * [key ...]]
-             *
-             * Not implemented. */
-            goto error;
+    if (info->firstkeymethod == KEYPOS_UNKNOWN) {
+        /* Keyword-based first key position */
+        const char *keyword;
+        int startfrom;
+        if (r->type == CMD_REQ_REDIS_XREAD) {
+            keyword = "STREAMS";
+            startfrom = 1;
+        } else if (r->type == CMD_REQ_REDIS_XREADGROUP) {
+            keyword = "STREAMS";
+            startfrom = 4;
         } else {
-            /* Not reached, only if Redis adds more commands. */
+            /* Not reached, but can be reached if Redis adds more commands. */
             goto error;
         }
+
+        /* Skip forward to the 'startfrom' arg index. */
+        arg = arg1;
+        arglen = arg1_len;
+        for (; argidx < startfrom; argidx++) {
+            p = redis_parse_bulk(p, end, &arg, &arglen);
+            if (p == NULL)
+                goto error; /* Keyword not provided, thus no keys. */
+            argidx++;
+        }
+
+        /* Check that we found the keyword. */
+        if (strncasecmp(keyword, arg, arglen))
+            goto error;
+
+        /* Now find key is the next arg. */
+        p = redis_parse_bulk(p, end, &arg, &arglen);
+        if (p == NULL)
+            goto error;
+        struct keypos *kpos = hiarray_push(r->keys);
+        if (kpos == NULL)
+            goto oom;
+        kpos->start = arg;
+        kpos->end = arg + arglen;
+        goto done;
     }
 
     /* Find first key arg. */
-    char *key = arg1;
-    uint32_t keylen = arg1_len;
-    for (int i = 1; i < firstkey; i++) {
-        p = redis_parse_bulk(p, end, &key, &keylen);
+    arg = arg1;
+    arglen = arg1_len;
+    for (; argidx < info->firstkeypos; argidx++) {
+        p = redis_parse_bulk(p, end, &arg, &arglen);
         if (p == NULL)
             goto error;
     }
-    if (key == NULL)
-        goto error; /* No key provided. */
+
+    if (info->firstkeymethod == KEYPOS_KEYNUM) {
+        /* The arg specifies the number of keys and the first key is the next
+         * arg. Example:
+         *
+         * EVAL script numkeys [key [key ...]] [arg [arg ...]] */
+        if (!strncmp("0", arg, arglen)) {
+            /* No args. */
+            goto done;
+        } else {
+            /* One or more args. The first key is the arg after the 'numkeys' arg. */
+            p = redis_parse_bulk(p, end, &arg, &arglen);
+            if (p == NULL)
+                goto error;
+            argidx++;
+        }
+    }
+
+    /* Now arg is the first key and arglen is its length. */
+
+    if (info->type == CMD_REQ_REDIS_MIGRATE && arglen == 0 &&
+        info->firstkeymethod == KEYPOS_INDEX && info->firstkeypos == 3) {
+        /* MIGRATE host port <key | ""> destination-db timeout [COPY] [REPLACE]
+         * [[AUTH password] | [AUTH2 username password]] [KEYS key [key ...]]
+         *
+         * The key spec points out arg3 as the first key, but if it's an empty
+         * string, we would need to search for the KEYS keyword arg backwards
+         * from the end of the command line. This is not implemented. */
+        goto error;
+    }
+
     struct keypos *kpos = hiarray_push(r->keys);
     if (kpos == NULL)
         goto oom;
-    kpos->start = key;
-    kpos->end = key + keylen;
+    kpos->start = arg;
+    kpos->end = arg + arglen;
 
     /* Special commands where we want all keys (not only the first key). */
     if (redis_argx(r) || redis_argkvx(r)) {
@@ -307,7 +357,7 @@ void redis_parse_cmd(struct cmd *r) {
         if (redis_argkvx(r) && rnarg % 2 == 0)
             goto error;
         for (uint32_t i = 2; i < rnarg; i++) {
-            p = redis_parse_bulk(p, end, &key, &keylen);
+            p = redis_parse_bulk(p, end, &arg, &arglen);
             if (p == NULL)
                 goto error;
             if (redis_argkvx(r) && i % 2 == 0)
@@ -315,8 +365,8 @@ void redis_parse_cmd(struct cmd *r) {
             struct keypos *kpos = hiarray_push(r->keys);
             if (kpos == NULL)
                 goto oom;
-            kpos->start = key;
-            kpos->end = key + keylen;
+            kpos->start = arg;
+            kpos->end = arg + arglen;
         }
     }
 
@@ -335,11 +385,16 @@ error:
         }
     }
 
-    int len =
-        _scnprintf(r->errstr, 100,
-                   "Parse command error. Cmd type: %d, break position: %d.",
-                   r->type, (int)(p - r->cmd));
-    r->errstr[len] = '\0';
+    if (info != NULL && info->subname != NULL)
+        snprintf(r->errstr, 100, "Failed to find keys of command %s %s", info->name, info->subname);
+    else if (info != NULL)
+        snprintf(r->errstr, 100, "Failed to find keys of command %s", info->name);
+    else if (r->type == CMD_UNKNOWN && arg0 != NULL && arg1 != NULL)
+        snprintf(r->errstr, 100, "Unknown command %.*s %.*s", arg0_len, arg0, arg1_len, arg1);
+    else if (r->type == CMD_UNKNOWN && arg0 != NULL)
+        snprintf(r->errstr, 100, "Unknown command %.*s", arg0_len, arg0);
+    else
+        snprintf(r->errstr, 100, "Command parse error");
     return;
 
 oom:

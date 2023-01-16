@@ -14,9 +14,30 @@ import json
 import os
 import sys
 
+# Returns all arguments in props. If a "block" is encountered, the arguments
+# within the block is returned after the block itself. (See the JSON file
+# mset.json for example.)
+def arggenerator(props):
+    for arg in props.get("arguments", []):
+        yield arg
+        if arg["type"] == "block":
+            # After the block itself, yield all args inside the block
+            for a in arggenerator(arg):
+                yield a
+
+# Returns true of the argument tree (block, oneof) contains a key somewhere.
+def block_contains_key(props):
+    for arg in props.get("arguments", []):
+        if arg["type"] == "key":
+            return True
+        if arg["type"] == "block" or arg["type"] == "oneof":
+            if (block_contains_key(arg)):
+                return True
+    return False
+
 # Returns the position of the first key, where 1 is the first arg after the
 # command name. Special return values: 0 = no keys, -1 = unknown.
-def firstkey(props):
+def firstkey_by_args(props):
     unknown = False
     i = 1
     for arg in props.get("arguments", []):
@@ -24,43 +45,98 @@ def firstkey(props):
         # the position of the key.
         if arg.get("optional", False):
             unknown = True
+        # We don't even bother looking for either-key-or-other-stuff
+        if arg["type"] == "oneof" and block_contains_key(arg):
+            return -1
+        # If this arg is a key, we found it, unless the key or something before
+        # it was optional.
         if arg["type"] == "key":
             return (-1 if unknown else i)
-        # If any args before the key can occure multiple times, we can't be sure
+
+        # If any args before the key can occur multiple times, we can't be sure
         # about the position of the key.
-        if arg.get("multiple", False):
+        if arg.get("multiple", False) and arg["type"] != "block":
             unknown = True
-        i = i + 1
+        # Increment counter, except if type is "block" which means it's a
+        # container with other arg specifications inside. We will get each arg
+        # next from our arg generator.
+        if arg["type"] != "block":
+            i = i + 1
     # None of the arguments was a key.
     return 0
 
-def collect_command(filename, name, props):
-    keypos = firstkey(props)
+# Returns a tuple (method, index) where method is one of the following:
+#
+#     NONE          = No keys
+#     UNKNOWN       = The position of the first key is unknown or too
+#                     complex to describe (example XREAD)
+#     INDEX         = The first key is the argument at index i
+#     KEYNUM        = The argument at index i specifies the number of keys
+#                     and the first key is the next argument, unless the
+#                     number of keys is zero in which case there are no
+#                     keys (example EVAL)
+def firstkey(props):
+    if not "key_specs" in props or len(props["key_specs"]) == 0:
+        # No keys
+        return ("NONE", 0)
+    # We detect the first key spec and only if the begin_search is by index.
+    # Otherwise we return -1 for unknown (for example if the first key is
+    # indicated by a keyword like KEYS or STREAMS).
+    begin_search = props["key_specs"][0]["begin_search"]
+    if not "index" in begin_search:
+        return ("UNKNOWN", 0)
+    pos = begin_search["index"]["pos"]
+    find_keys = props["key_specs"][0]["find_keys"]
+    if "range" in find_keys:
+        # The first key is the arg at index pos.
+        return ("INDEX", pos)
+    elif "keynum" in find_keys:
+        # The arg at pos is the number of keys and the next arg is the first key
+        assert find_keys["keynum"]["keynumidx"] == 0
+        assert find_keys["keynum"]["firstkey"] == 1
+        return ("KEYNUM", pos)
+    else:
+        return ("UNKNOWN", 0)
+
+def extract_command_info(name, props):
+    (firstkeymethod, firstkeypos) = firstkey(props)
     container = props.get("container", "")
     subcommand = None
     if container != "":
         subcommand = name
         name = container
-        if keypos > 0:
-            keypos = keypos + 1
-    return (name, subcommand, keypos, props["arity"]);
+    return (name, subcommand, props["arity"], firstkeymethod, firstkeypos);
 
-def collect_commands(filename, items):
+def collect_commands_from_files(filenames):
     commands = []
-    for name, props in items:
-        cmd = collect_command(filename, name, props)
-        commands.append(cmd)
+    for filename in filenames:
+        with open(filename, "r") as f:
+            try:
+                d = json.load(f)
+                for name, props in d.items():
+                    cmd = extract_command_info(name, props)
+                    commands.append(cmd)
+            except json.decoder.JSONDecodeError as err:
+                print("Error processing %s: %s" % (filename, err))
+                exit(1)
     return commands
 
 def generate_c_code(commands):
-    for (name, subcmd, keypos, arity) in commands:
+    print("/* This file was generated using gencommands.py */")
+    print("")
+    print("/* clang-format off */")
+    commands_that_have_subcommands = set()
+    for (name, subcmd, arity, firstkeymethod, firstkeypos) in commands:
         if subcmd is None:
-            print("COMMAND(%s, \"%s\", NULL, %s, %s)" %
-                  (name.replace("-", "_"), name, keypos, arity))
+            if name in commands_that_have_subcommands:
+                continue # only include the command with its subcommands
+            print("COMMAND(%s, \"%s\", NULL, %d, %s, %d)" %
+                  (name.replace("-", "_"), name, arity, firstkeymethod, firstkeypos))
         else:
-            print("COMMAND(%s_%s, \"%s\", \"%s\", %s, %s)" %
+            commands_that_have_subcommands.add(name)
+            print("COMMAND(%s_%s, \"%s\", \"%s\", %d, %s, %d)" %
                   (name.replace("-", "_"), subcmd.replace("-", "_"),
-                   name, subcmd, keypos, arity))
+                   name, subcmd, arity, firstkeymethod, firstkeypos))
 
 # MAIN
 
@@ -74,18 +150,10 @@ if not os.path.isdir(jsondir):
     print("The path %s doesn't point to a Redis source directory." % redisdir)
     exit(1)
 
-# Create all command objects
+# Collect all command info
 filenames = glob.glob(os.path.join(jsondir, "*.json"))
 filenames.sort()
-print("/* This file was generated using gencommands.py */")
-print("")
-print("/* clang-format off */")
-for filename in filenames:
-    with open(filename, "r") as f:
-        try:
-            d = json.load(f)
-            commands = collect_commands(filename, d.items())
-            generate_c_code(commands)
-        except json.decoder.JSONDecodeError as err:
-            print("Error processing %s: %s" % (filename, err))
-            exit(1)
+commands = collect_commands_from_files(filenames)
+
+# Print C code
+generate_c_code(commands)
