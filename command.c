@@ -279,7 +279,7 @@ void redis_parse_cmd(struct cmd *r) {
         /* Skip forward to the 'startfrom' arg index. */
         arg = arg1;
         arglen = arg1_len;
-        for (; argidx < startfrom; argidx++) {
+        while (argidx < startfrom) {
             p = redis_parse_bulk(p, end, &arg, &arglen);
             if (p == NULL)
                 goto error; /* Keyword not provided, thus no keys. */
