@@ -56,6 +56,16 @@ def extract_command_info(name, props):
         name = container
     return (name, subcommand, props["arity"], firstkeymethod, firstkeypos);
 
+# Checks that the filename matches the command. We need this because we rely on
+# the alphabetic order.
+def check_filename(filename, cmd):
+    if cmd[1] is None:
+        expect = "%s" % cmd[0]
+    else:
+        expect = "%s-%s" % (cmd[0], cmd[1])
+    expect = expect.lower() + ".json"
+    assert os.path.basename(filename) == expect
+
 def collect_commands_from_files(filenames):
     commands = []
     for filename in filenames:
@@ -64,6 +74,7 @@ def collect_commands_from_files(filenames):
                 d = json.load(f)
                 for name, props in d.items():
                     cmd = extract_command_info(name, props)
+                    check_filename(filename, cmd)
                     commands.append(cmd)
             except json.decoder.JSONDecodeError as err:
                 print("Error processing %s: %s" % (filename, err))
