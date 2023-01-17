@@ -92,10 +92,10 @@ target_link_libraries(ct_specific_nodes hiredis_cluster ${SSL_LIBRARY} ${LIBEVEN
 add_test(NAME ct_specific_nodes COMMAND "$<TARGET_FILE:ct_specific_nodes>")
 set_tests_properties(ct_specific_nodes PROPERTIES LABELS "CT")
 
-add_executable(ct_unit ct_unit.c test_utils.c)
-target_link_libraries(ct_unit hiredis_cluster ${SSL_LIBRARY})
-add_test(NAME ct_unit COMMAND "$<TARGET_FILE:ct_unit>")
-set_tests_properties(ct_unit PROPERTIES LABELS "CT")
+add_executable(ut_parse_cmd ut_parse_cmd.c test_utils.c)
+target_link_libraries(ut_parse_cmd hiredis_cluster ${SSL_LIBRARY})
+add_test(NAME ut_parse_cmd COMMAND "$<TARGET_FILE:ut_parse_cmd>")
+set_tests_properties(ut_parse_cmd PROPERTIES LABELS "UT")
 
 if(ENABLE_SSL)
   # Executable: tls
