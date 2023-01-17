@@ -14,57 +14,6 @@ import json
 import os
 import sys
 
-# Returns all arguments in props. If a "block" is encountered, the arguments
-# within the block is returned after the block itself. (See the JSON file
-# mset.json for example.)
-def arggenerator(props):
-    for arg in props.get("arguments", []):
-        yield arg
-        if arg["type"] == "block":
-            # After the block itself, yield all args inside the block
-            for a in arggenerator(arg):
-                yield a
-
-# Returns true of the argument tree (block, oneof) contains a key somewhere.
-def block_contains_key(props):
-    for arg in props.get("arguments", []):
-        if arg["type"] == "key":
-            return True
-        if arg["type"] == "block" or arg["type"] == "oneof":
-            if (block_contains_key(arg)):
-                return True
-    return False
-
-# Returns the position of the first key, where 1 is the first arg after the
-# command name. Special return values: 0 = no keys, -1 = unknown.
-def firstkey_by_args(props):
-    unknown = False
-    i = 1
-    for arg in props.get("arguments", []):
-        # If the key or any args before it is optional, we can't be sure about
-        # the position of the key.
-        if arg.get("optional", False):
-            unknown = True
-        # We don't even bother looking for either-key-or-other-stuff
-        if arg["type"] == "oneof" and block_contains_key(arg):
-            return -1
-        # If this arg is a key, we found it, unless the key or something before
-        # it was optional.
-        if arg["type"] == "key":
-            return (-1 if unknown else i)
-
-        # If any args before the key can occur multiple times, we can't be sure
-        # about the position of the key.
-        if arg.get("multiple", False) and arg["type"] != "block":
-            unknown = True
-        # Increment counter, except if type is "block" which means it's a
-        # container with other arg specifications inside. We will get each arg
-        # next from our arg generator.
-        if arg["type"] != "block":
-            i = i + 1
-    # None of the arguments was a key.
-    return 0
-
 # Returns a tuple (method, index) where method is one of the following:
 #
 #     NONE          = No keys
