@@ -232,13 +232,11 @@ void redis_parse_cmd(struct cmd *r) {
     r->narg = rnarg;
 
     /* Parse the first two args. */
-    p = redis_parse_bulk(p, end, &arg0, &arg0_len);
-    if (p == NULL)
+    if ((p = redis_parse_bulk(p, end, &arg0, &arg0_len)) == NULL)
         goto error;
     argidx++;
     if (rnarg > 1) {
-        p = redis_parse_bulk(p, end, &arg1, &arg1_len);
-        if (p == NULL)
+        if ((p = redis_parse_bulk(p, end, &arg1, &arg1_len)) == NULL)
             goto error;
         argidx++;
     }
@@ -280,8 +278,7 @@ void redis_parse_cmd(struct cmd *r) {
         arg = arg1;
         arglen = arg1_len;
         while (argidx < startfrom) {
-            p = redis_parse_bulk(p, end, &arg, &arglen);
-            if (p == NULL)
+            if ((p = redis_parse_bulk(p, end, &arg, &arglen)) == NULL)
                 goto error; /* Keyword not provided, thus no keys. */
             argidx++;
         }
@@ -291,8 +288,7 @@ void redis_parse_cmd(struct cmd *r) {
             goto error;
 
         /* Now find key is the next arg. */
-        p = redis_parse_bulk(p, end, &arg, &arglen);
-        if (p == NULL)
+        if ((p = redis_parse_bulk(p, end, &arg, &arglen)) == NULL)
             goto error;
         struct keypos *kpos = hiarray_push(r->keys);
         if (kpos == NULL)
@@ -306,8 +302,7 @@ void redis_parse_cmd(struct cmd *r) {
     arg = arg1;
     arglen = arg1_len;
     for (; argidx < info->firstkeypos; argidx++) {
-        p = redis_parse_bulk(p, end, &arg, &arglen);
-        if (p == NULL)
+        if ((p = redis_parse_bulk(p, end, &arg, &arglen)) == NULL)
             goto error;
     }
 
@@ -316,16 +311,12 @@ void redis_parse_cmd(struct cmd *r) {
          * arg. Example:
          *
          * EVAL script numkeys [key [key ...]] [arg [arg ...]] */
-        if (!strncmp("0", arg, arglen)) {
-            /* No args. */
-            goto done;
-        } else {
-            /* One or more args. The first key is the arg after the 'numkeys' arg. */
-            p = redis_parse_bulk(p, end, &arg, &arglen);
-            if (p == NULL)
-                goto error;
-            argidx++;
-        }
+        if (!strncmp("0", arg, arglen))
+            goto done; /* No args. */
+        /* One or more args. The first key is the arg after the 'numkeys' arg. */
+        if ((p = redis_parse_bulk(p, end, &arg, &arglen)) == NULL)
+            goto error;
+        argidx++;
     }
 
     /* Now arg is the first key and arglen is its length. */
@@ -354,8 +345,7 @@ void redis_parse_cmd(struct cmd *r) {
         if (redis_argkvx(r) && rnarg % 2 == 0)
             goto error;
         for (uint32_t i = 2; i < rnarg; i++) {
-            p = redis_parse_bulk(p, end, &arg, &arglen);
-            if (p == NULL)
+            if ((p = redis_parse_bulk(p, end, &arg, &arglen)) == NULL)
                 goto error;
             if (redis_argkvx(r) && i % 2 == 0)
                 continue; /* not a key */
@@ -375,26 +365,27 @@ done:
 error:
     r->result = CMD_PARSE_ERROR;
     errno = EINVAL;
+    size_t errmaxlen = 100; /* Enough for the error messages below. */
     if (r->errstr == NULL) {
-        r->errstr = hi_malloc(100 * sizeof(*r->errstr));
+        r->errstr = hi_malloc(errmaxlen);
         if (r->errstr == NULL) {
             goto oom;
         }
     }
 
     if (info != NULL && info->subname != NULL)
-        snprintf(r->errstr, 100, "Failed to find keys of command %s %s",
+        snprintf(r->errstr, errmaxlen, "Failed to find keys of command %s %s",
                  info->name, info->subname);
     else if (info != NULL)
-        snprintf(r->errstr, 100, "Failed to find keys of command %s",
+        snprintf(r->errstr, errmaxlen, "Failed to find keys of command %s",
                  info->name);
     else if (r->type == CMD_UNKNOWN && arg0 != NULL && arg1 != NULL)
-        snprintf(r->errstr, 100, "Unknown command %.*s %.*s", arg0_len, arg0,
-                 arg1_len, arg1);
+        snprintf(r->errstr, errmaxlen, "Unknown command %.*s %.*s", arg0_len,
+                 arg0, arg1_len, arg1);
     else if (r->type == CMD_UNKNOWN && arg0 != NULL)
-        snprintf(r->errstr, 100, "Unknown command %.*s", arg0_len, arg0);
+        snprintf(r->errstr, errmaxlen, "Unknown command %.*s", arg0_len, arg0);
     else
-        snprintf(r->errstr, 100, "Command parse error");
+        snprintf(r->errstr, errmaxlen, "Command parse error");
     return;
 
 oom:
