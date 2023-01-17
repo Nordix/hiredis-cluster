@@ -173,7 +173,6 @@ void hi_assert(const char *cond, const char *file, int line, int panic);
 void hi_stacktrace(int skip_count);
 void hi_stacktrace_fd(int fd);
 
-int _scnprintf(char *buf, size_t size, const char *fmt, ...);
 int64_t hi_usec_now(void);
 int64_t hi_msec_now(void);
 
