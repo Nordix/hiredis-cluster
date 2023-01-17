@@ -1,9 +1,12 @@
  EXPORTS
 	actx_get_by_node
 	cluster_update_route
+        command_destroy
+        command_get
 	ctx_get_by_node
 	dictInitIterator
 	dictNext
+        hiarray_get
 	initNodeIterator
 	nodeNext
 	parse_cluster_nodes
@@ -52,3 +55,4 @@
 	redisClustervAppendCommand
 	redisClustervAsyncCommand
 	redisClustervCommand
+        redis_parse_cmd
