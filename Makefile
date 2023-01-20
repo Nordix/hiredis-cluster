@@ -74,11 +74,12 @@ all: $(DYLIBNAME) $(SSL_DYLIBNAME) $(STLIBNAME) $(SSL_STLIBNAME) $(PKGCONFNAME) 
 
 # Deps (use `USE_SSL=1 make dep` to generate this)
 adlist.o: adlist.c adlist.h hiutil.h
-command.o: command.c command.h adlist.h hiarray.h hiutil.h win32.h
+command.o: command.c command.h adlist.h cmddef.h hiarray.h hiutil.h \
+ win32.h
 crc16.o: crc16.c hiutil.h
 dict.o: dict.c dict.h
 hiarray.o: hiarray.c hiarray.h hiutil.h
-hircluster.o: hircluster.c adlist.h command.h dict.h hiarray.h \
+hircluster.o: hircluster.c adlist.h command.h cmddef.h dict.h hiarray.h \
  hircluster.h hiutil.h win32.h
 hiutil.o: hiutil.c hiutil.h win32.h
 hircluster_ssl.o: hircluster_ssl.c hircluster_ssl.h hircluster.h dict.h
