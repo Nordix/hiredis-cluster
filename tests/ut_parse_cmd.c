@@ -54,7 +54,9 @@ void test_redis_parse_error_nonresp(void) {
 
 void test_redis_parse_cmd_get(void) {
     struct cmd *c = command_get();
-    c->clen = redisFormatCommand(&c->cmd, "GET foo");
+    int len = redisFormatCommand(&c->cmd, "GET foo");
+    ASSERT_MSG(len >= 0, "Format command error");
+    c->clen = len;
     redis_parse_cmd(c);
     ASSERT_MSG(c->result == CMD_PARSE_OK, "Parse not OK");
     ASSERT_KEYS(c, "foo");
@@ -63,7 +65,9 @@ void test_redis_parse_cmd_get(void) {
 
 void test_redis_parse_cmd_mset(void) {
     struct cmd *c = command_get();
-    c->clen = redisFormatCommand(&c->cmd, "MSET foo val1 bar val2");
+    int len = redisFormatCommand(&c->cmd, "MSET foo val1 bar val2");
+    ASSERT_MSG(len >= 0, "Format command error");
+    c->clen = len;
     redis_parse_cmd(c);
     ASSERT_MSG(c->result == CMD_PARSE_OK, "Parse not OK");
     ASSERT_KEYS(c, "foo", "bar");
@@ -72,7 +76,9 @@ void test_redis_parse_cmd_mset(void) {
 
 void test_redis_parse_cmd_eval_1(void) {
     struct cmd *c = command_get();
-    c->clen = redisFormatCommand(&c->cmd, "EVAL dummyscript 1 foo");
+    int len = redisFormatCommand(&c->cmd, "EVAL dummyscript 1 foo");
+    ASSERT_MSG(len >= 0, "Format command error");
+    c->clen = len;
     redis_parse_cmd(c);
     ASSERT_MSG(c->result == CMD_PARSE_OK, "Parse not OK");
     ASSERT_KEYS(c, "foo");
@@ -81,7 +87,9 @@ void test_redis_parse_cmd_eval_1(void) {
 
 void test_redis_parse_cmd_eval_0(void) {
     struct cmd *c = command_get();
-    c->clen = redisFormatCommand(&c->cmd, "EVAL dummyscript 0 foo");
+    int len = redisFormatCommand(&c->cmd, "EVAL dummyscript 0 foo");
+    ASSERT_MSG(len >= 0, "Format command error");
+    c->clen = len;
     redis_parse_cmd(c);
     ASSERT_MSG(c->result == CMD_PARSE_OK, "Parse not OK");
     ASSERT_MSG(hiarray_n(c->keys) == 0, "Nonzero number of keys");
@@ -90,7 +98,9 @@ void test_redis_parse_cmd_eval_0(void) {
 
 void test_redis_parse_cmd_xgroup_no_subcommand(void) {
     struct cmd *c = command_get();
-    c->clen = redisFormatCommand(&c->cmd, "XGROUP");
+    int len = redisFormatCommand(&c->cmd, "XGROUP");
+    ASSERT_MSG(len >= 0, "Format command error");
+    c->clen = len;
     redis_parse_cmd(c);
     ASSERT_MSG(c->result == CMD_PARSE_ERROR, "Unexpected parse success");
     ASSERT_MSG(!strcmp(c->errstr, "Unknown command XGROUP"), c->errstr);
@@ -99,7 +109,9 @@ void test_redis_parse_cmd_xgroup_no_subcommand(void) {
 
 void test_redis_parse_cmd_xgroup_destroy_no_key(void) {
     struct cmd *c = command_get();
-    c->clen = redisFormatCommand(&c->cmd, "xgroup destroy");
+    int len = redisFormatCommand(&c->cmd, "xgroup destroy");
+    ASSERT_MSG(len >= 0, "Format command error");
+    c->clen = len;
     redis_parse_cmd(c);
     ASSERT_MSG(c->result == CMD_PARSE_ERROR, "Parse not OK");
     const char *expected_error =
@@ -111,7 +123,9 @@ void test_redis_parse_cmd_xgroup_destroy_no_key(void) {
 
 void test_redis_parse_cmd_xgroup_destroy_ok(void) {
     struct cmd *c = command_get();
-    c->clen = redisFormatCommand(&c->cmd, "xgroup destroy mystream mygroup");
+    int len = redisFormatCommand(&c->cmd, "xgroup destroy mystream mygroup");
+    ASSERT_MSG(len >= 0, "Format command error");
+    c->clen = len;
     redis_parse_cmd(c);
     ASSERT_KEYS(c, "mystream");
     command_destroy(c);
