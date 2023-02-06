@@ -57,7 +57,10 @@ jobs:
 
     steps:
     - name: Prepare
-      run: sudo apt install libevent-dev libuv1-dev libev-dev libglib2.0-dev ${{ matrix.compiler }}
+      uses: awalsh128/cache-apt-pkgs-action@latest
+      with:
+        packages: libevent-dev libuv1-dev libev-dev libglib2.0-dev ${{ matrix.compiler }}
+        version: 1.0
     - name: Install hiredis
       run: |
         curl -L https://github.com/redis/hiredis/archive/refs/tags/v1.1.0.tar.gz | tar -xz
