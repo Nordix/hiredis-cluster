@@ -26,14 +26,16 @@ jobs:
         COVERITY_TOKEN: ${{ secrets.COVERITY_TOKEN }}
 
     - name: Prepare
-      run: |
-        sudo apt-get install -y libevent-dev gcc cmake
-        mkdir build; cd build
-        cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo -DENABLE_SSL=ON ..
+      uses: awalsh128/cache-apt-pkgs-action@latest
+      with:
+        packages: libevent-dev cmake
+        version: 1.0
 
     - name: Build with Coverity
-      run: cov-build --dir cov-int make
-      working-directory: build
+      run: |
+        mkdir build; cd build
+        cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo -DENABLE_SSL=ON ..
+        cov-build --dir cov-int make
 
     - name: Submit the result to Coverity
       run: |

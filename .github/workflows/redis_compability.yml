@@ -16,7 +16,10 @@ jobs:
           - redis-version: 5.0.14
     steps:
       - name: Prepare
-        run: sudo apt install libevent-dev
+        uses: awalsh128/cache-apt-pkgs-action@latest
+        with:
+          packages: libevent-dev
+          version: 1.0
 
       - uses: actions/checkout@v3
 
