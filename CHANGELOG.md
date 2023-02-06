@@ -1,3 +1,9 @@
+### 0.10.0 - Feb 02, 2023
+
+* More commands are supported.
+* New logic for finding the key of each command.
+* Build improvements.
+
 ### 0.9.0 - Dec 22, 2022
 
 * Fixed a crash in the asynchronous API triggered by timed out commands.
