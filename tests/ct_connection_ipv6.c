@@ -9,7 +9,7 @@
 #define CLUSTER_NODE_IPV6 "::1:7200"
 
 // Successful connection an IPv6 cluster
-void test_successful_ipv6_connection() {
+void test_successful_ipv6_connection(void) {
 
     redisClusterContext *cc = redisClusterContextInit();
     assert(cc);
@@ -40,7 +40,7 @@ void test_successful_ipv6_connection() {
     redisClusterFree(cc);
 }
 
-int main() {
+int main(void) {
 
     test_successful_ipv6_connection();
 

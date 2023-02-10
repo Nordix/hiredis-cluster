@@ -3716,7 +3716,7 @@ actx_get_after_update_route_by_slot(redisClusterAsyncContext *acc,
     return ac;
 }
 
-redisClusterAsyncContext *redisClusterAsyncContextInit() {
+redisClusterAsyncContext *redisClusterAsyncContextInit(void) {
     redisClusterContext *cc;
     redisClusterAsyncContext *acc;
 

@@ -392,7 +392,7 @@ oom:
     r->result = CMD_PARSE_ENOMEM;
 }
 
-struct cmd *command_get() {
+struct cmd *command_get(void) {
     struct cmd *command;
     command = hi_malloc(sizeof(struct cmd));
     if (command == NULL) {

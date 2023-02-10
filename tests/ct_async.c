@@ -32,7 +32,7 @@ void disconnectCallback(const redisAsyncContext *ac, int status) {
     printf("Disconnected from %s:%d\n", ac->c.tcp.host, ac->c.tcp.port);
 }
 
-int main() {
+int main(void) {
     redisClusterAsyncContext *acc =
         redisClusterAsyncConnect(CLUSTER_NODE, HIRCLUSTER_FLAG_NULL);
     assert(acc);

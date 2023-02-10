@@ -455,7 +455,7 @@ void test_multi(redisClusterContext *cc) {
     assert(r == NULL);
 }
 
-int main() {
+int main(void) {
     struct timeval timeout = {0, 500000};
 
     redisClusterContext *cc = redisClusterContextInit();
