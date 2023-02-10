@@ -317,7 +317,7 @@ void commandCallback(redisClusterAsyncContext *cc, void *r, void *privdata) {
         redisClusterAsyncDisconnect(cc);
 }
 
-void test_async_to_single_node() {
+void test_async_to_single_node(void) {
     int status;
 
     redisClusterAsyncContext *acc = redisClusterAsyncContextInit();
@@ -353,7 +353,7 @@ void test_async_to_single_node() {
     event_base_free(base);
 }
 
-void test_async_formatted_to_single_node() {
+void test_async_formatted_to_single_node(void) {
     int status;
 
     redisClusterAsyncContext *acc = redisClusterAsyncContextInit();
@@ -390,7 +390,7 @@ void test_async_formatted_to_single_node() {
     event_base_free(base);
 }
 
-void test_async_to_all_nodes() {
+void test_async_to_all_nodes(void) {
     int status;
 
     redisClusterAsyncContext *acc = redisClusterAsyncContextInit();
@@ -431,7 +431,7 @@ void test_async_to_all_nodes() {
     event_base_free(base);
 }
 
-void test_async_transaction() {
+void test_async_transaction(void) {
     int status;
 
     redisClusterAsyncContext *acc = redisClusterAsyncContextInit();
@@ -479,7 +479,7 @@ void test_async_transaction() {
     event_base_free(base);
 }
 
-int main() {
+int main(void) {
     int status;
 
     redisClusterContext *cc = redisClusterContextInit();

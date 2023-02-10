@@ -11,7 +11,7 @@
 #define CLUSTER_NODE "127.0.0.1:7000"
 
 // Test of two pipelines using sync API
-void test_pipeline() {
+void test_pipeline(void) {
     redisClusterContext *cc = redisClusterContextInit();
     assert(cc);
 
@@ -58,7 +58,7 @@ void test_pipeline() {
 }
 
 // Test of pipelines containing multi-node commands
-void test_pipeline_with_multinode_commands() {
+void test_pipeline_with_multinode_commands(void) {
     redisClusterContext *cc = redisClusterContextInit();
     assert(cc);
 
@@ -123,7 +123,7 @@ void commandCallback(redisClusterAsyncContext *cc, void *r, void *privdata) {
 // In an asynchronous context, commands are automatically pipelined due to the
 // nature of an event loop. Therefore, unlike the synchronous API, there is only
 // a single way to send commands.
-void test_async_pipeline() {
+void test_async_pipeline(void) {
     redisClusterAsyncContext *acc = redisClusterAsyncContextInit();
     assert(acc);
     redisClusterAsyncSetConnectCallback(acc, callbackExpectOk);
@@ -167,7 +167,7 @@ void test_async_pipeline() {
     event_base_free(base);
 }
 
-int main() {
+int main(void) {
 
     test_pipeline();
     test_pipeline_with_multinode_commands();

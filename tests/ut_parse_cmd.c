@@ -131,7 +131,7 @@ void test_redis_parse_cmd_xgroup_destroy_ok(void) {
     command_destroy(c);
 }
 
-int main() {
+int main(void) {
     test_redis_parse_error_nonresp();
     test_redis_parse_cmd_get();
     test_redis_parse_cmd_mset();

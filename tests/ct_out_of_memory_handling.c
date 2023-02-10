@@ -67,7 +67,7 @@ void prepare_allocation_test_async(redisClusterAsyncContext *acc,
 //      use gdb to find out which iteration that fails (print i)
 //      Update i in for-loop and the prepare_allocation_test(_, x) in
 //      the test section just after.
-void test_alloc_failure_handling() {
+void test_alloc_failure_handling(void) {
     int result;
     hiredisAllocFuncs ha = {
         .mallocFn = hi_malloc_fail,
@@ -367,7 +367,7 @@ void commandCallback(redisClusterAsyncContext *cc, void *r, void *privdata) {
 // It will start by triggering an allocation fault, and the next iteration
 // will start with an successfull allocation and then a failing one,
 // next iteration 2 successful and one failing allocation, and so on..
-void test_alloc_failure_handling_async() {
+void test_alloc_failure_handling_async(void) {
     int result;
     hiredisAllocFuncs ha = {
         .mallocFn = hi_malloc_fail,
@@ -484,7 +484,7 @@ void test_alloc_failure_handling_async() {
     event_base_free(base);
 }
 
-int main() {
+int main(void) {
 
     test_alloc_failure_handling();
     test_alloc_failure_handling_async();

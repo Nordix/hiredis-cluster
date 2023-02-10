@@ -15,7 +15,7 @@
 
 // Connecting to a password protected cluster and
 // providing a correct password.
-void test_password_ok() {
+void test_password_ok(void) {
     redisClusterContext *cc = redisClusterContextInit();
     assert(cc);
     redisClusterSetOptionAddNodes(cc, CLUSTER_NODE_WITH_PASSWORD);
@@ -37,7 +37,7 @@ void test_password_ok() {
 
 // Connecting to a password protected cluster and
 // providing wrong password.
-void test_password_wrong() {
+void test_password_wrong(void) {
     redisClusterContext *cc = redisClusterContextInit();
     assert(cc);
     redisClusterSetOptionAddNodes(cc, CLUSTER_NODE_WITH_PASSWORD);
@@ -58,7 +58,7 @@ void test_password_wrong() {
 
 // Connecting to a password protected cluster and
 // not providing any password.
-void test_password_missing() {
+void test_password_missing(void) {
     redisClusterContext *cc = redisClusterContextInit();
     assert(cc);
     redisClusterSetOptionAddNodes(cc, CLUSTER_NODE_WITH_PASSWORD);
@@ -76,7 +76,7 @@ void test_password_missing() {
 
 // Connect to a cluster and authenticate using username and password,
 // i.e. 'AUTH <username> <password>'
-void test_username_ok() {
+void test_username_ok(void) {
     if (redis_version_less_than(6, 0))
         return;
 
@@ -99,7 +99,7 @@ void test_username_ok() {
 }
 
 // Test of disabling the use of username after it was enabled.
-void test_username_disabled() {
+void test_username_disabled(void) {
     if (redis_version_less_than(6, 0))
         return;
 
@@ -135,7 +135,7 @@ void test_username_disabled() {
 }
 
 // Connect and handle two clusters simultaneously
-void test_multicluster() {
+void test_multicluster(void) {
     int ret;
     redisReply *reply;
 
@@ -184,7 +184,7 @@ void test_multicluster() {
 }
 
 /* Connect to a non-routable address which results in a connection timeout. */
-void test_connect_timeout() {
+void test_connect_timeout(void) {
     struct timeval timeout = {0, 200000};
 
     redisClusterContext *cc = redisClusterContextInit();
@@ -203,7 +203,7 @@ void test_connect_timeout() {
 }
 
 /* Connect using a pre-configured command timeout */
-void test_command_timeout() {
+void test_command_timeout(void) {
     struct timeval timeout = {0, 10000};
 
     redisClusterContext *cc = redisClusterContextInit();
@@ -238,7 +238,7 @@ void test_command_timeout() {
 }
 
 /* Connect and configure a command timeout while connected. */
-void test_command_timeout_set_while_connected() {
+void test_command_timeout_set_while_connected(void) {
     struct timeval timeout = {0, 10000};
 
     redisClusterContext *cc = redisClusterContextInit();
@@ -318,7 +318,7 @@ void commandCallback(redisClusterAsyncContext *cc, void *r, void *privdata) {
 
 // Connecting to a password protected cluster using
 // the async API, providing correct password.
-void test_async_password_ok() {
+void test_async_password_ok(void) {
     redisClusterAsyncContext *acc = redisClusterAsyncContextInit();
     assert(acc);
     redisClusterAsyncSetConnectCallback(acc, callbackExpectOk);
@@ -349,7 +349,7 @@ void test_async_password_ok() {
 
 // Connecting to a password protected cluster using
 // the async API, providing wrong password.
-void test_async_password_wrong() {
+void test_async_password_wrong(void) {
     redisClusterAsyncContext *acc = redisClusterAsyncContextInit();
     assert(acc);
     redisClusterAsyncSetConnectCallback(acc, callbackExpectOk);
@@ -385,7 +385,7 @@ void test_async_password_wrong() {
 
 // Connecting to a password protected cluster using
 // the async API, not providing a password.
-void test_async_password_missing() {
+void test_async_password_missing(void) {
     redisClusterAsyncContext *acc = redisClusterAsyncContextInit();
     assert(acc);
     redisClusterAsyncSetConnectCallback(acc, callbackExpectOk);
@@ -417,7 +417,7 @@ void test_async_password_missing() {
 }
 
 // Connect to a cluster and authenticate using username and password
-void test_async_username_ok() {
+void test_async_username_ok(void) {
     if (redis_version_less_than(6, 0))
         return;
 
@@ -463,7 +463,7 @@ void test_async_username_ok() {
 }
 
 // Connect and handle two clusters simultaneously using the async API
-void test_async_multicluster() {
+void test_async_multicluster(void) {
     int ret;
 
     redisClusterAsyncContext *acc1 = redisClusterAsyncContextInit();
@@ -529,7 +529,7 @@ void test_async_multicluster() {
 }
 
 /* Connect to a non-routable address which results in a connection timeout. */
-void test_async_connect_timeout() {
+void test_async_connect_timeout(void) {
     struct timeval timeout = {0, 200000};
 
     redisClusterAsyncContext *acc = redisClusterAsyncContextInit();
@@ -554,7 +554,7 @@ void test_async_connect_timeout() {
 }
 
 /* Connect using a pre-configured command timeout */
-void test_async_command_timeout() {
+void test_async_command_timeout(void) {
     struct timeval timeout = {0, 10000};
 
     redisClusterAsyncContext *acc = redisClusterAsyncContextInit();
@@ -587,7 +587,7 @@ void test_async_command_timeout() {
     event_base_free(base);
 }
 
-int main() {
+int main(void) {
 
     test_password_ok();
     test_password_wrong();
