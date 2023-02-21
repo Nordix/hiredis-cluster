@@ -72,16 +72,16 @@ fi
 # hiredis v1.1.0
 expected1="OK
 error: Timeout
-error: no reachable node in cluster
 error: Timeout
-error: no reachable node in cluster"
+error: Timeout
+error: Timeout"
 
 # hiredis < v1.1.0
 expected2="OK
 unknown error
-error: no reachable node in cluster
 unknown error
-error: no reachable node in cluster"
+unknown error
+unknown error"
 
 cmp "$testname.out" <(echo "$expected1") || cmp "$testname.out" <(echo "$expected2") || exit 99
 

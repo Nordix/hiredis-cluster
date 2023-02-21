@@ -1999,90 +1999,6 @@ static redisClusterNode *node_get_which_connected(redisClusterContext *cc) {
     return NULL;
 }
 
-/* Get the cluster config from one node.
- * Return value: config_value string must free by usr.
- */
-static char *cluster_config_get(redisClusterContext *cc,
-                                const char *config_name,
-                                int *config_value_len) {
-    redisContext *c;
-    redisClusterNode *node;
-    redisReply *reply = NULL, *sub_reply;
-    char *config_value = NULL;
-
-    if (cc == NULL || config_name == NULL || config_value_len == NULL) {
-        return NULL;
-    }
-
-    node = node_get_which_connected(cc);
-    if (node == NULL) {
-        __redisClusterSetError(cc, REDIS_ERR_OTHER,
-                               "no reachable node in cluster");
-        goto error;
-    }
-
-    c = ctx_get_by_node(cc, node);
-    if (c == NULL) {
-        goto error;
-    }
-
-    reply = redisCommand(c, "config get %s", config_name);
-    if (reply == NULL) {
-        __redisClusterSetError(cc, REDIS_ERR_OTHER,
-                               "reply for config get is null");
-        goto error;
-    }
-
-    if (reply->type != REDIS_REPLY_ARRAY) {
-        __redisClusterSetError(cc, REDIS_ERR_OTHER,
-                               "reply for config get type is not array");
-        goto error;
-    }
-
-    if (reply->elements != 2) {
-        __redisClusterSetError(cc, REDIS_ERR_OTHER,
-                               "reply for config get elements number is not 2");
-        goto error;
-    }
-
-    sub_reply = reply->element[0];
-    if (sub_reply == NULL || sub_reply->type != REDIS_REPLY_STRING) {
-        __redisClusterSetError(
-            cc, REDIS_ERR_OTHER,
-            "reply for config get config name is not string");
-        goto error;
-    }
-
-    if (strcmp(sub_reply->str, config_name)) {
-        __redisClusterSetError(
-            cc, REDIS_ERR_OTHER,
-            "reply for config get config name is not we want");
-        goto error;
-    }
-
-    sub_reply = reply->element[1];
-    if (sub_reply == NULL || sub_reply->type != REDIS_REPLY_STRING) {
-        __redisClusterSetError(
-            cc, REDIS_ERR_OTHER,
-            "reply for config get config value type is not string");
-        goto error;
-    }
-
-    config_value = sub_reply->str;
-    *config_value_len = sub_reply->len;
-    sub_reply->str = NULL;
-
-    freeReplyObject(reply);
-
-    return config_value;
-
-error:
-
-    freeReplyObject(reply);
-
-    return NULL;
-}
-
 /* Helper function for the redisClusterAppendCommand* family of functions.
  *
  * Write a formatted command to the output buffer. When this family
@@ -3808,10 +3724,11 @@ static void redisClusterAsyncRetryCallback(redisAsyncContext *ac, void *r,
         // I can't decide which is the best way to deal with connect
         // problem for hiredis cluster async api.
         // But now the way is : when enough null reply for a node,
-        // we will update the route after the cluster node timeout.
+        // we will update the route.
         // If you have a better idea, please contact with me. Thank you.
         // My email: diguo58@gmail.com
 
+        /* Copy reply specific error from hiredis */
         __redisClusterAsyncSetError(acc, ac->err, ac->errstr);
 
         node = (redisClusterNode *)ac->data;
@@ -3821,11 +3738,9 @@ static void redisClusterAsyncRetryCallback(redisAsyncContext *ac, void *r,
         if (cc->update_route_time != 0) {
             now = hi_usec_now();
             if (now >= cc->update_route_time) {
-                ret = cluster_update_route(cc);
-                if (ret != REDIS_OK) {
-                    __redisClusterAsyncSetError(acc, cc->err, cc->errstr);
-                }
-
+                /* Attempt to update route, but ignoring errors while doing this
+                 * since we want to keep the reply-specific error from hiredis */
+                cluster_update_route(cc);
                 cc->update_route_time = 0LL;
             }
 
@@ -3834,30 +3749,8 @@ static void redisClusterAsyncRetryCallback(redisAsyncContext *ac, void *r,
 
         node->failure_count++;
         if (node->failure_count > cc->max_retry_count) {
-            char *cluster_timeout_str;
-            int cluster_timeout_str_len;
-            int cluster_timeout;
-
             node->failure_count = 0;
             if (cc->update_route_time != 0) {
-                goto done;
-            }
-
-            cluster_timeout_str = cluster_config_get(cc, "cluster-node-timeout",
-                                                     &cluster_timeout_str_len);
-            if (cluster_timeout_str == NULL) {
-                __redisClusterAsyncSetError(acc, cc->err, cc->errstr);
-                goto done;
-            }
-
-            cluster_timeout =
-                hi_atoi(cluster_timeout_str, cluster_timeout_str_len);
-            hi_free(cluster_timeout_str);
-
-            if (cluster_timeout < 0) {
-                __redisClusterAsyncSetError(
-                    acc, REDIS_ERR_OTHER,
-                    "cluster_timeout_str convert to integer error");
                 goto done;
             }
 
@@ -3868,7 +3761,7 @@ static void redisClusterAsyncRetryCallback(redisAsyncContext *ac, void *r,
                 goto done;
             }
 
-            cc->update_route_time = now + (cluster_timeout * 1000LL);
+            cc->update_route_time = now;
         }
 
         goto done;

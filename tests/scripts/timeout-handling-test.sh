@@ -26,20 +26,12 @@ EXPECT ["CLUSTER", "SLOTS"]
 SEND [[0, 6000, ["127.0.0.1", 7401, "nodeid1"]],[6001, 16383, ["127.0.0.1", 7402, "nodeid2"]]]
 EXPECT CLOSE
 
-# Max retry triggers a fetch of config
-EXPECT CONNECT
-EXPECT ["PING"]
-SEND +PONG
-EXPECT ["config", "get", "cluster-node-timeout"]
-SEND ["cluster-node-timeout", "0"]
-
 # Topology changed, nodeid2 is now gone
 EXPECT CONNECT
 EXPECT ["CLUSTER", "SLOTS"]
 SEND [[0, 16383, ["127.0.0.1", 7401, "nodeid1"]]]
 EXPECT CLOSE
 
-EXPECT CLOSE
 EOF
 server1=$!
 
