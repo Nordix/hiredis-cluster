@@ -245,8 +245,7 @@ void redisClusterReset(redisClusterContext *cc);
 
 /* Internal functions */
 int cluster_update_route(redisClusterContext *cc);
-redisContext *ctx_get_by_node(redisClusterContext *cc,
-                              struct redisClusterNode *node);
+redisContext *ctx_get_by_node(redisClusterContext *cc, redisClusterNode *node);
 struct dict *parse_cluster_nodes(redisClusterContext *cc, char *str,
                                  int str_len, int flags);
 struct dict *parse_cluster_slots(redisClusterContext *cc, redisReply *reply,

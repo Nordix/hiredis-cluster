@@ -1993,7 +1993,7 @@ static redisClusterNode *node_get_by_table(redisClusterContext *cc,
 
 static redisClusterNode *node_get_which_connected(redisClusterContext *cc) {
     dictEntry *de;
-    struct redisClusterNode *node;
+    redisClusterNode *node;
     redisContext *c = NULL;
 
     if (cc == NULL || cc->nodes == NULL) {
@@ -3292,7 +3292,7 @@ int redisClusterAppendCommandArgv(redisClusterContext *cc, int argc,
 
 static int redisClusterSendAll(redisClusterContext *cc) {
     dictEntry *de;
-    struct redisClusterNode *node;
+    redisClusterNode *node;
     redisContext *c = NULL;
     int wdone = 0;
 
@@ -3327,7 +3327,7 @@ static int redisClusterSendAll(redisClusterContext *cc) {
 
 static int redisClusterClearAll(redisClusterContext *cc) {
     dictEntry *de;
-    struct redisClusterNode *node;
+    redisClusterNode *node;
     redisContext *c = NULL;
 
     if (cc == NULL) {
@@ -4277,7 +4277,7 @@ void redisClusterAsyncDisconnect(redisClusterAsyncContext *acc) {
     redisClusterContext *cc;
     redisAsyncContext *ac;
     dictEntry *de;
-    struct redisClusterNode *node;
+    redisClusterNode *node;
 
     if (acc == NULL) {
         return;
