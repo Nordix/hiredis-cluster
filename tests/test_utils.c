@@ -11,7 +11,7 @@ static int redis_version_minor;
 #define REDIS_VERSION_FIELD "redis_version:"
 void load_redis_version(redisClusterContext *cc) {
     nodeIterator ni;
-    cluster_node *node;
+    redisClusterNode *node;
     char *eptr, *s, *e;
     redisReply *reply = NULL;
 

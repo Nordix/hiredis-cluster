@@ -74,7 +74,7 @@ typedef int(adapterAttachFn)(redisAsyncContext *, void *);
 typedef int(sslInitFn)(redisContext *, void *);
 typedef void(redisClusterCallbackFn)(struct redisClusterAsyncContext *, void *,
                                      void *);
-typedef struct cluster_node {
+typedef struct redisClusterNode {
     sds name;
     sds addr;
     sds host;
@@ -88,19 +88,22 @@ typedef struct cluster_node {
     struct hilist *slaves;
     struct hiarray *migrating; /* copen_slot[] */
     struct hiarray *importing; /* copen_slot[] */
-} cluster_node;
+} redisClusterNode;
+
+/* Deprecated type, kept for backward compatibility */
+typedef struct redisClusterNode cluster_node;
 
 typedef struct cluster_slot {
     uint32_t start;
     uint32_t end;
-    cluster_node *node; /* master that this slot region belong to */
+    redisClusterNode *node; /* master that this slot region belong to */
 } cluster_slot;
 
 typedef struct copen_slot {
-    uint32_t slot_num;  /* slot number */
-    int migrate;        /* migrating or importing? */
-    sds remote_name;    /* name of node this slot migrating to/importing from */
-    cluster_node *node; /* master that this slot belong to */
+    uint32_t slot_num; /* slot number */
+    int migrate;       /* migrating or importing? */
+    sds remote_name;   /* name of node this slot migrating to/importing from */
+    redisClusterNode *node; /* master that this slot belong to */
 } copen_slot;
 
 /* Context for accessing a Redis Cluster */
@@ -116,9 +119,9 @@ typedef struct redisClusterContext {
     char *username;                  /* Authenticate using user */
     char *password;                  /* Authentication password */
 
-    struct dict *nodes;     /* Known cluster_nodes*/
-    uint64_t route_version; /* Increased when the node lookup table changes */
-    cluster_node **table;   /* cluster_node lookup table */
+    struct dict *nodes;       /* Known redisClusterNode's */
+    uint64_t route_version;   /* Increased when the node lookup table changes */
+    redisClusterNode **table; /* redisClusterNode lookup table */
 
     struct hilist *requests; /* Outstanding commands (Pipelining) */
 
@@ -203,7 +206,7 @@ void redisClusterSetMaxRedirect(redisClusterContext *cc,
 
 /* Variadic commands (like printf) */
 void *redisClusterCommand(redisClusterContext *cc, const char *format, ...);
-void *redisClusterCommandToNode(redisClusterContext *cc, cluster_node *node,
+void *redisClusterCommandToNode(redisClusterContext *cc, redisClusterNode *node,
                                 const char *format, ...);
 /* Variadic using va_list */
 void *redisClustervCommand(redisClusterContext *cc, const char *format,
@@ -222,8 +225,9 @@ void *redisClusterFormattedCommand(redisClusterContext *cc, char *cmd, int len);
 
 /* Variadic commands (like printf) */
 int redisClusterAppendCommand(redisClusterContext *cc, const char *format, ...);
-int redisClusterAppendCommandToNode(redisClusterContext *cc, cluster_node *node,
-                                    const char *format, ...);
+int redisClusterAppendCommandToNode(redisClusterContext *cc,
+                                    redisClusterNode *node, const char *format,
+                                    ...);
 /* Variadic using va_list */
 int redisClustervAppendCommand(redisClusterContext *cc, const char *format,
                                va_list ap);
@@ -242,7 +246,7 @@ void redisClusterReset(redisClusterContext *cc);
 /* Internal functions */
 int cluster_update_route(redisClusterContext *cc);
 redisContext *ctx_get_by_node(redisClusterContext *cc,
-                              struct cluster_node *node);
+                              struct redisClusterNode *node);
 struct dict *parse_cluster_nodes(redisClusterContext *cc, char *str,
                                  int str_len, int flags);
 struct dict *parse_cluster_slots(redisClusterContext *cc, redisReply *reply,
@@ -269,7 +273,7 @@ int redisClusterAsyncCommand(redisClusterAsyncContext *acc,
                              redisClusterCallbackFn *fn, void *privdata,
                              const char *format, ...);
 int redisClusterAsyncCommandToNode(redisClusterAsyncContext *acc,
-                                   cluster_node *node,
+                                   redisClusterNode *node,
                                    redisClusterCallbackFn *fn, void *privdata,
                                    const char *format, ...);
 int redisClustervAsyncCommand(redisClusterAsyncContext *acc,
@@ -285,21 +289,21 @@ int redisClusterAsyncFormattedCommand(redisClusterAsyncContext *acc,
                                       redisClusterCallbackFn *fn,
                                       void *privdata, char *cmd, int len);
 int redisClusterAsyncFormattedCommandToNode(redisClusterAsyncContext *acc,
-                                            cluster_node *node,
+                                            redisClusterNode *node,
                                             redisClusterCallbackFn *fn,
                                             void *privdata, char *cmd, int len);
 
 /* Internal functions */
 redisAsyncContext *actx_get_by_node(redisClusterAsyncContext *acc,
-                                    cluster_node *node);
+                                    redisClusterNode *node);
 
 /* Cluster node iterator functions */
 void initNodeIterator(nodeIterator *iter, redisClusterContext *cc);
-cluster_node *nodeNext(nodeIterator *iter);
+redisClusterNode *nodeNext(nodeIterator *iter);
 
 /* Helper functions */
 unsigned int redisClusterGetSlotByKey(char *key);
-cluster_node *redisClusterGetNodeByKey(redisClusterContext *cc, char *key);
+redisClusterNode *redisClusterGetNodeByKey(redisClusterContext *cc, char *key);
 
 #ifdef __cplusplus
 }

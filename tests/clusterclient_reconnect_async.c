@@ -76,7 +76,7 @@ void sendNextCommand(int fd, short kind, void *arg) {
 
         dictEntry *de = dictNext(&di);
         assert(de);
-        cluster_node *node = dictGetEntryVal(de);
+        redisClusterNode *node = dictGetEntryVal(de);
         assert(node);
 
         // coverity[tainted_scalar]

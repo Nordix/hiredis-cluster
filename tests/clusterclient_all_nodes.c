@@ -41,7 +41,7 @@ int main(int argc, char **argv) {
         nodeIterator ni;
         initNodeIterator(&ni, cc);
 
-        cluster_node *node;
+        redisClusterNode *node;
         while ((node = nodeNext(&ni)) != NULL) {
 
             redisReply *reply;

@@ -216,7 +216,7 @@ void test_command_timeout(void) {
 
     nodeIterator ni;
     initNodeIterator(&ni, cc);
-    cluster_node *node = nodeNext(&ni);
+    redisClusterNode *node = nodeNext(&ni);
     assert(node);
 
     /* Simulate a command timeout */
@@ -250,7 +250,7 @@ void test_command_timeout_set_while_connected(void) {
 
     nodeIterator ni;
     initNodeIterator(&ni, cc);
-    cluster_node *node = nodeNext(&ni);
+    redisClusterNode *node = nodeNext(&ni);
     assert(node);
 
     redisReply *reply;
@@ -571,7 +571,7 @@ void test_async_command_timeout(void) {
 
     nodeIterator ni;
     initNodeIterator(&ni, acc->cc);
-    cluster_node *node = nodeNext(&ni);
+    redisClusterNode *node = nodeNext(&ni);
     assert(node);
 
     /* Simulate a command timeout and expect a timeout error */
