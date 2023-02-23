@@ -243,7 +243,8 @@ static int cluster_reply_error_type(redisReply *reply) {
     return CLUSTER_NOT_ERR;
 }
 
-static redisClusterNode *cluster_node_create(void) {
+/* Create and initiate the cluster node structure */
+static redisClusterNode *createRedisClusterNode(void) {
     /* use calloc to guarantee all fields are zeroed */
     return hi_calloc(1, sizeof(redisClusterNode));
 }
@@ -460,7 +461,7 @@ static redisClusterNode *node_get_with_slots(redisClusterContext *cc,
         goto error;
     }
 
-    node = cluster_node_create();
+    node = createRedisClusterNode();
     if (node == NULL) {
         goto oom;
     }
@@ -519,7 +520,7 @@ static redisClusterNode *node_get_with_nodes(redisClusterContext *cc,
         return NULL;
     }
 
-    node = cluster_node_create();
+    node = createRedisClusterNode();
     if (node == NULL) {
         goto oom;
     }
@@ -1610,7 +1611,7 @@ int redisClusterSetOptionAddNode(redisClusterContext *cc, const char *addr) {
             goto error;
         }
 
-        node = cluster_node_create();
+        node = createRedisClusterNode();
         if (node == NULL) {
             goto oom;
         }
@@ -2209,7 +2210,7 @@ static redisClusterNode *node_get_by_ask_error_reply(redisClusterContext *cc,
         if (ip_port_len == 2) {
             de = dictFind(cc->nodes, part[2]);
             if (de == NULL) {
-                node = cluster_node_create();
+                node = createRedisClusterNode();
                 if (node == NULL) {
                     goto oom;
                 }
