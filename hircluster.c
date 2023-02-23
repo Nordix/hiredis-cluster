@@ -91,15 +91,11 @@ typedef enum CLUSTER_ERR_TYPE {
     CLUSTER_ERR_SENTINEL
 } CLUSTER_ERR_TYPE;
 
-static void cluster_node_deinit(redisClusterNode *node);
+static void freeRedisClusterNode(redisClusterNode *node);
 static void cluster_slot_destroy(cluster_slot *slot);
 static void cluster_open_slot_destroy(copen_slot *oslot);
 
-void listClusterNodeDestructor(void *val) {
-    cluster_node_deinit(val);
-
-    hi_free(val);
-}
+void listClusterNodeDestructor(void *val) { freeRedisClusterNode(val); }
 
 void listClusterSlotDestructor(void *val) { cluster_slot_destroy(val); }
 
@@ -126,10 +122,7 @@ void dictSdsDestructor(void *privdata, void *val) {
 
 void dictClusterNodeDestructor(void *privdata, void *val) {
     DICT_NOTUSED(privdata);
-
-    cluster_node_deinit(val);
-
-    hi_free(val);
+    freeRedisClusterNode(val);
 }
 
 /* Cluster node hash table
@@ -255,9 +248,8 @@ static redisClusterNode *cluster_node_create(void) {
     return hi_calloc(1, sizeof(redisClusterNode));
 }
 
-static void cluster_node_deinit(redisClusterNode *node) {
-    copen_slot **oslot;
-
+/* Cleanup the cluster node structure */
+static void freeRedisClusterNode(redisClusterNode *node) {
     if (node == NULL) {
         return;
     }
@@ -265,46 +257,38 @@ static void cluster_node_deinit(redisClusterNode *node) {
     sdsfree(node->name);
     sdsfree(node->addr);
     sdsfree(node->host);
-    node->port = 0;
-    node->role = REDIS_ROLE_NULL;
-
     redisFree(node->con);
-    node->con = NULL;
 
     if (node->acon != NULL) {
-        /* Since the cluster node is deleted the async context should not update
-         * the redisClusterNode via it's dataCleanup and unlinkAsyncContextAndNode() */
+        /* Detach this cluster node from the async context. This makes sure
+         * that redisAsyncFree() wont attempt to update the pointer via its
+         * dataCleanup and unlinkAsyncContextAndNode() */
         node->acon->data = NULL;
         redisAsyncFree(node->acon);
     }
-
     if (node->slots != NULL) {
         listRelease(node->slots);
     }
-
     if (node->slaves != NULL) {
         listRelease(node->slaves);
     }
 
+    copen_slot **oslot;
     if (node->migrating) {
         while (hiarray_n(node->migrating)) {
             oslot = hiarray_pop(node->migrating);
             cluster_open_slot_destroy(*oslot);
         }
-
         hiarray_destroy(node->migrating);
-        node->migrating = NULL;
     }
-
     if (node->importing) {
         while (hiarray_n(node->importing)) {
             oslot = hiarray_pop(node->importing);
             cluster_open_slot_destroy(*oslot);
         }
-
         hiarray_destroy(node->importing);
-        node->importing = NULL;
     }
+    hi_free(node);
 }
 
 static cluster_slot *cluster_slot_create(redisClusterNode *node) {
@@ -873,16 +857,14 @@ dict *parse_cluster_slots(redisClusterContext *cc, redisReply *reply,
 
                     sds key = sdsnewlen(master->addr, sdslen(master->addr));
                     if (key == NULL) {
-                        cluster_node_deinit(master);
-                        hi_free(master);
+                        freeRedisClusterNode(master);
                         goto oom;
                     }
 
                     ret = dictAdd(nodes, key, master);
                     if (ret != DICT_OK) {
                         sdsfree(key);
-                        cluster_node_deinit(master);
-                        hi_free(master);
+                        freeRedisClusterNode(master);
                         goto oom;
                     }
 
@@ -902,8 +884,7 @@ dict *parse_cluster_slots(redisClusterContext *cc, redisReply *reply,
                     if (master->slaves == NULL) {
                         master->slaves = listCreate();
                         if (master->slaves == NULL) {
-                            cluster_node_deinit(slave);
-                            hi_free(slave);
+                            freeRedisClusterNode(slave);
                             goto oom;
                         }
 
@@ -911,8 +892,7 @@ dict *parse_cluster_slots(redisClusterContext *cc, redisReply *reply,
                     }
 
                     if (listAddNodeTail(master->slaves, slave) == NULL) {
-                        cluster_node_deinit(slave);
-                        hi_free(slave);
+                        freeRedisClusterNode(slave);
                         goto oom;
                     }
                 }
@@ -1012,8 +992,7 @@ dict *parse_cluster_nodes(redisClusterContext *cc, char *str, int str_len,
 
                 sds key = sdsnewlen(master->addr, sdslen(master->addr));
                 if (key == NULL) {
-                    cluster_node_deinit(master);
-                    hi_free(master);
+                    freeRedisClusterNode(master);
                     goto oom;
                 }
 
@@ -1024,8 +1003,7 @@ dict *parse_cluster_nodes(redisClusterContext *cc, char *str, int str_len,
                         cc, REDIS_ERR_OTHER,
                         "The address already exists in the nodes");
                     sdsfree(key);
-                    cluster_node_deinit(master);
-                    hi_free(master);
+                    freeRedisClusterNode(master);
                     goto error;
                 }
 
@@ -1033,8 +1011,7 @@ dict *parse_cluster_nodes(redisClusterContext *cc, char *str, int str_len,
                     ret = cluster_master_slave_mapping_with_name(
                         cc, &nodes_name, master, master->name);
                     if (ret != REDIS_OK) {
-                        cluster_node_deinit(master);
-                        hi_free(master);
+                        freeRedisClusterNode(master);
                         goto error;
                     }
                 }
@@ -1169,8 +1146,7 @@ dict *parse_cluster_nodes(redisClusterContext *cc, char *str, int str_len,
                 ret = cluster_master_slave_mapping_with_name(cc, &nodes_name,
                                                              slave, part[3]);
                 if (ret != REDIS_OK) {
-                    cluster_node_deinit(slave);
-                    hi_free(slave);
+                    freeRedisClusterNode(slave);
                     goto error;
                 }
             }
