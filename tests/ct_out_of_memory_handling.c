@@ -188,7 +188,7 @@ void test_alloc_failure_handling(void) {
         redisReply *reply;
         const char *cmd = "SET key value";
 
-        cluster_node *node = redisClusterGetNodeByKey(cc, "key");
+        redisClusterNode *node = redisClusterGetNodeByKey(cc, "key");
         assert(node);
 
         // OOM failing commands
@@ -289,7 +289,7 @@ void test_alloc_failure_handling(void) {
         redisReply *reply;
         const char *cmd = "SET foo one";
 
-        cluster_node *node = redisClusterGetNodeByKey(cc, "foo");
+        redisClusterNode *node = redisClusterGetNodeByKey(cc, "foo");
         assert(node);
 
         // OOM failing appends

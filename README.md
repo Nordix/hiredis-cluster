@@ -244,7 +244,7 @@ int redisClusterAppendCommand(redisClusterContext *cc, const char *format, ...);
 int redisClusterAppendCommandArgv(redisClusterContext *cc, int argc, const char **argv);
 
 /* Send a command to a specific cluster node */
-int redisClusterAppendCommandToNode(redisClusterContext *cc, cluster_node *node,
+int redisClusterAppendCommandToNode(redisClusterContext *cc, redisClusterNode *node,
                                     const char *format, ...);
 ```
 After calling either function one or more times, `redisClusterGetReply` can be used to receive the
@@ -331,11 +331,11 @@ int redisClusterAsyncCommand(redisClusterAsyncContext *acc,
                              redisClusterCallbackFn *fn,
                              void *privdata, const char *format, ...);
 int redisClusterAsyncCommandToNode(redisClusterAsyncContext *acc,
-                                   cluster_node *node,
+                                   redisClusterNode *node,
                                    redisClusterCallbackFn *fn, void *privdata,
                                    const char *format, ...);
 int redisClusterAsyncFormattedCommandToNode(redisClusterAsyncContext *acc,
-                                            cluster_node *node,
+                                            redisClusterNode *node,
                                             redisClusterCallbackFn *fn,
                                             void *privdata, char *cmd, int len);
 ```

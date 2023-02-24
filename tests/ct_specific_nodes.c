@@ -18,7 +18,7 @@ void test_command_to_single_node(redisClusterContext *cc) {
 
     dictEntry *de = dictNext(&di);
     assert(de);
-    cluster_node *node = dictGetEntryVal(de);
+    redisClusterNode *node = dictGetEntryVal(de);
     assert(node);
 
     reply = redisClusterCommandToNode(cc, node, "DBSIZE");
@@ -32,7 +32,7 @@ void test_command_to_all_nodes(redisClusterContext *cc) {
     nodeIterator ni;
     initNodeIterator(&ni, cc);
 
-    cluster_node *node;
+    redisClusterNode *node;
     while ((node = nodeNext(&ni)) != NULL) {
 
         redisReply *reply;
@@ -45,7 +45,7 @@ void test_command_to_all_nodes(redisClusterContext *cc) {
 
 void test_transaction(redisClusterContext *cc) {
 
-    cluster_node *node = redisClusterGetNodeByKey(cc, "foo");
+    redisClusterNode *node = redisClusterGetNodeByKey(cc, "foo");
     assert(node);
 
     redisReply *reply;
@@ -73,7 +73,7 @@ void test_streams(redisClusterContext *cc) {
     char *id;
 
     /* Get the node that handles given stream */
-    cluster_node *node = redisClusterGetNodeByKey(cc, "mystream");
+    redisClusterNode *node = redisClusterGetNodeByKey(cc, "mystream");
     assert(node);
 
     /* Preparation: remove old stream/key */
@@ -82,7 +82,7 @@ void test_streams(redisClusterContext *cc) {
     freeReplyObject(reply);
 
     /* Query wrong node */
-    cluster_node *wrongNode = redisClusterGetNodeByKey(cc, "otherstream");
+    redisClusterNode *wrongNode = redisClusterGetNodeByKey(cc, "otherstream");
     assert(node != wrongNode);
     reply = redisClusterCommandToNode(cc, wrongNode, "XLEN mystream");
     CHECK_REPLY_ERROR(cc, reply, "MOVED");
@@ -185,7 +185,7 @@ void test_pipeline_to_single_node(redisClusterContext *cc) {
 
     dictEntry *de = dictNext(&di);
     assert(de);
-    cluster_node *node = dictGetEntryVal(de);
+    redisClusterNode *node = dictGetEntryVal(de);
     assert(node);
 
     status = redisClusterAppendCommandToNode(cc, node, "DBSIZE");
@@ -203,7 +203,7 @@ void test_pipeline_to_all_nodes(redisClusterContext *cc) {
     nodeIterator ni;
     initNodeIterator(&ni, cc);
 
-    cluster_node *node;
+    redisClusterNode *node;
     while ((node = nodeNext(&ni)) != NULL) {
         int status = redisClusterAppendCommandToNode(cc, node, "DBSIZE");
         ASSERT_MSG(status == REDIS_OK, cc->errstr);
@@ -234,7 +234,7 @@ void test_pipeline_transaction(redisClusterContext *cc) {
     int status;
     redisReply *reply;
 
-    cluster_node *node = redisClusterGetNodeByKey(cc, "foo");
+    redisClusterNode *node = redisClusterGetNodeByKey(cc, "foo");
     assert(node);
 
     status = redisClusterAppendCommandToNode(cc, node, "MULTI");
@@ -339,7 +339,7 @@ void test_async_to_single_node(void) {
 
     dictEntry *de = dictNext(&di);
     assert(de);
-    cluster_node *node = dictGetEntryVal(de);
+    redisClusterNode *node = dictGetEntryVal(de);
     assert(node);
 
     ExpectedResult r1 = {.type = REDIS_REPLY_INTEGER, .disconnect = true};
@@ -375,7 +375,7 @@ void test_async_formatted_to_single_node(void) {
 
     dictEntry *de = dictNext(&di);
     assert(de);
-    cluster_node *node = dictGetEntryVal(de);
+    redisClusterNode *node = dictGetEntryVal(de);
     assert(node);
 
     ExpectedResult r1 = {.type = REDIS_REPLY_INTEGER, .disconnect = true};
@@ -412,7 +412,7 @@ void test_async_to_all_nodes(void) {
 
     ExpectedResult r1 = {.type = REDIS_REPLY_INTEGER};
 
-    cluster_node *node;
+    redisClusterNode *node;
     while ((node = nodeNext(&ni)) != NULL) {
 
         status = redisClusterAsyncCommandToNode(acc, node, commandCallback, &r1,
@@ -448,7 +448,7 @@ void test_async_transaction(void) {
     status = redisClusterLibeventAttach(acc, base);
     assert(status == REDIS_OK);
 
-    cluster_node *node = redisClusterGetNodeByKey(acc->cc, "foo");
+    redisClusterNode *node = redisClusterGetNodeByKey(acc->cc, "foo");
     assert(node);
 
     ExpectedResult r1 = {.type = REDIS_REPLY_STATUS, .str = "OK"};
