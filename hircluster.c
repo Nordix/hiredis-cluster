@@ -2327,9 +2327,7 @@ ask_retry:
             reply = NULL;
             ret = cluster_update_route(cc);
             if (ret != REDIS_OK) {
-                __redisClusterSetError(
-                    cc, REDIS_ERR_OTHER,
-                    "route update error, please recreate redisClusterContext!");
+                /* Specific error already set */
                 return NULL;
             }
 
@@ -3474,9 +3472,7 @@ void redisClusterReset(redisClusterContext *cc) {
     if (cc->need_update_route) {
         status = cluster_update_route(cc);
         if (status != REDIS_OK) {
-            __redisClusterSetError(
-                cc, REDIS_ERR_OTHER,
-                "route update error, please recreate redisClusterContext!");
+            /* Specific error already set */
             return;
         }
         cc->need_update_route = 0;
@@ -3667,9 +3663,7 @@ actx_get_after_update_route_by_slot(redisClusterAsyncContext *acc,
 
     ret = cluster_update_route(cc);
     if (ret != REDIS_OK) {
-        __redisClusterAsyncSetError(
-            acc, REDIS_ERR_OTHER,
-            "route update error, please recreate redisClusterContext!");
+        __redisClusterAsyncSetError(acc, cc->err, cc->errstr);
         return NULL;
     }
 
@@ -3825,10 +3819,7 @@ static void redisClusterAsyncRetryCallback(redisAsyncContext *ac, void *r,
             if (now >= cc->update_route_time) {
                 ret = cluster_update_route(cc);
                 if (ret != REDIS_OK) {
-                    __redisClusterAsyncSetError(
-                        acc, REDIS_ERR_OTHER,
-                        "route update error, please recreate "
-                        "redisClusterContext!");
+                    __redisClusterAsyncSetError(acc, cc->err, cc->errstr);
                 }
 
                 cc->update_route_time = 0LL;
