@@ -125,10 +125,8 @@ typedef struct redisClusterContext {
 
     struct hilist *requests; /* Outstanding commands (Pipelining) */
 
-    int retry_count;           /* Current number of failing attempts */
-    int need_update_route;     /* Indicator for redisClusterReset() (Pipel.) */
-    int64_t update_route_time; /* Timestamp for next required route update
-                                  (Async mode only) */
+    int retry_count;       /* Current number of failing attempts */
+    int need_update_route; /* Indicator for redisClusterReset() (Pipel.) */
 
     void *ssl; /* Pointer to a redisSSLContext when using SSL/TLS. */
     sslInitFn *ssl_init_fn; /* Func ptr for SSL context initiation */
@@ -141,6 +139,8 @@ typedef struct redisClusterAsyncContext {
 
     int err;          /* Error flags, 0 when there is no error */
     char errstr[128]; /* String representation of error when applicable */
+
+    int64_t update_route_time; /* Timestamp for next allowed slotmap update */
 
     void *adapter;              /* Adapter to the async event library */
     adapterAttachFn *attach_fn; /* Func ptr for attaching the async library */

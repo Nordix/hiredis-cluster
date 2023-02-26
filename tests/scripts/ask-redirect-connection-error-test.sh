@@ -16,7 +16,7 @@ perl -we 'use sigtrap "handler", sub{exit}, "CONT"; sleep 1; die "timeout"' &
 syncpid1=$!;
 
 # Start simulated redis node #1
-timeout 5s ./simulated-redis.pl -p 7401 -d --sigcont $syncpid1 <<'EOF' &
+timeout 7s ./simulated-redis.pl -p 7401 -d --sigcont $syncpid1 <<'EOF' &
 EXPECT CONNECT
 EXPECT ["CLUSTER", "SLOTS"]
 SEND [[0, 16383, ["127.0.0.1", 7401, "nodeid123"]]]
@@ -43,7 +43,7 @@ server1=$!
 wait $syncpid1;
 
 # Run client
-timeout 4s "$clientprog" 127.0.0.1:7401 > "$testname.out" <<'EOF'
+timeout 6s "$clientprog" 127.0.0.1:7401 > "$testname.out" <<'EOF'
 SET foo initial
 
 !async

@@ -74,6 +74,8 @@
 #define CRLF "\x0d\x0a"
 #define CRLF_LEN (sizeof("\x0d\x0a") - 1)
 
+#define SLOTMAP_UPDATE_THROTTLE_USEC 1000000
+
 typedef struct cluster_async_data {
     redisClusterAsyncContext *acc;
     struct cmd *command;
@@ -3698,7 +3700,6 @@ static void redisClusterAsyncRetryCallback(redisAsyncContext *ac, void *r,
     int error_type;
     redisClusterNode *node;
     struct cmd *command;
-    int64_t now;
 
     if (cad == NULL) {
         goto error;
@@ -3720,14 +3721,6 @@ static void redisClusterAsyncRetryCallback(redisAsyncContext *ac, void *r,
     }
 
     if (reply == NULL) {
-        // Note:
-        // I can't decide which is the best way to deal with connect
-        // problem for hiredis cluster async api.
-        // But now the way is : when enough null reply for a node,
-        // we will update the route.
-        // If you have a better idea, please contact with me. Thank you.
-        // My email: diguo58@gmail.com
-
         /* Copy reply specific error from hiredis */
         __redisClusterAsyncSetError(acc, ac->err, ac->errstr);
 
@@ -3735,35 +3728,12 @@ static void redisClusterAsyncRetryCallback(redisAsyncContext *ac, void *r,
         if (node == NULL)
             goto done; /* Node already removed from topology */
 
-        if (cc->update_route_time != 0) {
-            now = hi_usec_now();
-            if (now >= cc->update_route_time) {
-                /* Attempt to update route, but ignoring errors while doing this
-                 * since we want to keep the reply-specific error from hiredis */
-                cluster_update_route(cc);
-                cc->update_route_time = 0LL;
-            }
-
-            goto done;
+        /* Start a slotmap update when the throttling allows */
+        if (hi_usec_now() > acc->update_route_time) {
+            cluster_update_route(cc);
+            acc->update_route_time =
+                hi_usec_now() + SLOTMAP_UPDATE_THROTTLE_USEC;
         }
-
-        node->failure_count++;
-        if (node->failure_count > cc->max_retry_count) {
-            node->failure_count = 0;
-            if (cc->update_route_time != 0) {
-                goto done;
-            }
-
-            now = hi_usec_now();
-            if (now < 0) {
-                __redisClusterAsyncSetError(acc, REDIS_ERR_OTHER,
-                                            "get now usec time error");
-                goto done;
-            }
-
-            cc->update_route_time = now;
-        }
-
         goto done;
     }
 
