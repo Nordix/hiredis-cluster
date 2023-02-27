@@ -26,12 +26,17 @@ EXPECT ["CLUSTER", "SLOTS"]
 SEND [[0, 6000, ["127.0.0.1", 7401, "nodeid1"]],[6001, 16383, ["127.0.0.1", 7402, "nodeid2"]]]
 EXPECT CLOSE
 
+EXPECT CONNECT
+EXPECT ["SET", "bar", "initial"]
+SEND +OK
+
 # Topology changed, nodeid2 is now gone
 EXPECT CONNECT
 EXPECT ["CLUSTER", "SLOTS"]
 SEND [[0, 16383, ["127.0.0.1", 7401, "nodeid1"]]]
 EXPECT CLOSE
 
+EXPECT CLOSE
 EOF
 server1=$!
 
@@ -41,13 +46,13 @@ EXPECT CONNECT
 EXPECT ["SET", "foo", "initial"]
 SEND +OK
 
-# First timed out command triggers a fetch of config "cluster-node-timeout"
+# Timeout triggers a new topology fetch
 EXPECT ["SET", "foo", "timeout1"]
-# Second timed out command triggers a new topology fetch
 EXPECT ["SET", "foo", "timeout2"]
 EXPECT ["SET", "foo", "timeout3"]
 EXPECT ["SET", "foo", "timeout4"]
 SLEEP 1
+
 EXPECT CLOSE
 EOF
 server2=$!
@@ -58,6 +63,7 @@ wait $syncpid1 $syncpid2;
 # Run client
 timeout 4s "$clientprog" 127.0.0.1:7401 > "$testname.out" <<'EOF'
 SET foo initial
+SET bar initial
 
 !async
 SET foo timeout1
@@ -90,6 +96,7 @@ fi
 # Check the output from clusterclient, which depends on the hiredis version used.
 # hiredis v1.1.0
 expected1="OK
+OK
 error: Timeout
 error: Timeout
 error: Timeout
@@ -97,6 +104,7 @@ error: Timeout"
 
 # hiredis < v1.1.0
 expected2="OK
+OK
 unknown error
 unknown error
 unknown error
