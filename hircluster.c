@@ -4129,8 +4129,6 @@ void redisClusterAsyncDisconnect(redisClusterAsyncContext *acc) {
         }
 
         redisAsyncDisconnect(ac);
-
-        node->acon = NULL;
     }
 }
 
