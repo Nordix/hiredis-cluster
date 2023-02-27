@@ -37,6 +37,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #include "adlist.h"
 #include "command.h"
@@ -75,6 +76,7 @@
 #define CRLF_LEN (sizeof("\x0d\x0a") - 1)
 
 #define SLOTMAP_UPDATE_THROTTLE_USEC 1000000
+#define SLOTMAP_UPDATE_ONGOING INT64_MAX
 
 typedef struct cluster_async_data {
     redisClusterAsyncContext *acc;
@@ -97,6 +99,7 @@ static void freeRedisClusterNode(redisClusterNode *node);
 static void cluster_slot_destroy(cluster_slot *slot);
 static void cluster_open_slot_destroy(copen_slot *oslot);
 static int updateNodesAndSlotmap(redisClusterContext *cc, dict *nodes);
+static int updateSlotMapAsync(redisClusterAsyncContext *acc);
 
 void listClusterNodeDestructor(void *val) { freeRedisClusterNode(val); }
 
@@ -1426,6 +1429,9 @@ redisClusterContext *redisClusterContextInit(void) {
     cc = hi_calloc(1, sizeof(redisClusterContext));
     if (cc == NULL)
         return NULL;
+
+    /* Initialize generator for random node selections */
+    srandom(time(NULL));
 
     cc->max_retry_count = CLUSTER_DEFAULT_MAX_RETRY_COUNT;
     return cc;
@@ -3691,6 +3697,124 @@ error:
     cluster_async_data_free(cad);
 }
 
+/* Reply callback function for CLUSTER SLOTS */
+void clusterSlotsReplyCallback(redisAsyncContext *ac, void *r, void *privdata) {
+    UNUSED(ac);
+    redisReply *reply = (redisReply *)r;
+    redisClusterAsyncContext *acc = (redisClusterAsyncContext *)privdata;
+    redisClusterContext *cc = acc->cc;
+
+    if (reply == NULL) {
+        /* Retry using available nodes */
+        if (updateSlotMapAsync(acc) == REDIS_OK) {
+            acc->update_route_time = SLOTMAP_UPDATE_ONGOING;
+        } else {
+            acc->update_route_time =
+                hi_usec_now() + SLOTMAP_UPDATE_THROTTLE_USEC;
+        }
+        return;
+    }
+
+    dict *nodes = parse_cluster_slots(cc, reply, cc->flags);
+    if (updateNodesAndSlotmap(cc, nodes) != REDIS_OK) {
+        /* Ignore failures for now */
+    }
+    acc->update_route_time = hi_usec_now() + SLOTMAP_UPDATE_THROTTLE_USEC;
+}
+
+/* Reply callback function for CLUSTER NODES */
+void clusterNodesReplyCallback(redisAsyncContext *ac, void *r, void *privdata) {
+    UNUSED(ac);
+    redisReply *reply = (redisReply *)r;
+    redisClusterAsyncContext *acc = (redisClusterAsyncContext *)privdata;
+    redisClusterContext *cc = acc->cc;
+
+    if (reply == NULL) {
+        /* Retry using available nodes */
+        if (updateSlotMapAsync(acc) == REDIS_OK) {
+            acc->update_route_time = SLOTMAP_UPDATE_ONGOING;
+        } else {
+            acc->update_route_time =
+                hi_usec_now() + SLOTMAP_UPDATE_THROTTLE_USEC;
+        }
+        return;
+    }
+
+    dict *nodes = parse_cluster_nodes(cc, reply->str, reply->len, cc->flags);
+    if (updateNodesAndSlotmap(cc, nodes) != REDIS_OK) {
+        /* Ignore failures for now */
+    }
+    acc->update_route_time = hi_usec_now() + SLOTMAP_UPDATE_THROTTLE_USEC;
+}
+
+/* Select a node.
+ * Primarily select a connected node by picking one of four first found
+ * connected nodes. If there are no connected nodes then pick a node
+ * where a connect has not been attempted within throttle time (1 sec).
+ */
+static redisClusterNode *selectNode(dict *nodes) {
+    redisClusterNode *node, *selected = NULL;
+    dictIterator di;
+    dictInitIterator(&di, nodes);
+
+    int foundConnected = 0;
+    int64_t throttleLimit = hi_usec_now() - SLOTMAP_UPDATE_THROTTLE_USEC;
+
+    dictEntry *de;
+    while ((de = dictNext(&di)) != NULL) {
+        node = dictGetEntryVal(de);
+        if (node->acon != NULL && node->acon->err == 0 &&
+            node->acon->c.flags & REDIS_CONNECTED) {
+            foundConnected += 1;
+
+            if (foundConnected == 1) {
+                selected = node; /* Always keep the first found */
+            } else if ((random() % 4 + 1) == 4) {
+                selected = node; /* Select node when a random value 1-4 is 4 */
+            }
+
+            if (dictSize(nodes) > 3 && foundConnected > 3)
+                return selected;
+        }
+
+        /* Use any node which has not been attempted within throttle limits */
+        if (foundConnected == 0 &&
+            node->lastConnectionAttempt < throttleLimit) {
+            selected = node;
+        }
+    }
+    return selected;
+}
+
+/* Update the slot map by querying a selected cluster node */
+static int updateSlotMapAsync(redisClusterAsyncContext *acc) {
+    if (acc->cc->nodes == NULL) {
+        __redisClusterAsyncSetError(acc, REDIS_ERR_OTHER, "no nodes added");
+        return REDIS_ERR;
+    }
+
+    redisClusterNode *node = selectNode(acc->cc->nodes);
+    if (node == NULL) {
+        return REDIS_ERR;
+    }
+
+    /* Get hiredis context, connect if needed */
+    redisAsyncContext *ac = actx_get_by_node(acc, node);
+    if (ac == NULL)
+        return REDIS_ERR; /* Specific error already set */
+
+    /* Send a command depending of config */
+    int status;
+    if (acc->cc->flags & HIRCLUSTER_FLAG_ROUTE_USE_SLOTS) {
+        status = redisAsyncCommand(ac, clusterSlotsReplyCallback, acc,
+                                   REDIS_COMMAND_CLUSTER_SLOTS);
+    } else {
+        status = redisAsyncCommand(ac, clusterNodesReplyCallback, acc,
+                                   REDIS_COMMAND_CLUSTER_NODES);
+    }
+    return status;
+}
+
 static void redisClusterAsyncRetryCallback(redisAsyncContext *ac, void *r,
                                            void *privdata) {
     int ret;
@@ -3731,10 +3855,14 @@ static void redisClusterAsyncRetryCallback(redisAsyncContext *ac, void *r,
             goto done; /* Node already removed from topology */
 
         /* Start a slotmap update when the throttling allows */
-        if (hi_usec_now() > acc->update_route_time) {
-            cluster_update_route(cc);
-            acc->update_route_time =
-                hi_usec_now() + SLOTMAP_UPDATE_THROTTLE_USEC;
+        if (acc->update_route_time != SLOTMAP_UPDATE_ONGOING &&
+            hi_usec_now() > acc->update_route_time) {
+            if (updateSlotMapAsync(acc) == REDIS_OK) {
+                acc->update_route_time = SLOTMAP_UPDATE_ONGOING;
+            } else {
+                acc->update_route_time =
+                    hi_usec_now() + SLOTMAP_UPDATE_THROTTLE_USEC;
+            }
         }
         goto done;
     }

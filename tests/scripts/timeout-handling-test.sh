@@ -31,10 +31,8 @@ EXPECT ["SET", "bar", "initial"]
 SEND +OK
 
 # Topology changed, nodeid2 is now gone
-EXPECT CONNECT
 EXPECT ["CLUSTER", "SLOTS"]
 SEND [[0, 16383, ["127.0.0.1", 7401, "nodeid1"]]]
-EXPECT CLOSE
 
 EXPECT CLOSE
 EOF

@@ -24,10 +24,11 @@ EXPECT ["SET", "bar", "initial"]
 SEND +OK
 
 # Topology changed, nodeid2 is now gone
-EXPECT CONNECT
 EXPECT ["CLUSTER", "SLOTS"]
 SEND [[0, 16383, ["127.0.0.1", 7401, "nodeid1"]]]
-EXPECT CLOSE
+
+EXPECT ["SET", "bar", "second"]
+SEND +OK
 
 EXPECT ["SET", "foo", "newnode-1"]
 SEND +OK
@@ -54,6 +55,10 @@ SET foo initial-3
 SET foo initial-4
 !sync
 
+# Send a command to give time for the slot map update to finish
+SET bar second
+
+# Slots should now have moved
 !async
 SET foo newnode-1
 SET foo newnode-2
@@ -83,6 +88,7 @@ error: Timeout
 error: Timeout
 error: Timeout
 OK
+OK
 OK"
 
 # hiredis < v1.1.0
@@ -91,6 +97,7 @@ unknown error
 unknown error
 unknown error
 unknown error
+OK
 OK
 OK"
 
