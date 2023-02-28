@@ -16,6 +16,9 @@
  * !resend - Resend a failed command from its reply callback.
  *           Will resend all following failed commands until EOF.
  *
+ * !sleep  - Sleep a second. Can be used to allow timers to timeout.
+ *           Currently not supported while in !async mode.
+ *
  * An example input of first sending 2 commands and waiting for their responses,
  * before sending a single command and waiting for its response:
  *
@@ -91,6 +94,13 @@ void sendNextCommand(int fd, short kind, void *arg) {
         if (cmd[0] == '#') /* Skip comments */
             continue;
         if (cmd[0] == '!') {
+            if (strcmp(cmd, "!sleep") == 0) {
+                ASSERT_MSG(async == 0, "!sleep in !async not supported");
+                struct timeval timeout = {1, 0};
+                event_base_once(acc->adapter, -1, EV_TIMEOUT, sendNextCommand,
+                                acc, &timeout);
+                return;
+            }
             if (strcmp(cmd, "!async") == 0) /* Enable async send */
                 async = 1;
             if (strcmp(cmd, "!sync") == 0) { /* Disable async send */
