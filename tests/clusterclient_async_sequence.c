@@ -17,6 +17,7 @@
  *           Will resend all following failed commands until EOF.
  *
  * !sleep  - Sleep a second. Can be used to allow timers to timeout.
+ *           Currently not supported while in !async mode.
  *
  * An example input of first sending 2 commands and waiting for their responses,
  * before sending a single command and waiting for its response:
