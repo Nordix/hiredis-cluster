@@ -46,6 +46,7 @@ SEND +OK
 EXPECT ["SET", "foo", "newnode-2"]
 SEND +OK
 
+EXPECT CLOSE
 EOF
 server1=$!
 
