@@ -121,5 +121,6 @@ void dictRelease(dict *ht);
 dictEntry *dictFind(dict *ht, const void *key);
 void dictInitIterator(dictIterator *iter, dict *ht);
 dictEntry *dictNext(dictIterator *iter);
+dictEntry *dictGetRandomKey(dict *ht);
 
 #endif /* __DICT_H */

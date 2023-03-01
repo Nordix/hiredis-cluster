@@ -39,6 +39,7 @@
 #include <stdlib.h>
 
 #include "dict.h"
+#include "win32.h"
 
 /* -------------------------- private prototypes ---------------------------- */
 
@@ -236,6 +237,36 @@ dictEntry *dictNext(dictIterator *iter) {
         }
     }
     return NULL;
+}
+
+/* Return a random entry from the hash table. Useful to
+ * implement randomized algorithms */
+dictEntry *dictGetRandomKey(dict *ht) {
+    dictEntry *he;
+    unsigned int h;
+    int listlen, listele;
+
+    if (ht->used == 0)
+        return NULL;
+    do {
+        h = random() & ht->sizemask;
+        he = ht->table[h];
+    } while (he == NULL);
+
+    /* Now we found a non empty bucket, but it is a linked
+     * list and we need to get a random element from the list.
+     * The only sane way to do so is to count the element and
+     * select a random index. */
+    listlen = 0;
+    while (he) {
+        he = he->next;
+        listlen++;
+    }
+    listele = random() % listlen;
+    he = ht->table[h];
+    while (listele--)
+        he = he->next;
+    return he;
 }
 
 /* ------------------------- private functions ------------------------------ */
