@@ -168,6 +168,10 @@ add_test(NAME ask-redirect-test-async
          COMMAND "${CMAKE_SOURCE_DIR}/tests/scripts/ask-redirect-test.sh"
                  "$<TARGET_FILE:clusterclient_async>"
          WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/tests/scripts/")
+add_test(NAME ask-redirect-using-cluster-nodes-test-async
+         COMMAND "${CMAKE_SOURCE_DIR}/tests/scripts/ask-redirect-using-cluster-nodes-test.sh"
+                 "$<TARGET_FILE:clusterclient_async>"
+         WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/tests/scripts/")
 add_test(NAME moved-redirect-test
          COMMAND "${CMAKE_SOURCE_DIR}/tests/scripts/moved-redirect-test.sh"
                  "$<TARGET_FILE:clusterclient>"
