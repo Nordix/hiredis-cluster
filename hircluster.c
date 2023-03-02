@@ -513,7 +513,6 @@ static redisClusterNode *node_get_with_nodes(redisClusterContext *cc,
                                              sds *node_infos, int info_count,
                                              uint8_t role) {
     char *p = NULL;
-    char *port = NULL;
     redisClusterNode *node = NULL;
 
     if (info_count < 8) {
@@ -534,36 +533,35 @@ static redisClusterNode *node_get_with_nodes(redisClusterContext *cc,
         node->slots->free = listClusterSlotDestructor;
     }
 
+    /* Handle field <id> */
     node->name = node_infos[0];
+    node_infos[0] = NULL; /* Ownership moved */
+
+    /* Handle field <ip:port@cport...>
+     * Remove @cport... since addr is used as a dict key which should be <ip>:<port> */
+    if ((p = strchr(node_infos[1], PORT_CPORT_SEPARATOR)) != NULL) {
+        sdsrange(node_infos[1], 0, p - node_infos[1] - 1 /* skip @ */);
+    }
     node->addr = node_infos[1];
+    node_infos[1] = NULL; /* Ownership moved */
+
     node->role = role;
 
-    // Get host part
-    if ((p = strrchr(node_infos[1], IP_PORT_SEPARATOR)) == NULL) {
+    /* Get the ip part */
+    if ((p = strrchr(node->addr, IP_PORT_SEPARATOR)) == NULL) {
         __redisClusterSetError(
             cc, REDIS_ERR_OTHER,
             "server address is incorrect, port separator missing.");
         goto error;
     }
-
-    node->host = sdsnewlen(node_infos[1], p - node_infos[1]);
+    node->host = sdsnewlen(node->addr, p - node->addr);
     if (node->host == NULL) {
         goto oom;
     }
     p++; // remove found separator character
 
-    // Strip away cport if given by redis
-    size_t port_len;
-    if ((port = strchr(p, PORT_CPORT_SEPARATOR)) == NULL) {
-        port_len = strlen(p);
-    } else {
-        port_len = port - p;
-    }
-    node->port = hi_atoi(p, port_len);
-
-    // Ownership moved to node
-    node_infos[0] = NULL;
-    node_infos[1] = NULL;
+    /* Get the port part */
+    node->port = hi_atoi(p, strlen(p));
 
     return node;
 
@@ -572,13 +570,7 @@ oom:
     // passthrough
 
 error:
-    if (node) {
-        if (node->slots) {
-            listRelease(node->slots);
-        }
-        sdsfree(node->host);
-        hi_free(node);
-    }
+    freeRedisClusterNode(node);
     return NULL;
 }
 
