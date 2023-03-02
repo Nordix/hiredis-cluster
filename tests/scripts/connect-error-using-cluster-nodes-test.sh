@@ -22,7 +22,7 @@ syncpid=$!
 timeout 5s ./simulated-redis.pl -p 7400 -d --sigcont $syncpid <<'EOF' &
 EXPECT CONNECT
 EXPECT ["CLUSTER", "NODES"]
-SEND "653876bce37106406581ddc05d8629357a223a7e :30001@40001 myself,master - 0 0 0 connected\n"
+SEND "653876bce37106406581ddc05d8629357a223a7e :30001\@40001 myself,master - 0 0 0 connected\n"
 EXPECT CLOSE
 EOF
 server=$!
