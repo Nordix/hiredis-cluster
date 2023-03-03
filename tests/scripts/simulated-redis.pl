@@ -12,6 +12,7 @@
 use strict;
 use warnings;
 use Socket;
+use JSON;
 
 my $port = 7000;
 my $debug = 0;
@@ -111,7 +112,7 @@ while (<>) {
             $data .= "\r\n" unless $data =~ /\r\n$/;
         } else {
             # e.g. '["foo", "bar", 42]'
-            $data = redis_encode(eval $1);
+            $data = redis_encode(decode_json $1);
         }
         print $connection $data;
         flush $connection;
@@ -160,6 +161,7 @@ sub redis_encode {
         if ref $x eq "ARRAY";
     return ":$x\r\n"
         unless ($x ^ $x) ne "0"; # hack to check if int or string
+    utf8::encode $x;
     return "\$" . length($x) . "\r\n$x\r\n";
 }
 
