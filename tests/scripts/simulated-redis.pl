@@ -112,7 +112,7 @@ while (<>) {
             $data .= "\r\n" unless $data =~ /\r\n$/;
         } else {
             # e.g. '["foo", "bar", 42]'
-            $data = redis_encode(decode_json $1);
+            $data = redis_encode(JSON->new->allow_nonref->decode($1));
         }
         print $connection $data;
         flush $connection;
