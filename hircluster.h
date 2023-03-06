@@ -84,6 +84,7 @@ typedef struct redisClusterNode {
     int failure_count; /* consecutive failing attempts in async */
     redisContext *con;
     redisAsyncContext *acon;
+    int64_t lastConnectionAttempt; /* Timestamp */
     struct hilist *slots;
     struct hilist *slaves;
     struct hiarray *migrating; /* copen_slot[] */

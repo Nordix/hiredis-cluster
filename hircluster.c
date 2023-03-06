@@ -3505,6 +3505,8 @@ redisAsyncContext *actx_get_by_node(redisClusterAsyncContext *acc,
     options.connect_timeout = acc->cc->connect_timeout;
     options.command_timeout = acc->cc->command_timeout;
 
+    node->lastConnectionAttempt = hi_usec_now();
+
     ac = redisAsyncConnectWithOptions(&options);
     if (ac == NULL) {
         __redisClusterAsyncSetError(acc, REDIS_ERR_OOM, "Out of memory");
