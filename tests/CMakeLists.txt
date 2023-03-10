@@ -216,3 +216,11 @@ add_test(NAME connection-error-test
          COMMAND "${CMAKE_SOURCE_DIR}/tests/scripts/connection-error-test.sh"
                  "$<TARGET_FILE:clusterclient_async_sequence>"
          WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/tests/scripts/")
+add_test(NAME redirect-with-hostname-test
+         COMMAND "${CMAKE_SOURCE_DIR}/tests/scripts/redirect-with-hostname-test.sh"
+                 "$<TARGET_FILE:clusterclient>"
+         WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/tests/scripts/")
+add_test(NAME redirect-with-hostname-test-async
+         COMMAND "${CMAKE_SOURCE_DIR}/tests/scripts/redirect-with-hostname-test.sh"
+                 "$<TARGET_FILE:clusterclient_async_sequence>"
+         WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/tests/scripts/")
