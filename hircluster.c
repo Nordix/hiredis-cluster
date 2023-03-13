@@ -1430,9 +1430,6 @@ redisClusterContext *redisClusterContextInit(void) {
     if (cc == NULL)
         return NULL;
 
-    /* Initialize generator for random node selections */
-    srandom(time(NULL));
-
     cc->max_retry_count = CLUSTER_DEFAULT_MAX_RETRY_COUNT;
     return cc;
 }
