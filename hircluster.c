@@ -3766,16 +3766,16 @@ static redisClusterNode *selectNode(dict *nodes) {
         if (node->lastConnectionAttempt < throttleLimit) {
             accepted = node;
         }
-        /* Return a connected or accepted node when chosen index is reached */
-        if (currentIndex >= checkIndex) {
-            if (connected != NULL)
-                return connected;
-            if (accepted != NULL)
-                return accepted;
-        }
+        /* Return a connected or accepted node when chosen index is reached.
+         * Iterate 2 additional times when no connected found to cover cornercase
+         * when a low checkIndex was selected. */
+        if (currentIndex >= checkIndex && connected != NULL)
+            return connected;
+        if (currentIndex >= checkIndex + 2 && accepted != NULL)
+            return accepted;
         currentIndex += 1;
     }
-    return NULL;
+    return accepted;
 }
 
 /* Update the slot map by querying a selected cluster node */
