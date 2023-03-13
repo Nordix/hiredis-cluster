@@ -3738,15 +3738,20 @@ void clusterNodesReplyCallback(redisAsyncContext *ac, void *r, void *privdata) {
     }
 }
 
+#define nodeIsConnected(n)                                                     \
+    ((n)->acon != NULL && (n)->acon->err == 0 &&                               \
+     (n)->acon->c.flags & REDIS_CONNECTED)
+
 /* Select a node.
  * Primarily selects a connected node found close to a randomly picked index of
  * all known nodes. The random index should give a more even distribution of
  * selected nodes. If no connected node is found while iterating to this index
- * any node where a connect has not been attempted within throttle-time is selected.
- * All nodes are checked until a connected or accepted node is found.
+ * the remaining nodes are also checked until a connected node is found.
+ * If no connected node is found a node for which a connect has not been attempted
+ * within throttle-time, and is found near the picked index, is selected.
  */
 static redisClusterNode *selectNode(dict *nodes) {
-    redisClusterNode *node, *connected = NULL, *accepted = NULL;
+    redisClusterNode *node, *selected = NULL;
     dictIterator di;
     dictInitIterator(&di, nodes);
 
@@ -3757,25 +3762,25 @@ static redisClusterNode *selectNode(dict *nodes) {
     dictEntry *de;
     while ((de = dictNext(&di)) != NULL) {
         node = dictGetEntryVal(de);
-        /* Keep any connected node */
-        if (node->acon != NULL && node->acon->err == 0 &&
-            node->acon->c.flags & REDIS_CONNECTED) {
-            connected = node;
+
+        if (nodeIsConnected(node)) {
+            /* Keep any connected node */
+            selected = node;
+        } else if (node->lastConnectionAttempt < throttleLimit &&
+                   (selected == NULL || (currentIndex < checkIndex &&
+                                         !nodeIsConnected(selected)))) {
+            /* Keep an accepted node when none is yet found, or
+               any accepted node until the chosen index is reached */
+            selected = node;
         }
-        /* Keep any node which has not been attempted within throttle limits */
-        if (node->lastConnectionAttempt < throttleLimit) {
-            accepted = node;
-        }
-        /* Return a connected or accepted node when chosen index is reached.
-         * Iterate 2 additional times when no connected found to cover cornercase
-         * when a low checkIndex was selected. */
-        if (currentIndex >= checkIndex && connected != NULL)
-            return connected;
-        if (currentIndex >= checkIndex + 2 && accepted != NULL)
-            return accepted;
+
+        /* Return a found connected node when chosen index is reached. */
+        if (currentIndex >= checkIndex && selected != NULL &&
+            nodeIsConnected(selected))
+            break;
         currentIndex += 1;
     }
-    return accepted;
+    return selected;
 }
 
 /* Update the slot map by querying a selected cluster node */
