@@ -141,7 +141,7 @@ typedef struct redisClusterAsyncContext {
     int err;          /* Error flags, 0 when there is no error */
     char errstr[128]; /* String representation of error when applicable */
 
-    int64_t update_route_time; /* Timestamp for next allowed slotmap update */
+    int64_t lastSlotmapUpdateAttempt; /* Timestamp */
 
     void *adapter;              /* Adapter to the async event library */
     adapterAttachFn *attach_fn; /* Func ptr for attaching the async library */

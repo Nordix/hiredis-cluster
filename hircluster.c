@@ -3702,24 +3702,21 @@ void clusterSlotsReplyCallback(redisAsyncContext *ac, void *r, void *privdata) {
     UNUSED(ac);
     redisReply *reply = (redisReply *)r;
     redisClusterAsyncContext *acc = (redisClusterAsyncContext *)privdata;
-    redisClusterContext *cc = acc->cc;
+    acc->lastSlotmapUpdateAttempt = hi_usec_now();
 
     if (reply == NULL) {
         /* Retry using available nodes */
         if (updateSlotMapAsync(acc) == REDIS_OK) {
-            acc->update_route_time = SLOTMAP_UPDATE_ONGOING;
-        } else {
-            acc->update_route_time =
-                hi_usec_now() + SLOTMAP_UPDATE_THROTTLE_USEC;
+            acc->lastSlotmapUpdateAttempt = SLOTMAP_UPDATE_ONGOING;
         }
         return;
     }
 
+    redisClusterContext *cc = acc->cc;
     dict *nodes = parse_cluster_slots(cc, reply, cc->flags);
     if (updateNodesAndSlotmap(cc, nodes) != REDIS_OK) {
         /* Ignore failures for now */
     }
-    acc->update_route_time = hi_usec_now() + SLOTMAP_UPDATE_THROTTLE_USEC;
 }
 
 /* Reply callback function for CLUSTER NODES */
@@ -3727,24 +3724,21 @@ void clusterNodesReplyCallback(redisAsyncContext *ac, void *r, void *privdata) {
     UNUSED(ac);
     redisReply *reply = (redisReply *)r;
     redisClusterAsyncContext *acc = (redisClusterAsyncContext *)privdata;
-    redisClusterContext *cc = acc->cc;
+    acc->lastSlotmapUpdateAttempt = hi_usec_now();
 
     if (reply == NULL) {
         /* Retry using available nodes */
         if (updateSlotMapAsync(acc) == REDIS_OK) {
-            acc->update_route_time = SLOTMAP_UPDATE_ONGOING;
-        } else {
-            acc->update_route_time =
-                hi_usec_now() + SLOTMAP_UPDATE_THROTTLE_USEC;
+            acc->lastSlotmapUpdateAttempt = SLOTMAP_UPDATE_ONGOING;
         }
         return;
     }
 
+    redisClusterContext *cc = acc->cc;
     dict *nodes = parse_cluster_nodes(cc, reply->str, reply->len, cc->flags);
     if (updateNodesAndSlotmap(cc, nodes) != REDIS_OK) {
         /* Ignore failures for now */
     }
-    acc->update_route_time = hi_usec_now() + SLOTMAP_UPDATE_THROTTLE_USEC;
 }
 
 /* Select a node.
@@ -3855,13 +3849,13 @@ static void redisClusterAsyncRetryCallback(redisAsyncContext *ac, void *r,
             goto done; /* Node already removed from topology */
 
         /* Start a slotmap update when the throttling allows */
-        if (acc->update_route_time != SLOTMAP_UPDATE_ONGOING &&
-            hi_usec_now() > acc->update_route_time) {
+        if (acc->lastSlotmapUpdateAttempt != SLOTMAP_UPDATE_ONGOING &&
+            (acc->lastSlotmapUpdateAttempt + SLOTMAP_UPDATE_THROTTLE_USEC) <
+                hi_usec_now()) {
             if (updateSlotMapAsync(acc) == REDIS_OK) {
-                acc->update_route_time = SLOTMAP_UPDATE_ONGOING;
+                acc->lastSlotmapUpdateAttempt = SLOTMAP_UPDATE_ONGOING;
             } else {
-                acc->update_route_time =
-                    hi_usec_now() + SLOTMAP_UPDATE_THROTTLE_USEC;
+                acc->lastSlotmapUpdateAttempt = hi_usec_now();
             }
         }
         goto done;
