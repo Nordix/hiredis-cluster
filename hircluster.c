@@ -3741,43 +3741,36 @@ void clusterNodesReplyCallback(redisAsyncContext *ac, void *r, void *privdata) {
     }
 }
 
-/* Select a node.
- * Primarily select a connected node by picking one of four first found
- * connected nodes. If there are no connected nodes then pick a node
- * where a connect has not been attempted within throttle time (1 sec).
- */
+/* Select a node. Find a connected node during 3 random picks,
+ * otherwise pick a node where a connection establishment has not
+ * been attempted within a throttle time. */
 static redisClusterNode *selectNode(dict *nodes) {
-    redisClusterNode *node, *selected = NULL;
-    dictIterator di;
-    dictInitIterator(&di, nodes);
-
-    int foundConnected = 0;
-    int64_t throttleLimit = hi_usec_now() - SLOTMAP_UPDATE_THROTTLE_USEC;
-
+    redisClusterNode *node;
     dictEntry *de;
-    while ((de = dictNext(&di)) != NULL) {
-        node = dictGetEntryVal(de);
-        if (node->acon != NULL && node->acon->err == 0 &&
-            node->acon->c.flags & REDIS_CONNECTED) {
-            foundConnected += 1;
 
-            if (foundConnected == 1) {
-                selected = node; /* Always keep the first found */
-            } else if ((random() % 4 + 1) == 4) {
-                selected = node; /* Select node when a random value 1-4 is 4 */
+    /* Perform 3 attempts to find a random connected node */
+    for (int i = 0; i < 3; i++) {
+        if ((de = dictGetRandomKey(nodes)) != NULL) {
+            node = dictGetEntryVal(de);
+            if (node->acon != NULL && node->acon->err == 0 &&
+                node->acon->c.flags & REDIS_CONNECTED) {
+                return node;
             }
-
-            if (dictSize(nodes) > 3 && foundConnected > 3)
-                return selected;
-        }
-
-        /* Use any node which has not been attempted within throttle limits */
-        if (foundConnected == 0 &&
-            node->lastConnectionAttempt < throttleLimit) {
-            selected = node;
         }
     }
-    return selected;
+
+    /* Find any node which has not been attempted within throttle limits */
+    int64_t throttleLimit = hi_usec_now() - SLOTMAP_UPDATE_THROTTLE_USEC;
+
+    dictIterator di;
+    dictInitIterator(&di, nodes);
+    while ((de = dictNext(&di)) != NULL) {
+        node = dictGetEntryVal(de);
+        if (node->lastConnectionAttempt < throttleLimit) {
+            return node;
+        }
+    }
+    return NULL;
 }
 
 /* Update the slot map by querying a selected cluster node */
