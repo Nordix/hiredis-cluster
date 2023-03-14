@@ -74,6 +74,9 @@
 #define CRLF "\x0d\x0a"
 #define CRLF_LEN (sizeof("\x0d\x0a") - 1)
 
+#define SLOTMAP_UPDATE_THROTTLE_USEC 1000000
+#define SLOTMAP_UPDATE_ONGOING INT64_MAX
+
 typedef struct cluster_async_data {
     redisClusterAsyncContext *acc;
     struct cmd *command;
@@ -94,6 +97,8 @@ typedef enum CLUSTER_ERR_TYPE {
 static void freeRedisClusterNode(redisClusterNode *node);
 static void cluster_slot_destroy(cluster_slot *slot);
 static void cluster_open_slot_destroy(copen_slot *oslot);
+static int updateNodesAndSlotmap(redisClusterContext *cc, dict *nodes);
+static int updateSlotMapAsync(redisClusterAsyncContext *acc);
 
 void listClusterNodeDestructor(void *val) { freeRedisClusterNode(val); }
 
@@ -1189,7 +1194,6 @@ static int cluster_update_route_by_addr(redisClusterContext *cc, const char *ip,
     redisContext *c = NULL;
     redisReply *reply = NULL;
     dict *nodes = NULL;
-    redisClusterNode **table = NULL;
 
     if (cc == NULL) {
         return REDIS_ERR;
@@ -1207,7 +1211,8 @@ static int cluster_update_route_by_addr(redisClusterContext *cc, const char *ip,
 
     c = redisConnectWithOptions(&options);
     if (c == NULL) {
-        goto oom;
+        __redisClusterSetError(cc, REDIS_ERR_OOM, "Out of memory");
+        return REDIS_ERR;
     }
     if (c->err) {
         __redisClusterSetError(cc, c->err, c->errstr);
@@ -1277,11 +1282,29 @@ static int cluster_update_route_by_addr(redisClusterContext *cc, const char *ip,
         nodes = parse_cluster_nodes(cc, reply->str, reply->len, cc->flags);
     }
 
-    if (nodes == NULL) {
+    if (updateNodesAndSlotmap(cc, nodes) != REDIS_OK) {
         goto error;
     }
 
-    /* Create a slot to cluster_node lookup table */
+    freeReplyObject(reply);
+    redisFree(c);
+    return REDIS_OK;
+
+error:
+    freeReplyObject(reply);
+    redisFree(c);
+    return REDIS_ERR;
+}
+
+/* Update known cluster nodes with a new collection of redisClusterNodes.
+ * Will also update the slot-to-node lookup table for the new nodes. */
+static int updateNodesAndSlotmap(redisClusterContext *cc, dict *nodes) {
+    if (nodes == NULL) {
+        return REDIS_ERR;
+    }
+
+    /* Create a slot to redisClusterNode lookup table */
+    redisClusterNode **table;
     table = hi_calloc(REDIS_CLUSTER_SLOTS, sizeof(redisClusterNode *));
     if (table == NULL) {
         goto oom;
@@ -1311,7 +1334,7 @@ static int cluster_update_route_by_addr(redisClusterContext *cc, const char *ip,
             cluster_slot *slot = listNodeValue(ln);
             if (slot->start > slot->end || slot->end >= REDIS_CLUSTER_SLOTS) {
                 __redisClusterSetError(cc, REDIS_ERR_OTHER,
-                                       "Slot region for node is error");
+                                       "Slot region for node is invalid");
                 goto error;
             }
             for (uint32_t i = slot->start; i <= slot->end; i++) {
@@ -1345,29 +1368,14 @@ static int cluster_update_route_by_addr(redisClusterContext *cc, const char *ip,
     if (oldnodes != NULL) {
         dictRelease(oldnodes);
     }
-
-    freeReplyObject(reply);
-
-    redisFree(c);
-
     return REDIS_OK;
 
 oom:
     __redisClusterSetError(cc, REDIS_ERR_OOM, "Out of memory");
     // passthrough
-
 error:
-    if (table != NULL) {
-        hi_free(table);
-    }
-    if (nodes != NULL) {
-        if (nodes == cc->nodes) {
-            cc->nodes = NULL;
-        }
-        dictRelease(nodes);
-    }
-    freeReplyObject(reply);
-    redisFree(c);
+    hi_free(table);
+    dictRelease(nodes);
     return REDIS_ERR;
 }
 
@@ -1995,90 +2003,6 @@ static redisClusterNode *node_get_which_connected(redisClusterContext *cc) {
     return NULL;
 }
 
-/* Get the cluster config from one node.
- * Return value: config_value string must free by usr.
- */
-static char *cluster_config_get(redisClusterContext *cc,
-                                const char *config_name,
-                                int *config_value_len) {
-    redisContext *c;
-    redisClusterNode *node;
-    redisReply *reply = NULL, *sub_reply;
-    char *config_value = NULL;
-
-    if (cc == NULL || config_name == NULL || config_value_len == NULL) {
-        return NULL;
-    }
-
-    node = node_get_which_connected(cc);
-    if (node == NULL) {
-        __redisClusterSetError(cc, REDIS_ERR_OTHER,
-                               "no reachable node in cluster");
-        goto error;
-    }
-
-    c = ctx_get_by_node(cc, node);
-    if (c == NULL) {
-        goto error;
-    }
-
-    reply = redisCommand(c, "config get %s", config_name);
-    if (reply == NULL) {
-        __redisClusterSetError(cc, REDIS_ERR_OTHER,
-                               "reply for config get is null");
-        goto error;
-    }
-
-    if (reply->type != REDIS_REPLY_ARRAY) {
-        __redisClusterSetError(cc, REDIS_ERR_OTHER,
-                               "reply for config get type is not array");
-        goto error;
-    }
-
-    if (reply->elements != 2) {
-        __redisClusterSetError(cc, REDIS_ERR_OTHER,
-                               "reply for config get elements number is not 2");
-        goto error;
-    }
-
-    sub_reply = reply->element[0];
-    if (sub_reply == NULL || sub_reply->type != REDIS_REPLY_STRING) {
-        __redisClusterSetError(
-            cc, REDIS_ERR_OTHER,
-            "reply for config get config name is not string");
-        goto error;
-    }
-
-    if (strcmp(sub_reply->str, config_name)) {
-        __redisClusterSetError(
-            cc, REDIS_ERR_OTHER,
-            "reply for config get config name is not we want");
-        goto error;
-    }
-
-    sub_reply = reply->element[1];
-    if (sub_reply == NULL || sub_reply->type != REDIS_REPLY_STRING) {
-        __redisClusterSetError(
-            cc, REDIS_ERR_OTHER,
-            "reply for config get config value type is not string");
-        goto error;
-    }
-
-    config_value = sub_reply->str;
-    *config_value_len = sub_reply->len;
-    sub_reply->str = NULL;
-
-    freeReplyObject(reply);
-
-    return config_value;
-
-error:
-
-    freeReplyObject(reply);
-
-    return NULL;
-}
-
 /* Helper function for the redisClusterAppendCommand* family of functions.
  *
  * Write a formatted command to the output buffer. When this family
@@ -2327,9 +2251,7 @@ ask_retry:
             reply = NULL;
             ret = cluster_update_route(cc);
             if (ret != REDIS_OK) {
-                __redisClusterSetError(
-                    cc, REDIS_ERR_OTHER,
-                    "route update error, please recreate redisClusterContext!");
+                /* Specific error already set */
                 return NULL;
             }
 
@@ -3474,9 +3396,7 @@ void redisClusterReset(redisClusterContext *cc) {
     if (cc->need_update_route) {
         status = cluster_update_route(cc);
         if (status != REDIS_OK) {
-            __redisClusterSetError(
-                cc, REDIS_ERR_OTHER,
-                "route update error, please recreate redisClusterContext!");
+            /* Specific error already set */
             return;
         }
         cc->need_update_route = 0;
@@ -3587,6 +3507,8 @@ redisAsyncContext *actx_get_by_node(redisClusterAsyncContext *acc,
     options.connect_timeout = acc->cc->connect_timeout;
     options.command_timeout = acc->cc->command_timeout;
 
+    node->lastConnectionAttempt = hi_usec_now();
+
     ac = redisAsyncConnectWithOptions(&options);
     if (ac == NULL) {
         __redisClusterAsyncSetError(acc, REDIS_ERR_OOM, "Out of memory");
@@ -3667,9 +3589,7 @@ actx_get_after_update_route_by_slot(redisClusterAsyncContext *acc,
 
     ret = cluster_update_route(cc);
     if (ret != REDIS_OK) {
-        __redisClusterAsyncSetError(
-            acc, REDIS_ERR_OTHER,
-            "route update error, please recreate redisClusterContext!");
+        __redisClusterAsyncSetError(acc, cc->err, cc->errstr);
         return NULL;
     }
 
@@ -3773,6 +3693,124 @@ error:
     cluster_async_data_free(cad);
 }
 
+/* Reply callback function for CLUSTER SLOTS */
+void clusterSlotsReplyCallback(redisAsyncContext *ac, void *r, void *privdata) {
+    UNUSED(ac);
+    redisReply *reply = (redisReply *)r;
+    redisClusterAsyncContext *acc = (redisClusterAsyncContext *)privdata;
+    acc->lastSlotmapUpdateAttempt = hi_usec_now();
+
+    if (reply == NULL) {
+        /* Retry using available nodes */
+        if (updateSlotMapAsync(acc) == REDIS_OK) {
+            acc->lastSlotmapUpdateAttempt = SLOTMAP_UPDATE_ONGOING;
+        }
+        return;
+    }
+
+    redisClusterContext *cc = acc->cc;
+    dict *nodes = parse_cluster_slots(cc, reply, cc->flags);
+    if (updateNodesAndSlotmap(cc, nodes) != REDIS_OK) {
+        /* Ignore failures for now */
+    }
+}
+
+/* Reply callback function for CLUSTER NODES */
+void clusterNodesReplyCallback(redisAsyncContext *ac, void *r, void *privdata) {
+    UNUSED(ac);
+    redisReply *reply = (redisReply *)r;
+    redisClusterAsyncContext *acc = (redisClusterAsyncContext *)privdata;
+    acc->lastSlotmapUpdateAttempt = hi_usec_now();
+
+    if (reply == NULL) {
+        /* Retry using available nodes */
+        if (updateSlotMapAsync(acc) == REDIS_OK) {
+            acc->lastSlotmapUpdateAttempt = SLOTMAP_UPDATE_ONGOING;
+        }
+        return;
+    }
+
+    redisClusterContext *cc = acc->cc;
+    dict *nodes = parse_cluster_nodes(cc, reply->str, reply->len, cc->flags);
+    if (updateNodesAndSlotmap(cc, nodes) != REDIS_OK) {
+        /* Ignore failures for now */
+    }
+}
+
+#define nodeIsConnected(n)                                                     \
+    ((n)->acon != NULL && (n)->acon->err == 0 &&                               \
+     (n)->acon->c.flags & REDIS_CONNECTED)
+
+/* Select a node.
+ * Primarily selects a connected node found close to a randomly picked index of
+ * all known nodes. The random index should give a more even distribution of
+ * selected nodes. If no connected node is found while iterating to this index
+ * the remaining nodes are also checked until a connected node is found.
+ * If no connected node is found a node for which a connect has not been attempted
+ * within throttle-time, and is found near the picked index, is selected.
+ */
+static redisClusterNode *selectNode(dict *nodes) {
+    redisClusterNode *node, *selected = NULL;
+    dictIterator di;
+    dictInitIterator(&di, nodes);
+
+    int64_t throttleLimit = hi_usec_now() - SLOTMAP_UPDATE_THROTTLE_USEC;
+    unsigned long currentIndex = 0;
+    unsigned long checkIndex = random() % dictSize(nodes);
+
+    dictEntry *de;
+    while ((de = dictNext(&di)) != NULL) {
+        node = dictGetEntryVal(de);
+
+        if (nodeIsConnected(node)) {
+            /* Keep any connected node */
+            selected = node;
+        } else if (node->lastConnectionAttempt < throttleLimit &&
+                   (selected == NULL || (currentIndex < checkIndex &&
+                                         !nodeIsConnected(selected)))) {
+            /* Keep an accepted node when none is yet found, or
+               any accepted node until the chosen index is reached */
+            selected = node;
+        }
+
+        /* Return a found connected node when chosen index is reached. */
+        if (currentIndex >= checkIndex && selected != NULL &&
+            nodeIsConnected(selected))
+            break;
+        currentIndex += 1;
+    }
+    return selected;
+}
+
+/* Update the slot map by querying a selected cluster node */
+static int updateSlotMapAsync(redisClusterAsyncContext *acc) {
+    if (acc->cc->nodes == NULL) {
+        __redisClusterAsyncSetError(acc, REDIS_ERR_OTHER, "no nodes added");
+        return REDIS_ERR;
+    }
+
+    redisClusterNode *node = selectNode(acc->cc->nodes);
+    if (node == NULL) {
+        return REDIS_ERR;
+    }
+
+    /* Get hiredis context, connect if needed */
+    redisAsyncContext *ac = actx_get_by_node(acc, node);
+    if (ac == NULL)
+        return REDIS_ERR; /* Specific error already set */
+
+    /* Send a command depending of config */
+    int status;
+    if (acc->cc->flags & HIRCLUSTER_FLAG_ROUTE_USE_SLOTS) {
+        status = redisAsyncCommand(ac, clusterSlotsReplyCallback, acc,
+                                   REDIS_COMMAND_CLUSTER_SLOTS);
+    } else {
+        status = redisAsyncCommand(ac, clusterNodesReplyCallback, acc,
+                                   REDIS_COMMAND_CLUSTER_NODES);
+    }
+    return status;
+}
+
 static void redisClusterAsyncRetryCallback(redisAsyncContext *ac, void *r,
                                            void *privdata) {
     int ret;
@@ -3784,7 +3822,6 @@ static void redisClusterAsyncRetryCallback(redisAsyncContext *ac, void *r,
     int error_type;
     redisClusterNode *node;
     struct cmd *command;
-    int64_t now;
 
     if (cad == NULL) {
         goto error;
@@ -3806,76 +3843,23 @@ static void redisClusterAsyncRetryCallback(redisAsyncContext *ac, void *r,
     }
 
     if (reply == NULL) {
-        // Note:
-        // I can't decide which is the best way to deal with connect
-        // problem for hiredis cluster async api.
-        // But now the way is : when enough null reply for a node,
-        // we will update the route after the cluster node timeout.
-        // If you have a better idea, please contact with me. Thank you.
-        // My email: diguo58@gmail.com
-
+        /* Copy reply specific error from hiredis */
         __redisClusterAsyncSetError(acc, ac->err, ac->errstr);
 
         node = (redisClusterNode *)ac->data;
         if (node == NULL)
             goto done; /* Node already removed from topology */
 
-        if (cc->update_route_time != 0) {
-            now = hi_usec_now();
-            if (now >= cc->update_route_time) {
-                ret = cluster_update_route(cc);
-                if (ret != REDIS_OK) {
-                    __redisClusterAsyncSetError(
-                        acc, REDIS_ERR_OTHER,
-                        "route update error, please recreate "
-                        "redisClusterContext!");
-                }
-
-                cc->update_route_time = 0LL;
+        /* Start a slotmap update when the throttling allows */
+        if (acc->lastSlotmapUpdateAttempt != SLOTMAP_UPDATE_ONGOING &&
+            (acc->lastSlotmapUpdateAttempt + SLOTMAP_UPDATE_THROTTLE_USEC) <
+                hi_usec_now()) {
+            if (updateSlotMapAsync(acc) == REDIS_OK) {
+                acc->lastSlotmapUpdateAttempt = SLOTMAP_UPDATE_ONGOING;
+            } else {
+                acc->lastSlotmapUpdateAttempt = hi_usec_now();
             }
-
-            goto done;
         }
-
-        node->failure_count++;
-        if (node->failure_count > cc->max_retry_count) {
-            char *cluster_timeout_str;
-            int cluster_timeout_str_len;
-            int cluster_timeout;
-
-            node->failure_count = 0;
-            if (cc->update_route_time != 0) {
-                goto done;
-            }
-
-            cluster_timeout_str = cluster_config_get(cc, "cluster-node-timeout",
-                                                     &cluster_timeout_str_len);
-            if (cluster_timeout_str == NULL) {
-                __redisClusterAsyncSetError(acc, cc->err, cc->errstr);
-                goto done;
-            }
-
-            cluster_timeout =
-                hi_atoi(cluster_timeout_str, cluster_timeout_str_len);
-            hi_free(cluster_timeout_str);
-
-            if (cluster_timeout < 0) {
-                __redisClusterAsyncSetError(
-                    acc, REDIS_ERR_OTHER,
-                    "cluster_timeout_str convert to integer error");
-                goto done;
-            }
-
-            now = hi_usec_now();
-            if (now < 0) {
-                __redisClusterAsyncSetError(acc, REDIS_ERR_OTHER,
-                                            "get now usec time error");
-                goto done;
-            }
-
-            cc->update_route_time = now + (cluster_timeout * 1000LL);
-        }
-
         goto done;
     }
 
@@ -4271,8 +4255,6 @@ void redisClusterAsyncDisconnect(redisClusterAsyncContext *acc) {
         }
 
         redisAsyncDisconnect(ac);
-
-        node->acon = NULL;
     }
 }
 
