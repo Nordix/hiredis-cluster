@@ -225,20 +225,20 @@ static int cluster_reply_error_type(redisReply *reply) {
 
     if (reply->type == REDIS_REPLY_ERROR) {
         if ((int)strlen(REDIS_ERROR_MOVED) < reply->len &&
-            strncmp(reply->str, REDIS_ERROR_MOVED, strlen(REDIS_ERROR_MOVED)) ==
+            memcmp(reply->str, REDIS_ERROR_MOVED, strlen(REDIS_ERROR_MOVED)) ==
                 0) {
             return CLUSTER_ERR_MOVED;
         } else if ((int)strlen(REDIS_ERROR_ASK) < reply->len &&
-                   strncmp(reply->str, REDIS_ERROR_ASK,
-                           strlen(REDIS_ERROR_ASK)) == 0) {
+                   memcmp(reply->str, REDIS_ERROR_ASK,
+                          strlen(REDIS_ERROR_ASK)) == 0) {
             return CLUSTER_ERR_ASK;
         } else if ((int)strlen(REDIS_ERROR_TRYAGAIN) < reply->len &&
-                   strncmp(reply->str, REDIS_ERROR_TRYAGAIN,
-                           strlen(REDIS_ERROR_TRYAGAIN)) == 0) {
+                   memcmp(reply->str, REDIS_ERROR_TRYAGAIN,
+                          strlen(REDIS_ERROR_TRYAGAIN)) == 0) {
             return CLUSTER_ERR_TRYAGAIN;
         } else if ((int)strlen(REDIS_ERROR_CLUSTERDOWN) < reply->len &&
-                   strncmp(reply->str, REDIS_ERROR_CLUSTERDOWN,
-                           strlen(REDIS_ERROR_CLUSTERDOWN)) == 0) {
+                   memcmp(reply->str, REDIS_ERROR_CLUSTERDOWN,
+                          strlen(REDIS_ERROR_CLUSTERDOWN)) == 0) {
             return CLUSTER_ERR_CLUSTERDOWN;
         } else {
             return CLUSTER_ERR_SENTINEL;
