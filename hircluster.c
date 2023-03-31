@@ -220,8 +220,8 @@ static int cluster_reply_error_type(redisReply *reply) {
 
     if (reply->type == REDIS_REPLY_ERROR) {
         if ((int)strlen(REDIS_ERROR_MOVED) < reply->len &&
-            memcmp(reply->str, REDIS_ERROR_MOVED,
-                   strlen(REDIS_ERROR_MOVED)) == 0) {
+            memcmp(reply->str, REDIS_ERROR_MOVED, strlen(REDIS_ERROR_MOVED)) ==
+                0) {
             return CLUSTER_ERR_MOVED;
         } else if ((int)strlen(REDIS_ERROR_ASK) < reply->len &&
                    memcmp(reply->str, REDIS_ERROR_ASK,
