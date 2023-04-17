@@ -4226,6 +4226,31 @@ int redisClusterAsyncCommandArgv(redisClusterAsyncContext *acc,
     return ret;
 }
 
+int redisClusterAsyncCommandArgvToNode(redisClusterAsyncContext *acc,
+                                       redisClusterNode *node,
+                                       redisClusterCallbackFn *fn,
+                                       void *privdata, int argc,
+                                       const char **argv,
+                                       const size_t *argvlen) {
+
+    int ret;
+    char *cmd;
+    int len;
+
+    len = redisFormatCommandArgv(&cmd, argc, argv, argvlen);
+    if (len == -1) {
+        __redisClusterAsyncSetError(acc, REDIS_ERR_OOM, "Out of memory");
+        return REDIS_ERR;
+    }
+
+    ret = redisClusterAsyncFormattedCommandToNode(acc, node, fn, privdata, cmd,
+                                                  len);
+
+    hi_free(cmd);
+
+    return ret;
+}
+
 void redisClusterAsyncDisconnect(redisClusterAsyncContext *acc) {
     redisClusterContext *cc;
     redisAsyncContext *ac;

@@ -283,6 +283,12 @@ int redisClusterAsyncCommandArgv(redisClusterAsyncContext *acc,
                                  redisClusterCallbackFn *fn, void *privdata,
                                  int argc, const char **argv,
                                  const size_t *argvlen);
+int redisClusterAsyncCommandArgvToNode(redisClusterAsyncContext *acc,
+                                       redisClusterNode *node,
+                                       redisClusterCallbackFn *fn,
+                                       void *privdata, int argc,
+                                       const char **argv,
+                                       const size_t *argvlen);
 
 /* Use a Redis protocol encoded string as command */
 int redisClusterAsyncFormattedCommand(redisClusterAsyncContext *acc,

@@ -390,6 +390,43 @@ void test_async_formatted_to_single_node(void) {
     event_base_free(base);
 }
 
+void test_async_command_argv_to_single_node(void) {
+    int status;
+
+    redisClusterAsyncContext *acc = redisClusterAsyncContextInit();
+    assert(acc);
+    redisClusterAsyncSetConnectCallback(acc, callbackExpectOk);
+    redisClusterAsyncSetDisconnectCallback(acc, callbackExpectOk);
+    redisClusterSetOptionAddNodes(acc->cc, CLUSTER_NODE);
+    redisClusterSetOptionMaxRetry(acc->cc, 1);
+    redisClusterSetOptionRouteUseSlots(acc->cc);
+    status = redisClusterConnect2(acc->cc);
+    ASSERT_MSG(status == REDIS_OK, acc->errstr);
+
+    struct event_base *base = event_base_new();
+    status = redisClusterLibeventAttach(acc, base);
+    assert(status == REDIS_OK);
+
+    dictIterator di;
+    dictInitIterator(&di, acc->cc->nodes);
+
+    dictEntry *de = dictNext(&di);
+    assert(de);
+    redisClusterNode *node = dictGetEntryVal(de);
+    assert(node);
+
+    ExpectedResult r1 = {.type = REDIS_REPLY_INTEGER, .disconnect = true};
+    status = redisClusterAsyncCommandArgvToNode(acc, node, commandCallback, &r1,
+                                                1, (const char *[]){"DBSIZE"},
+                                                (size_t[]){6});
+    ASSERT_MSG(status == REDIS_OK, acc->errstr);
+
+    event_base_dispatch(base);
+
+    redisClusterAsyncFree(acc);
+    event_base_free(base);
+}
+
 void test_async_to_all_nodes(void) {
     int status;
 
@@ -507,6 +544,7 @@ int main(void) {
     // Asynchronous API
     test_async_to_single_node();
     test_async_formatted_to_single_node();
+    test_async_command_argv_to_single_node();
     test_async_to_all_nodes();
     test_async_transaction();
 
