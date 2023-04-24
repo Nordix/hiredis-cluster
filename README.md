@@ -338,6 +338,12 @@ int redisClusterAsyncFormattedCommandToNode(redisClusterAsyncContext *acc,
                                             redisClusterNode *node,
                                             redisClusterCallbackFn *fn,
                                             void *privdata, char *cmd, int len);
+int redisClusterAsyncCommandArgvToNode(redisClusterAsyncContext *acc,
+                                       redisClusterNode *node,
+                                       redisClusterCallbackFn *fn,
+                                       void *privdata, int argc,
+                                       const char **argv,
+                                       const size_t *argvlen);
 ```
 These functions works like their blocking counterparts. The return value is `REDIS_OK` when the command
 was successfully added to the output buffer and `REDIS_ERR` otherwise. Example: when the connection
@@ -366,6 +372,15 @@ callbacks have been executed. After this, the disconnection callback is executed
 
 There are a few hooks that need to be set on the cluster context object after it is created.
 See the `adapters/` directory for bindings to *libevent* and a range of other event libraries.
+
+## Other details
+
+### Random number generator
+
+This library uses [random()](https://linux.die.net/man/3/random) while selecting
+a node used for requesting the cluster topology (slotmap). A user should seed
+the random number generator using [srandom()](https://linux.die.net/man/3/srandom)
+to get less predictability in the node selection.
 
 ### Allocator injection
 

@@ -35,6 +35,11 @@ SEND -ASK 12182 192.168.254.254:9999
 SEND -ASK 12182 192.168.254.254:9999
 SEND -ASK 12182 192.168.254.254:9999
 SEND -ASK 12182 192.168.254.254:9999
+
+# The failed connection attempt triggers an update
+EXPECT ["CLUSTER", "SLOTS"]
+SEND [[0, 16383, ["127.0.0.1", 7401, "nodeid123"]]]
+
 EXPECT CLOSE
 EOF
 server1=$!
@@ -72,16 +77,16 @@ fi
 # hiredis v1.1.0
 expected1="OK
 error: Timeout
-error: no reachable node in cluster
 error: Timeout
-error: no reachable node in cluster"
+error: Timeout
+error: Timeout"
 
 # hiredis < v1.1.0
 expected2="OK
 unknown error
-error: no reachable node in cluster
 unknown error
-error: no reachable node in cluster"
+unknown error
+unknown error"
 
 cmp "$testname.out" <(echo "$expected1") || cmp "$testname.out" <(echo "$expected2") || exit 99
 

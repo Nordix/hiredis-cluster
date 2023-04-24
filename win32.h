@@ -49,6 +49,15 @@
 #include <profileapi.h> /* for QueryPerformance APIs */
 
 #define strerror_r(errno, buf, len) strerror_s(buf, len, errno)
+
+#ifndef srandom
+#define srandom srand
+#endif
+
+#ifndef random
+#define random rand
+#endif
+
 #endif /* _WIN32 */
 
 #endif /* _WIN32_HELPER_INCLUDE */
