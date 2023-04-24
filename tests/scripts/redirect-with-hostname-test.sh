@@ -3,12 +3,13 @@
 # Verify that redirects with hostname are handled.
 #
 # Redis 7.0 introduced the config `cluster-preferred-endpoint-type` which
-# controls how the endpoint is returned in ASK/MOVED redirects, and in
-# CLUSTER SLOTS as well. This testcase verifies correct handling when
-# Redis returns hostnames instead of IP's.
+# controls how the endpoint is returned in ASK/MOVED redirects and in
+# CLUSTER SLOTS. This testcase verifies correct handling when Redis
+# announce a hostname 'localhost' instead of an IP.
 #
-# Redis 7.0 also adds additional metadata in CLUSTER SLOTS and this test
-# uses a black hole address to make sure this is not used, but accepted.
+# Redis 7.0 also adds additional metadata in the CLUSTER SLOTS response
+# and this testcase uses a black hole address to make sure this is accepted
+# but not used.
 #
 # Usage: $0 /path/to/clusterclient-binary
 
@@ -22,31 +23,33 @@ perl -we 'use sigtrap "handler", sub{exit}, "CONT"; sleep 1; die "timeout"' &
 syncpid2=$!;
 
 # Start simulated redis node #1
-timeout 5s ./simulated-redis.pl -p 7403 -d --sigcont $syncpid1 <<'EOF' &
+timeout 5s ./simulated-redis.pl -p 7401 -d --sigcont $syncpid1 <<'EOF' &
 # Inital slotmap update
 EXPECT CONNECT
 EXPECT ["CLUSTER", "SLOTS"]
-SEND [[0, 16383, ["localhost", 7403, "nodeid7403", ["ip", "192.168.254.254"]]]]
+SEND [[0, 16383, ["localhost", 7401, "nodeid1", ["ip", "192.168.254.254"]]]]
 EXPECT CLOSE
 
+# Verify ASK redirect
 EXPECT CONNECT
 EXPECT ["GET", "foo"]
-SEND -ASK 12182 localhost:7404
+SEND -ASK 12182 localhost:7402
 
+# Verify MOVED redirect
 EXPECT ["GET", "foo"]
-SEND -MOVED 12182 localhost:7404
+SEND -MOVED 12182 localhost:7402
 
 # Slotmap updated due to MOVED
 EXPECT CONNECT
 EXPECT ["CLUSTER", "SLOTS"]
-SEND [[0, 16383, ["localhost", 7404, "nodeid7404", ["ip", "192.168.254.254"]]]]
+SEND [[0, 16383, ["localhost", 7402, "nodeid2", ["ip", "192.168.254.254"]]]]
 EXPECT CLOSE
 EXPECT CLOSE
 EOF
 server1=$!
 
 # Start simulated redis node #2
-timeout 5s ./simulated-redis.pl -p 7404 -d --sigcont $syncpid2 <<'EOF' &
+timeout 5s ./simulated-redis.pl -p 7402 -d --sigcont $syncpid2 <<'EOF' &
 EXPECT CONNECT
 EXPECT ["ASKING"]
 SEND +OK
@@ -62,7 +65,7 @@ server2=$!
 wait $syncpid1 $syncpid2;
 
 # Run client
-timeout 3s "$clientprog" localhost:7403 > "$testname.out" <<'EOF'
+timeout 3s "$clientprog" localhost:7401 > "$testname.out" <<'EOF'
 GET foo
 GET foo
 EOF
