@@ -220,7 +220,12 @@ add_test(NAME redirect-with-hostname-test
          COMMAND "${CMAKE_SOURCE_DIR}/tests/scripts/redirect-with-hostname-test.sh"
                  "$<TARGET_FILE:clusterclient>"
          WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/tests/scripts/")
+# This test can't be run on hiredis v1.1.0 due to hiredis issue #1171.
 add_test(NAME redirect-with-hostname-test-async
          COMMAND "${CMAKE_SOURCE_DIR}/tests/scripts/redirect-with-hostname-test.sh"
                  "$<TARGET_FILE:clusterclient_async_sequence>"
          WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/tests/scripts/")
+# Disable testcase if hiredis contains the issue, or if the version is unknown.
+if(hiredis_VERSION VERSION_EQUAL "1.1.0" OR hiredis_VERSION VERSION_EQUAL "0")
+  set_tests_properties(redirect-with-hostname-test-async PROPERTIES DISABLED True)
+endif()
