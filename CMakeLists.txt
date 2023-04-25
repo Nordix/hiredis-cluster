@@ -79,12 +79,14 @@ if(DOWNLOAD_HIREDIS)
       "Downloading of the dependency 'hiredis' requires CMake >= v3.20.\n"
       "Upgrade CMake or manually install 'hiredis' and use -DDOWNLOAD_HIREDIS=OFF")
   endif()
-  message("Downloading dependency 'hiredis'..")
+
+  set(HIREDIS_VERSION "1.1.0")
+  message("Downloading dependency: hiredis v${HIREDIS_VERSION}")
 
   include(FetchContent)
   FetchContent_Declare(hiredis
     GIT_REPOSITORY https://github.com/redis/hiredis
-    GIT_TAG        v1.1.0
+    GIT_TAG        "v${HIREDIS_VERSION}"
     SOURCE_DIR     "${CMAKE_CURRENT_BINARY_DIR}/_deps/hiredis"
   )
 
@@ -103,6 +105,7 @@ if(DOWNLOAD_HIREDIS)
   set(stub_dir "${CMAKE_CURRENT_BINARY_DIR}/generated/pkg")
 
   file(WRITE "${stub_dir}/hiredis-config.cmake" "")
+  file(WRITE "${stub_dir}/hiredis-config-version.cmake" "set(PACKAGE_VERSION ${HIREDIS_VERSION})")
   set(hiredis_DIR ${stub_dir})
   # Set variables normally got from hiredis-config.cmake
   set(hiredis_LIBRARIES hiredis::hiredis)
