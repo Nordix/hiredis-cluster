@@ -221,6 +221,8 @@ include(CMakePackageConfigHelpers)
 configure_package_config_file(hiredis_cluster-config.cmake.in ${CMAKE_CURRENT_BINARY_DIR}/hiredis_cluster-config.cmake
   INSTALL_DESTINATION ${CMAKE_CONF_INSTALL_DIR}
   PATH_VARS INCLUDE_INSTALL_DIR)
+write_basic_package_version_file(${CMAKE_CURRENT_BINARY_DIR}/hiredis_cluster-config-version.cmake
+  COMPATIBILITY SameMinorVersion)
 
 install(EXPORT hiredis_cluster-targets
   FILE hiredis_cluster-targets.cmake
@@ -228,6 +230,7 @@ install(EXPORT hiredis_cluster-targets
   DESTINATION ${CMAKE_CONF_INSTALL_DIR})
 
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/hiredis_cluster-config.cmake
+              ${CMAKE_CURRENT_BINARY_DIR}/hiredis_cluster-config-version.cmake
   DESTINATION ${CMAKE_CONF_INSTALL_DIR})
 
 # Install target for hiredis_cluster_ssl
