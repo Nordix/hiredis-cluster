@@ -53,8 +53,8 @@ Prerequisites:
 * CMake and GNU Make (but see [Alternative build using Makefile
   directly](#alternative-build-using-makefile-directly) below for how to build
   without CMake)
-* [hiredis](https://github.com/redis/hiredis); downloaded automatically by
-  default, but see build options below
+* [hiredis >= v1.0.0](https://github.com/redis/hiredis); downloaded automatically by
+  default, see [build options](#build-options) to disable.
 * [libevent](https://libevent.org/) (`libevent-dev` in Debian); can be avoided
   if building without tests (DISABLE_TESTS=ON)
 * OpenSSL (`libssl-dev` in Debian) if building with TLS support
@@ -136,6 +136,12 @@ See [`examples/using_make/build.sh`](examples/using_make/build.sh) for an
 example build.
 
 ### Running the tests
+
+Prerequisites:
+
+* Perl with [JSON module](https://metacpan.org/pod/JSON).
+  Can be installed using `sudo cpan JSON`.
+* [Docker](https://docs.docker.com/engine/install/)
 
 Some tests needs a Redis cluster and that can be setup by the make targets
 `start`/`stop`. The clusters will be setup using Docker and it may take a while
