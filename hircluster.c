@@ -1908,10 +1908,6 @@ redisContext *ctx_get_by_node(redisClusterContext *cc, redisClusterNode *node) {
                 __redisClusterSetError(cc, c->err, c->errstr);
             }
 
-            if (cc->command_timeout && c->err == 0) {
-                redisSetTimeout(c, *cc->command_timeout);
-            }
-
             authenticate(cc, c); // err and errstr handled in function
         }
 
