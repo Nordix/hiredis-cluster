@@ -13,6 +13,19 @@
 #define CLUSTER_USERNAME "default"
 #define CLUSTER_PASSWORD "secretword"
 
+int connect_success_counter;
+int connect_failure_counter;
+void connect_callback(const redisContext *c, int status) {
+    (void)c;
+    if (status == REDIS_OK)
+        connect_success_counter++;
+    else
+        connect_failure_counter++;
+}
+void reset_counters(void) {
+    connect_success_counter = connect_failure_counter = 0;
+}
+
 // Connecting to a password protected cluster and
 // providing a correct password.
 void test_password_ok(void) {
@@ -20,19 +33,26 @@ void test_password_ok(void) {
     assert(cc);
     redisClusterSetOptionAddNodes(cc, CLUSTER_NODE_WITH_PASSWORD);
     redisClusterSetOptionPassword(cc, CLUSTER_PASSWORD);
+    redisClusterSetConnectCallback(cc, connect_callback);
 
     int status;
     status = redisClusterConnect2(cc);
     ASSERT_MSG(status == REDIS_OK, cc->errstr);
+    assert(connect_success_counter == 1); // for CLUSTER NODES
     load_redis_version(cc);
+    assert(connect_success_counter == 2); // for checking redis version
 
     // Test connection
     redisReply *reply;
     reply = redisClusterCommand(cc, "SET key1 Hello");
     CHECK_REPLY_OK(cc, reply);
     freeReplyObject(reply);
-
     redisClusterFree(cc);
+
+    // Check counters incremented by connect callback
+    assert(connect_success_counter == 3); // for SET (to a different node)
+    assert(connect_failure_counter == 0);
+    reset_counters();
 }
 
 // Connecting to a password protected cluster and
@@ -193,11 +213,15 @@ void test_connect_timeout(void) {
     /* Configure a non-routable IP address and a timeout */
     redisClusterSetOptionAddNodes(cc, "192.168.0.0:7000");
     redisClusterSetOptionConnectTimeout(cc, timeout);
+    redisClusterSetConnectCallback(cc, connect_callback);
 
     int status = redisClusterConnect2(cc);
     assert(status == REDIS_ERR);
     assert(cc->err == REDIS_ERR_IO);
     assert(strcmp(cc->errstr, "Connection timed out") == 0);
+    assert(connect_success_counter == 0);
+    assert(connect_failure_counter == 1);
+    reset_counters();
 
     redisClusterFree(cc);
 }

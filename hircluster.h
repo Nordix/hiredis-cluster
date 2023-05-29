@@ -132,6 +132,8 @@ typedef struct redisClusterContext {
     void *ssl; /* Pointer to a redisSSLContext when using SSL/TLS. */
     sslInitFn *ssl_init_fn; /* Func ptr for SSL context initiation */
 
+    void (*on_connect)(const struct redisContext *c, int status);
+
 } redisClusterContext;
 
 /* Context for accessing a Redis Cluster asynchronously */
@@ -199,6 +201,18 @@ int redisClusterSetOptionMaxRetry(redisClusterContext *cc, int max_retry_count);
 /* Deprecated function, replaced with redisClusterSetOptionMaxRetry() */
 void redisClusterSetMaxRedirect(redisClusterContext *cc,
                                 int max_redirect_count);
+/* A hook for connect and reconnect attempts, e.g. for applying additional
+ * socket options. This is called just after connect, before TLS handshake and
+ * Redis authentication.
+ *
+ * On successful connection, `status` is set to `REDIS_OK` and the file
+ * descriptor can be accessed as `c->fd` to apply socket options.
+ *
+ * On failed connection attempt, this callback is called with `status` set to
+ * `REDIS_ERR`. The `err` field in the `redisContext` can be used to find out
+ * the cause of the error. */
+int redisClusterSetConnectCallback(redisClusterContext *cc,
+                                   void(fn)(const redisContext *c, int status));
 
 /* Blocking
  * The following functions will block for a reply, or return NULL if there was
