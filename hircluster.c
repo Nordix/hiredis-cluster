@@ -1215,6 +1215,11 @@ static int cluster_update_route_by_addr(redisClusterContext *cc, const char *ip,
         __redisClusterSetError(cc, REDIS_ERR_OOM, "Out of memory");
         return REDIS_ERR;
     }
+
+    if (cc->on_connect) {
+        cc->on_connect(c, c->err ? REDIS_ERR : REDIS_OK);
+    }
+
     if (c->err) {
         __redisClusterSetError(cc, c->err, c->errstr);
         goto error;
@@ -1905,6 +1910,10 @@ redisContext *ctx_get_by_node(redisClusterContext *cc, redisClusterNode *node) {
         if (c->err) {
             redisReconnect(c);
 
+            if (cc->on_connect) {
+                cc->on_connect(c, c->err ? REDIS_ERR : REDIS_OK);
+            }
+
             if (cc->ssl && cc->ssl_init_fn(c, cc->ssl) != REDIS_OK) {
                 __redisClusterSetError(cc, c->err, c->errstr);
             }
@@ -1928,6 +1937,10 @@ redisContext *ctx_get_by_node(redisClusterContext *cc, redisClusterNode *node) {
     if (c == NULL) {
         __redisClusterSetError(cc, REDIS_ERR_OOM, "Out of memory");
         return NULL;
+    }
+
+    if (cc->on_connect) {
+        cc->on_connect(c, c->err ? REDIS_ERR : REDIS_OK);
     }
 
     if (c->err) {
@@ -2774,6 +2787,16 @@ void redisClusterSetMaxRedirect(redisClusterContext *cc, int max_retry_count) {
     }
 
     cc->max_retry_count = max_retry_count;
+}
+
+int redisClusterSetConnectCallback(redisClusterContext *cc,
+                                   void(fn)(const redisContext *c,
+                                            int status)) {
+    if (cc->on_connect == NULL) {
+        cc->on_connect = fn;
+        return REDIS_OK;
+    }
+    return REDIS_ERR;
 }
 
 void *redisClusterFormattedCommand(redisClusterContext *cc, char *cmd,

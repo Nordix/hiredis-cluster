@@ -198,6 +198,26 @@ if (cc != NULL && cc->err) {
 }
 ```
 
+There is a hook to get notified about connect and reconnect attempts.
+This is useful for applying socket options or access endpoint information for a connection to a particular node.
+The callback is registered using the following function:
+
+```c
+int redisClusterSetConnectCallback(redisClusterContext *cc,
+                                   void(fn)(const redisContext *c, int status));
+```
+
+The callback is called just after connect, before TLS handshake and Redis authentication.
+
+On successful connection, `status` is set to `REDIS_OK` and the redisContext
+(defined in hiredis.h) can be used, for example, to see which IP and port it's
+connected to or to set socket options directly on the file descriptor which can
+be accessed as `c->fd`.
+
+On failed connection attempt, this callback is called with `status` set to
+`REDIS_ERR`. The `err` field in the `redisContext` can be used to find out
+the cause of the error.
+
 ### Sending commands
 
 The function `redisClusterCommand` takes a format similar to printf.
