@@ -30,6 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
+#define _XOPEN_SOURCE 600
 #include <assert.h>
 #include <ctype.h>
 #include <errno.h>

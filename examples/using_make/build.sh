@@ -20,7 +20,7 @@ make -C ${script_dir}/hiredis-${hiredis_version} \
 
 # Build and install hiredis-cluster from the repo using GNU Make
 make -C ${repo_dir} \
-     CFLAGS="-I${script_dir}/install/usr/local/include -D_XOPEN_SOURCE=600" \
+     CFLAGS="-I${script_dir}/install/usr/local/include" \
      LDFLAGS="-L${script_dir}/install/usr/local/lib" \
      USE_SSL=1 \
      DESTDIR=${script_dir}/install \
