@@ -132,8 +132,17 @@ a static library, a similar limitation exists in the CMake files in hiredis v1.0
 
 The only option that exists in the Makefile is to enable SSL/TLS support via `USE_SSL=1`
 
+By default the hiredis library (and headers) installed on the system is used,
+but alternative installations can be used by defining the compiler flags
+`CFLAGS` and `LDFLAGS`.
+
 See [`examples/using_make/build.sh`](examples/using_make/build.sh) for an
-example build.
+example build using an alternative hiredis installation.
+
+Build failures like
+`hircluster_ssl.h:33:10: fatal error: hiredis/hiredis_ssl.h: No such file or directory`
+indicates that hiredis is not installed on the system, or that a given `CFLAGS` is wrong.
+Use the previous mentioned build example as reference.
 
 ### Running the tests
 
