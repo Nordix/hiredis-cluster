@@ -282,11 +282,12 @@ for hiredis-cluster as well.
 
 ### Connecting
 
-The function `redisAsyncConnect` can be used to establish a non-blocking connection to
-Redis. It returns a pointer to the newly created `redisAsyncContext` struct. The `err` field
-should be checked after creation to see if there were errors creating the connection.
-Because the connection that will be created is non-blocking, the kernel is not able to
-instantly return if the specified host and port is able to accept a connection.
+The function `redisClusterAsyncConnect` can be used to
+establish a set of non-blocking connections to a Redis cluster.
+It returns a pointer to the newly created `redisClusterAsyncContext` struct.
+The `err` field should be checked after creation
+to see if there were errors creating the asynchronous cluster context.
+
 ```c
 redisClusterAsyncContext *acc = redisClusterAsyncConnect("127.0.0.1:6379", HIRCLUSTER_FLAG_NULL);
 if (acc->err) {
@@ -295,23 +296,44 @@ if (acc->err) {
 }
 ```
 
-The cluster asynchronous context can hold a disconnect callback function that is called when the
-connection is disconnected (either because of an error or per user request). This function should
-have the following prototype:
-```c
-void(const redisAsyncContext *c, int status);
-```
-On a disconnect, the `status` argument is set to `REDIS_OK` when disconnection was initiated by the
-user, or `REDIS_ERR` when the disconnection was caused by an error. When it is `REDIS_ERR`, the `err`
-field in the context can be accessed to find out the cause of the error.
+Because the connections that will be created are non-blocking,
+the kernel is not able to instantly return if the specified
+host and port is able to accept a connection.
+Instead, use a connect callback to be notified when a connection
+is established or failed.
+Similarily, a disconnect callback can be used to be notified about
+a disconnected connection (either because of an error or per user request).
+The callbacks are installed using the following functions:
 
-You dont need to reconnect in the disconnect callback, hiredis-cluster will reconnect by itself when next command for this Redis node is handled.
-
-Setting the disconnect callback can only be done once per context. For subsequent calls it will
-return `REDIS_ERR`. The function to set the disconnect callback has the following prototype:
 ```c
-int redisClusterAsyncSetDisconnectCallback(redisClusterAsyncContext *acc, redisDisconnectCallback *fn);
+int redisClusterAsyncSetConnectCallback(redisClusterAsyncContext *acc,
+                                        redisConnectCallback *fn);
+int redisClusterAsyncSetDisonnectCallback(redisClusterAsyncContext *acc,
+                                          redisConnectCallback *fn);
 ```
+
+The callback functions should have the following prototype,
+aliased to `redisConnectCallback`:
+
+```c
+void(const redisAsyncContext *ac, int status);
+```
+
+On a connection attempt, the `status` argument is set to `REDIS_OK`
+when the connection was successful.
+The file description of the connection socket can be retrieved
+from a redisAsyncContext as `ac->c->fd`.
+On a disconnect, the `status` argument is set to `REDIS_OK`
+when disconnection was initiated by the user,
+or `REDIS_ERR` when the disconnection was caused by an error.
+When it is `REDIS_ERR`, the `err` field in the context can be accessed
+to find out the cause of the error.
+
+You don't need to reconnect in the disconnect callback.
+Hiredis-cluster will reconnect by itself when the next command for this Redis node is handled.
+
+Setting the connect and disconnect callbacks can only be done once per context.
+For subsequent calls it will return `REDIS_ERR`.
 
 ### Sending commands and their callbacks
 
