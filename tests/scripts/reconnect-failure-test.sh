@@ -28,24 +28,6 @@ EXPECT CONNECT
 EXPECT ["SET", "bar", "initial"]
 SEND +OK
 
-# A reconnect failure triggers a search for an available node
-EXPECT ["PING"]
-SEND +PONG
-EXPECT ["SET", "foo", "second"]
-SEND -MOVED 12182 127.0.0.1:7402
-
-# Since maxretry=2 a MOVED triggers a slotmap update (no slotmap change in this test)
-EXPECT CONNECT
-EXPECT ["CLUSTER", "SLOTS"]
-SEND [[0, 6000, ["127.0.0.1", 7401, "nodeid1"]],[6001, 16383, ["127.0.0.1", 7402, "nodeid2"]]]
-EXPECT CLOSE
-
-# A reconnect failure triggers a new search for an available node
-EXPECT ["PING"]
-SEND +PONG
-
-# Max retry exhausted
-
 EXPECT CLOSE
 EOF
 server1=$!
@@ -95,7 +77,7 @@ fi
 expected="OK
 OK
 error: Server closed the connection
-error: too many cluster retries"
+error: Connection refused"
 
 cmp "$testname.out" <(echo "$expected") || exit 99
 

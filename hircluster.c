@@ -1902,7 +1902,10 @@ redisContext *ctx_get_by_node(redisClusterContext *cc, redisClusterNode *node) {
     c = node->con;
     if (c != NULL) {
         if (c->err) {
-            redisReconnect(c);
+            if (redisReconnect(c) != REDIS_OK) {
+                __redisClusterSetError(cc, c->err, c->errstr);
+                return NULL;
+            }
 
             if (cc->ssl && cc->ssl_init_fn(c, cc->ssl) != REDIS_OK) {
                 __redisClusterSetError(cc, c->err, c->errstr);
