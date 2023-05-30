@@ -22,23 +22,30 @@ int main(int argc, char **argv) {
     redisClusterSetOptionAddNodes(cc, initnode);
     redisClusterSetOptionConnectTimeout(cc, timeout);
     redisClusterSetOptionRouteUseSlots(cc);
+    redisClusterSetOptionMaxRetry(cc, 2);
 
     if (redisClusterConnect2(cc) != REDIS_OK) {
         fprintf(stderr, "Connect error: %s\n", cc->errstr);
         exit(100);
     }
 
-    char command[256];
-    while (fgets(command, 256, stdin)) {
-        size_t len = strlen(command);
-        if (command[len - 1] == '\n') // Chop trailing line break
-            command[len - 1] = '\0';
-        redisReply *reply = (redisReply *)redisClusterCommand(cc, command);
+    char cmd[256];
+    while (fgets(cmd, 256, stdin)) {
+        size_t len = strlen(cmd);
+        if (cmd[len - 1] == '\n') // Chop trailing line break
+            cmd[len - 1] = '\0';
+
+        if (cmd[0] == '\0') /* Skip empty lines */
+            continue;
+        if (cmd[0] == '#') /* Skip comments */
+            continue;
+
+        redisReply *reply = (redisReply *)redisClusterCommand(cc, cmd);
         if (cc->err) {
-            fprintf(stderr, "redisClusterCommand error: %s\n", cc->errstr);
-            exit(101);
+            printf("error: %s\n", cc->errstr);
+        } else {
+            printf("%s\n", reply->str);
         }
-        printf("%s\n", reply->str);
         freeReplyObject(reply);
     }
 
