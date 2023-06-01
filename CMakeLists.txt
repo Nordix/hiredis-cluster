@@ -28,7 +28,9 @@ project(hiredis-cluster
   VERSION "${VERSION}"
   LANGUAGES C)
 
+# Use plain C99 (-std=c99) without extensions like GNU C (-std=gnu99)
 set(CMAKE_C_STANDARD 99)
+set(CMAKE_C_EXTENSIONS OFF)
 
 # Build using a sanitizer
 if(USE_SANITIZER)

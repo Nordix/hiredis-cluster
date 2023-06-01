@@ -1,5 +1,9 @@
 SET(TEST_WITH_REDIS_VERSION "6.2.1" CACHE STRING "Redis version used when running tests.")
 
+# Re-enable `-std=gnu99` for tests only, this avoids the need to sprinkle
+# `#define  _XOPEN_SOURCE 600` in test code for e.g. strdup()
+set(CMAKE_C_EXTENSIONS ON)
+
 if(ENABLE_SSL)
   # Generate SSL certs and keys when needed
   set(SSL_CONFIGS ca.crt ca.key ca.txt redis.crt redis.key client.crt client.key)
