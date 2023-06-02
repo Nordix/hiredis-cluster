@@ -220,6 +220,10 @@ add_test(NAME redirect-with-hostname-test
          COMMAND "${CMAKE_SOURCE_DIR}/tests/scripts/redirect-with-hostname-test.sh"
                  "$<TARGET_FILE:clusterclient>"
          WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/tests/scripts/")
+add_test(NAME reconnect-failure-test
+         COMMAND "${CMAKE_SOURCE_DIR}/tests/scripts/reconnect-failure-test.sh"
+                 "$<TARGET_FILE:clusterclient>"
+         WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/tests/scripts/")
 # This test can't be run on hiredis v1.1.0 due to hiredis issue #1171.
 # Disabling the testcase if hiredis contains the issue or if the version is unknown.
 add_test(NAME redirect-with-hostname-test-async
