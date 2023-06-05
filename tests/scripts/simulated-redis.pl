@@ -17,6 +17,7 @@ use JSON;
 my $port = 7000;
 my $debug = 0;
 my ($sig, $sig_pid);
+my $use_ipv6 = 0;
 
 # Parse command line args
 while ($_ = shift) {
@@ -27,6 +28,8 @@ while ($_ = shift) {
         $sig = uc $1;
         $sig_pid = shift;
         die "Pid expected after $_\n" unless $sig_pid;
+    } elsif (/^--ipv6$/) {
+        $use_ipv6 = 1;
     } elsif (/^(?:-d|--debug)$/) {
         $debug = 1;
     } elsif (/^(?:-h|--help)$/) {
@@ -41,10 +44,11 @@ while ($_ = shift) {
             "Options:",
             "",
             "  -p PORT, --port PORT   TCP port to use.",
+            "           --ipv6        Use IPv6, bind to address '::'.",
             "           --sigSIG PID  Send SIG to PID when ready to accept a",
             "                         client connection.",
-            "  -d,       --debug      Enable debug printouts.",
-            "  -h,       --help       Help.",
+            "  -d,      --debug       Enable debug printouts.",
+            "  -h,      --help        Help.",
             "",
             "Expected traffic is to be provided on stdin, one event per line,",
             "where the following events are accepted:",
@@ -75,17 +79,28 @@ while ($_ = shift) {
     }
 }
 
+# Use IPv4 default
+my $af = AF_INET;
+my $sockaddr = \&sockaddr_in;
+my $server_addr = INADDR_ANY;
+
+if ($use_ipv6) {
+    $af = AF_INET6;
+    $sockaddr = \&sockaddr_in6;
+    $server_addr = Socket::IN6ADDR_ANY;
+}
+
 # Listener socket. Close it on SIGTERM, etc. and at normal exit.
 my $listener;
 END {
     close $listener if $listener;
 }
 
-socket($listener, PF_INET, SOCK_STREAM, getprotobyname("tcp"))
+socket($listener, $af, SOCK_STREAM, getprotobyname("tcp"))
     or die "socket: $!\n";
 setsockopt($listener, SOL_SOCKET, SO_REUSEADDR, pack("l", 1))
     or die "setsockopt: $!\n";
-bind($listener, sockaddr_in($port, INADDR_ANY))
+bind($listener, &$sockaddr($port, $server_addr))
     or die "bind: $!\n";
 listen($listener, 5)
     or die "listen: $!\n";
@@ -133,9 +148,9 @@ while (<>) {
         undef $connection;
         my $peer_addr = accept($connection, $listener);
         push @connections, $connection;
-        my($client_port, $client_addr) = sockaddr_in($peer_addr);
-        my $name = gethostbyaddr($client_addr, AF_INET);
-        print "(port $port) Connection from $name [", inet_ntoa($client_addr),
+        my($client_port, $client_addr) = &$sockaddr($peer_addr);
+        my $name = gethostbyaddr($client_addr, $af);
+        print "(port $port) Connection from $name [", Socket::inet_ntop($af, $client_addr),
             "] on client port $client_port.\n" if $debug;
     } elsif (/^EXPECT ([\[\"].*)/) {
         my $expected = eval $1;
