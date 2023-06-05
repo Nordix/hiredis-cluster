@@ -2098,85 +2098,83 @@ static int __redisClusterGetReply(redisClusterContext *cc, int slot_num,
 
 static redisClusterNode *node_get_by_ask_error_reply(redisClusterContext *cc,
                                                      redisReply *reply) {
-    sds *part = NULL, *ip_port = NULL;
-    int part_len = 0, ip_port_len = 0, ret;
-    dictEntry *de;
     redisClusterNode *node = NULL;
-
-    if (cc == NULL || reply == NULL) {
-        return NULL;
-    }
-
-    if (cluster_reply_error_type(reply) != CLUSTER_ERR_ASK) {
-        __redisClusterSetError(cc, REDIS_ERR_OTHER, "reply is not ask error!");
-        return NULL;
-    }
+    sds *part = NULL;
+    int part_len = 0;
+    char *p;
 
     /* Expecting ["ASK", "<slot>", "<endpoint>:<port>"] */
     part = sdssplitlen(reply->str, reply->len, " ", 1, &part_len);
     if (part == NULL) {
         goto oom;
     }
-
-    if (part_len == 3) {
-        ip_port = sdssplitlen(part[2], sdslen(part[2]), ":", 1, &ip_port_len);
-        if (ip_port == NULL) {
-            goto oom;
-        }
-
-        if (ip_port_len == 2) {
-            de = dictFind(cc->nodes, part[2]);
-            if (de == NULL) {
-                node = createRedisClusterNode();
-                if (node == NULL) {
-                    goto oom;
-                }
-                node->addr = part[2];
-                node->host = ip_port[0];
-                node->port = hi_atoi(ip_port[1], sdslen(ip_port[1]));
-                node->role = REDIS_ROLE_MASTER;
-
-                sds key = sdsnewlen(node->addr, sdslen(node->addr));
-                if (key == NULL) {
-                    goto oom;
-                }
-
-                ret = dictAdd(cc->nodes, key, node);
-                if (ret != DICT_OK) {
-                    sdsfree(key);
-                    goto oom;
-                }
-
-                part[2] =
-                    NULL; /* Memory now handled by redisClusterNode in dict */
-                ip_port[0] = NULL;
-            } else {
-                node = de->val;
-                goto done;
-            }
-        } else {
-            __redisClusterSetError(cc, REDIS_ERR_OTHER,
-                                   "ask error reply address part parse error!");
-
-            goto done;
-        }
-
-    } else {
+    if (part_len != 3) {
         __redisClusterSetError(cc, REDIS_ERR_OTHER,
-                               "ask error reply parse error!");
-
+                               "failed to parse ASK redirect");
         goto done;
+    }
+
+    /* Find the last occurance of the port separator since
+     * IPv6 addresses can contain ':' */
+    if ((p = strrchr(part[2], IP_PORT_SEPARATOR)) == NULL) {
+        __redisClusterSetError(cc, REDIS_ERR_OTHER,
+                               "port separator missing in ASK redirect");
+        goto done;
+    }
+    // p includes separator
+
+    /* Empty endpoint not supported yet */
+    if (p - part[2] == 0) {
+        __redisClusterSetError(cc, REDIS_ERR_OTHER,
+                               "endpoint missing in ASK redirect");
+        goto done;
+    }
+
+    dictEntry *de = dictFind(cc->nodes, part[2]);
+    if (de != NULL) {
+        node = de->val;
+        goto done;
+    }
+
+    /* Add this node since it was unknown */
+    node = createRedisClusterNode();
+    if (node == NULL) {
+        goto oom;
+    }
+    node->role = REDIS_ROLE_MASTER;
+    node->addr = part[2];
+    part[2] = NULL; /* Memory ownership moved */
+
+    node->host = sdsnewlen(node->addr, p - node->addr);
+    if (node->host == NULL) {
+        goto oom;
+    }
+    p++; // remove found separator character
+    node->port = hi_atoi(p, strlen(p));
+
+    sds key = sdsnewlen(node->addr, sdslen(node->addr));
+    if (key == NULL) {
+        goto oom;
+    }
+
+    if (dictAdd(cc->nodes, key, node) != DICT_OK) {
+        sdsfree(key);
+        goto oom;
     }
 
 done:
     sdsfreesplitres(part, part_len);
-    sdsfreesplitres(ip_port, ip_port_len);
     return node;
 
 oom:
     __redisClusterSetError(cc, REDIS_ERR_OOM, "Out of memory");
     sdsfreesplitres(part, part_len);
-    sdsfreesplitres(ip_port, ip_port_len);
+    if (node != NULL) {
+        sdsfree(node->addr);
+        sdsfree(node->host);
+        hi_free(node);
+    }
+
     return NULL;
 }
 
