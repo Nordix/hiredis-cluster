@@ -329,6 +329,141 @@ void test_alloc_failure_handling(void) {
         freeReplyObject(reply);
     }
 
+    // Redirects
+    {
+        // Allow allocations until we run commands that results in redirects
+        prepare_allocation_test(cc, 1000);
+
+        // Get the source information for the migration
+        unsigned int slot = redisClusterGetSlotByKey("foo");
+        redisClusterNode *srcNode = redisClusterGetNodeByKey(cc, "foo");
+        int srcPort = srcNode->port;
+
+        // Get a destination node to migrate the slot to
+        redisClusterNode *dstNode;
+        nodeIterator ni;
+        initNodeIterator(&ni, cc);
+        while ((dstNode = nodeNext(&ni)) != NULL) {
+            if (dstNode != srcNode)
+                break;
+        }
+        assert(dstNode && dstNode != srcNode);
+        int dstPort = dstNode->port;
+
+        redisReply *reply, *replySrcId, *replyDstId;
+
+        // Get node id's
+        replySrcId = redisClusterCommandToNode(cc, srcNode, "CLUSTER MYID");
+        CHECK_REPLY_TYPE(replySrcId, REDIS_REPLY_STRING);
+
+        replyDstId = redisClusterCommandToNode(cc, dstNode, "CLUSTER MYID");
+        CHECK_REPLY_TYPE(replyDstId, REDIS_REPLY_STRING);
+
+        // Migrate slot
+        reply = redisClusterCommandToNode(cc, srcNode,
+                                          "CLUSTER SETSLOT %d MIGRATING %s",
+                                          slot, replyDstId->str);
+        CHECK_REPLY_OK(cc, reply);
+        freeReplyObject(reply);
+        reply = redisClusterCommandToNode(cc, dstNode,
+                                          "CLUSTER SETSLOT %d IMPORTING %s",
+                                          slot, replySrcId->str);
+        CHECK_REPLY_OK(cc, reply);
+        freeReplyObject(reply);
+        reply = redisClusterCommandToNode(
+            cc, srcNode, "MIGRATE 127.0.0.1 %d foo 0 5000", dstPort);
+        CHECK_REPLY_OK(cc, reply);
+        freeReplyObject(reply);
+
+        // ASK reply handling with OOM
+        for (int i = 0; i < 50; ++i) {
+            prepare_allocation_test(cc, i);
+            reply = redisClusterCommand(cc, "GET foo");
+            assert(reply == NULL);
+            if (i < 14 || i > 26) {
+                ASSERT_STR_EQ(cc->errstr, "Out of memory");
+            } else {
+                ASSERT_STR_EQ(cc->errstr, "no reachable node in cluster");
+            }
+        }
+
+        // ASK reply handling without OOM
+        prepare_allocation_test(cc, 50);
+        reply = redisClusterCommand(cc, "GET foo");
+        CHECK_REPLY_STR(cc, reply, "one");
+        freeReplyObject(reply);
+
+        // Finalize the migration
+        prepare_allocation_test(cc, 1000);
+        reply = redisClusterCommandToNode(
+            cc, srcNode, "CLUSTER SETSLOT %d NODE %s", slot, replyDstId->str);
+        CHECK_REPLY_OK(cc, reply);
+        freeReplyObject(reply);
+        reply = redisClusterCommandToNode(
+            cc, dstNode, "CLUSTER SETSLOT %d NODE %s", slot, replyDstId->str);
+        CHECK_REPLY_OK(cc, reply);
+        freeReplyObject(reply);
+
+        // MOVED reply handling with OOM
+        for (int i = 0; i < 159; ++i) {
+            prepare_allocation_test(cc, i);
+            reply = redisClusterCommand(cc, "GET foo");
+            assert(reply == NULL);
+            if (i < 14 || (i > 26 && i < 158)) {
+                ASSERT_STR_EQ(cc->errstr, "Out of memory");
+            } else {
+                ASSERT_STR_EQ(cc->errstr, "no reachable node in cluster");
+            }
+        }
+
+        // MOVED reply handling without OOM
+        prepare_allocation_test(cc, 159);
+        reply = redisClusterCommand(cc, "GET foo");
+        CHECK_REPLY_STR(cc, reply, "one");
+        freeReplyObject(reply);
+
+        // MOVED triggers a slotmap update which currently replaces all cluster_node
+        // objects. We can get the new objects by searching for its server ports.
+        // This enables us to migrate the slot back to the original node.
+        initNodeIterator(&ni, cc);
+        redisClusterNode *node;
+        while ((node = nodeNext(&ni)) != NULL) {
+            if (node->port == srcPort)
+                srcNode = node;
+            if (node->port == dstPort)
+                dstNode = node;
+        }
+
+        // Migrate back slot, required by the next testcase.
+        // Skip OOM testing by allowing all allocations
+        prepare_allocation_test(cc, 1000);
+        reply = redisClusterCommandToNode(cc, dstNode,
+                                          "CLUSTER SETSLOT %d MIGRATING %s",
+                                          slot, replySrcId->str);
+        CHECK_REPLY_OK(cc, reply);
+        freeReplyObject(reply);
+        reply = redisClusterCommandToNode(cc, srcNode,
+                                          "CLUSTER SETSLOT %d IMPORTING %s",
+                                          slot, replyDstId->str);
+        CHECK_REPLY_OK(cc, reply);
+        freeReplyObject(reply);
+        reply = redisClusterCommandToNode(
+            cc, dstNode, "MIGRATE 127.0.0.1 %d foo 0 5000", srcPort);
+        CHECK_REPLY_OK(cc, reply);
+        freeReplyObject(reply);
+        reply = redisClusterCommandToNode(
+            cc, dstNode, "CLUSTER SETSLOT %d NODE %s", slot, replySrcId->str);
+        CHECK_REPLY_OK(cc, reply);
+        freeReplyObject(reply);
+        reply = redisClusterCommandToNode(
+            cc, srcNode, "CLUSTER SETSLOT %d NODE %s", slot, replySrcId->str);
+        CHECK_REPLY_OK(cc, reply);
+        freeReplyObject(reply);
+
+        freeReplyObject(replySrcId);
+        freeReplyObject(replyDstId);
+    }
+
     redisClusterFree(cc);
     hiredisResetAllocators();
 }
