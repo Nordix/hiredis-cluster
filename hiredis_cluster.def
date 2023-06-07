@@ -39,6 +39,7 @@
 	redisClusterFree
 	redisClusterGetNodeByKey
 	redisClusterGetReply
+	redisClusterGetSlotByKey
 	redisClusterReset
 	redisClusterSetMaxRedirect
 	redisClusterSetOptionAddNode
