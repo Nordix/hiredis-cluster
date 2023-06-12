@@ -1187,14 +1187,99 @@ error:
     return NULL;
 }
 
+/* Sends CLUSTER SLOTS or CLUSTER NODES to the node with context c. */
+int cluster_update_route_send_command(redisClusterContext *cc, redisContext *c) {
+    const char *cmd = (cc->flags & HIRCLUSTER_FLAG_ROUTE_USE_SLOTS ?
+                       REDIS_COMMAND_CLUSTER_SLOTS :
+                       REDIS_COMMAND_CLUSTER_NODES);
+    int result = redisAppendCommand(c, cmd);
+    if (result != REDIS_OK) {
+        const char *msg = (cc->flags & HIRCLUSTER_FLAG_ROUTE_USE_SLOTS ?
+                           "Command (cluster slots) send error." :
+                           "Command (cluster nodes) send error.");
+        __redisClusterSetError(cc, c->err, msg);
+    }
+    return result;
+}
+
+/* Receives and handles a CLUSTER SLOTS reply from node with context c. */
+static int handle_cluster_slots_reply(redisClusterContext *cc,
+                                      redisContext *c) {
+    redisReply *reply = NULL;
+    int result = redisGetReply(c, (void **)reply);
+    if (result != REDIS_OK) {
+        if (c->err == REDIS_ERR_TIMEOUT) {
+            __redisClusterSetError(cc, c->err, "Command (cluster slots) reply error (socket timeout)");
+        } else {
+            __redisClusterSetError(cc, REDIS_ERR_OTHER, "Command (cluster slots) reply error (NULL).");
+        }
+        return REDIS_ERR;
+    } else if (reply->type != REDIS_REPLY_ARRAY) {
+        if (reply->type == REDIS_REPLY_ERROR) {
+            __redisClusterSetError(cc, REDIS_ERR_OTHER, reply->str);
+        } else {
+            __redisClusterSetError(cc, REDIS_ERR_OTHER,
+                                   "Command (cluster slots) reply error: type is not array.");
+        }
+        freeReplyObject(reply);
+        return REDIS_ERR;
+    }
+
+    dict *nodes = parse_cluster_slots(cc, reply, cc->flags);
+    freeReplyObject(reply);
+    return updateNodesAndSlotmap(cc, nodes);
+}
+
+/* Receives and handles a CLUSTER NODES reply from node with context c. */
+static int handle_cluster_nodes_reply(redisClusterContext *cc,
+                                      redisContext *c) {
+    redisReply *reply = NULL;
+    int result = redisGetReply(c, (void **)reply);
+    if (result != REDIS_OK) {
+        if (c->err == REDIS_ERR_TIMEOUT) {
+            __redisClusterSetError(cc, c->err,
+                                   "Command (cluster nodes) reply error "
+                                   "(socket timeout)");
+        } else {
+            __redisClusterSetError(cc, REDIS_ERR_OTHER,
+                                   "Command (cluster nodes) reply error "
+                                   "(NULL).");
+        }
+        return REDIS_ERR;
+    } else if (reply->type != REDIS_REPLY_STRING) {
+        if (reply->type == REDIS_REPLY_ERROR) {
+            __redisClusterSetError(cc, REDIS_ERR_OTHER, reply->str);
+        } else {
+            __redisClusterSetError(cc, REDIS_ERR_OTHER,
+                                   "Command(cluster nodes) reply error: "
+                                   "type is not string.");
+        }
+        freeReplyObject(reply);
+        return REDIS_ERR;
+    }
+
+    dict *nodes = parse_cluster_nodes(cc, reply->str, reply->len, cc->flags);
+    freeReplyObject(reply);
+    return updateNodesAndSlotmap(cc, nodes);
+}
+
+/* Receives and handles a CLUSTER SLOTS or CLUSTER NODES reply from node with
+ * context c. */
+static int cluster_update_route_handle_reply(redisClusterContext *cc,
+                                             redisContext *c) {
+    if (cc->flags & HIRCLUSTER_FLAG_ROUTE_USE_SLOTS) {
+        return handle_cluster_slots_reply(cc, c);
+    } else {
+        return handle_cluster_nodes_reply(cc, c);
+    }
+}
+
 /**
  * Update route with the "cluster nodes" or "cluster slots" command reply.
  */
 static int cluster_update_route_by_addr(redisClusterContext *cc, const char *ip,
                                         int port) {
     redisContext *c = NULL;
-    redisReply *reply = NULL;
-    dict *nodes = NULL;
 
     if (cc == NULL) {
         return REDIS_ERR;
@@ -1234,70 +1319,18 @@ static int cluster_update_route_by_addr(redisClusterContext *cc, const char *ip,
         goto error;
     }
 
-    if (cc->flags & HIRCLUSTER_FLAG_ROUTE_USE_SLOTS) {
-        reply = redisCommand(c, REDIS_COMMAND_CLUSTER_SLOTS);
-        if (reply == NULL) {
-            if (c->err == REDIS_ERR_TIMEOUT) {
-                __redisClusterSetError(
-                    cc, c->err,
-                    "Command(cluster slots) reply error(socket timeout)");
-            } else {
-                __redisClusterSetError(
-                    cc, REDIS_ERR_OTHER,
-                    "Command(cluster slots) reply error(NULL).");
-            }
-            goto error;
-        } else if (reply->type != REDIS_REPLY_ARRAY) {
-            if (reply->type == REDIS_REPLY_ERROR) {
-                __redisClusterSetError(cc, REDIS_ERR_OTHER, reply->str);
-            } else {
-                __redisClusterSetError(
-                    cc, REDIS_ERR_OTHER,
-                    "Command(cluster slots) reply error: type is not array.");
-            }
-
-            goto error;
-        }
-
-        nodes = parse_cluster_slots(cc, reply, cc->flags);
-    } else {
-        reply = redisCommand(c, REDIS_COMMAND_CLUSTER_NODES);
-        if (reply == NULL) {
-            if (c->err == REDIS_ERR_TIMEOUT) {
-                __redisClusterSetError(
-                    cc, c->err,
-                    "Command(cluster nodes) reply error(socket timeout)");
-            } else {
-                __redisClusterSetError(
-                    cc, REDIS_ERR_OTHER,
-                    "Command(cluster nodes) reply error(NULL).");
-            }
-            goto error;
-        } else if (reply->type != REDIS_REPLY_STRING) {
-            if (reply->type == REDIS_REPLY_ERROR) {
-                __redisClusterSetError(cc, REDIS_ERR_OTHER, reply->str);
-            } else {
-                __redisClusterSetError(
-                    cc, REDIS_ERR_OTHER,
-                    "Command(cluster nodes) reply error: type is not string.");
-            }
-
-            goto error;
-        }
-
-        nodes = parse_cluster_nodes(cc, reply->str, reply->len, cc->flags);
-    }
-
-    if (updateNodesAndSlotmap(cc, nodes) != REDIS_OK) {
+    if (cluster_update_route_send_command(cc, c) != REDIS_OK) {
         goto error;
     }
 
-    freeReplyObject(reply);
+    if (cluster_update_route_handle_reply(cc, c) != REDIS_OK) {
+        goto error;
+    }
+
     redisFree(c);
     return REDIS_OK;
 
 error:
-    freeReplyObject(reply);
     redisFree(c);
     return REDIS_ERR;
 }
