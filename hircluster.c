@@ -2230,58 +2230,59 @@ oom:
 
 static void *redis_cluster_command_execute(redisClusterContext *cc,
                                            struct cmd *command) {
-    int ret;
     void *reply = NULL;
     redisClusterNode *node;
     redisContext *c = NULL;
     int error_type;
+    redisContext *c_updating_route = NULL;
 
 retry:
 
     node = node_get_by_table(cc, (uint32_t)command->slot_num);
     if (node == NULL) {
         __redisClusterSetError(cc, REDIS_ERR_OTHER, "node get by table error");
-        return NULL;
+        goto error;
     }
 
     c = ctx_get_by_node(cc, node);
     if (c == NULL) {
-        return NULL;
+        goto error;
     } else if (c->err) {
         node = node_get_which_connected(cc);
         if (node == NULL) {
             __redisClusterSetError(cc, REDIS_ERR_OTHER,
                                    "no reachable node in cluster");
-            return NULL;
+            goto error;
         }
 
         cc->retry_count++;
         if (cc->retry_count > cc->max_retry_count) {
             __redisClusterSetError(cc, REDIS_ERR_CLUSTER_TOO_MANY_RETRIES,
                                    "too many cluster retries");
-            return NULL;
+            goto error;
         }
 
         c = ctx_get_by_node(cc, node);
         if (c == NULL) {
-            return NULL;
+            goto error;
         } else if (c->err) {
             __redisClusterSetError(cc, c->err, c->errstr);
-            return NULL;
+            goto error;
         }
     }
 
+moved_retry:
 ask_retry:
 
     if (redisAppendFormattedCommand(c, command->cmd, command->clen) !=
         REDIS_OK) {
         __redisClusterSetError(cc, c->err, c->errstr);
-        return NULL;
+        goto error;
     }
 
     if (redisGetReply(c, &reply) != REDIS_OK) {
         __redisClusterSetError(cc, c->err, c->errstr);
-        return NULL;
+        goto error;
     }
 
     error_type = cluster_reply_error_type(reply);
@@ -2290,28 +2291,56 @@ ask_retry:
         if (cc->retry_count > cc->max_retry_count) {
             __redisClusterSetError(cc, REDIS_ERR_CLUSTER_TOO_MANY_RETRIES,
                                    "too many cluster retries");
-            freeReplyObject(reply);
-            return NULL;
+            goto error;
         }
 
+        int slot = -1;
         switch (error_type) {
         case CLUSTER_ERR_MOVED:
+            node = node_get_by_redirect_reply(cc, reply, &slot);
             freeReplyObject(reply);
             reply = NULL;
-            ret = cluster_update_route(cc);
-            if (ret != REDIS_OK) {
-                /* Specific error already set */
-                return NULL;
+
+            if (node == NULL) {
+                /* Failed to parse redirect. Specific error already set. */
+                goto error;
             }
 
-            goto retry;
+            /* Update the slot mapping entry for this slot. */
+            if (slot >= 0) {
+                cc->table[slot] = node;
+            }
+
+            if (c_updating_route == NULL) {
+                if (cluster_update_route_send_command(cc, c) == REDIS_OK) {
+                    /* Asynchronous update route using the node that sent the
+                     * redirect. */
+                    c_updating_route = c;
+                } else if (cluster_update_route(cc) == REDIS_OK) {
+                    /* Synchronous update route successful using new connection. */
+                    cc->err = 0;
+                    cc->errstr[0] = '\0';
+                } else {
+                    /* Failed to update route. Specific error already set. */
+                    goto error;
+                }
+            }
+
+            c = ctx_get_by_node(cc, node);
+            if (c == NULL) {
+                goto error;
+            } else if (c->err) {
+                __redisClusterSetError(cc, c->err, c->errstr);
+                goto error;
+            }
+
+            goto moved_retry;
 
             break;
         case CLUSTER_ERR_ASK:
             node = node_get_by_redirect_reply(cc, reply, NULL);
             if (node == NULL) {
-                freeReplyObject(reply);
-                return NULL;
+                goto error;
             }
 
             freeReplyObject(reply);
@@ -2319,16 +2348,16 @@ ask_retry:
 
             c = ctx_get_by_node(cc, node);
             if (c == NULL) {
-                return NULL;
+                goto error;
             } else if (c->err) {
                 __redisClusterSetError(cc, c->err, c->errstr);
-                return NULL;
+                goto error;
             }
 
             reply = redisCommand(c, REDIS_COMMAND_ASKING);
             if (reply == NULL) {
                 __redisClusterSetError(cc, c->err, c->errstr);
-                return NULL;
+                goto error;
             }
 
             freeReplyObject(reply);
@@ -2347,6 +2376,30 @@ ask_retry:
         default:
 
             break;
+        }
+    }
+
+    goto done;
+
+error:
+    if (reply) {
+        freeReplyObject(reply);
+        reply = NULL;
+    }
+
+done:
+    if (c_updating_route) {
+        /* Asyncronous CLUSTER SLOTS or CLUSTER NODES in progress. Wait for the
+         * reply and handle it. */
+        if (cluster_update_route_handle_reply(cc, c_updating_route) != REDIS_OK) {
+            /* Clear error and update synchronously using another node. */
+            cc->err = 0;
+            cc->errstr[0] = '\0';
+            if (cluster_update_route(cc) != REDIS_OK) {
+                /* Clear the reply to indicate failure. */
+                freeReplyObject(reply);
+                reply = NULL;
+            }
         }
     }
 
