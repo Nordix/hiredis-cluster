@@ -224,6 +224,18 @@ add_test(NAME redirect-with-hostname-test
          COMMAND "${CMAKE_SOURCE_DIR}/tests/scripts/redirect-with-hostname-test.sh"
                  "$<TARGET_FILE:clusterclient>"
          WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/tests/scripts/")
+add_test(NAME redirect-with-ipv6-test
+         COMMAND "${CMAKE_SOURCE_DIR}/tests/scripts/redirect-with-ipv6-test.sh"
+                 "$<TARGET_FILE:clusterclient>"
+         WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/tests/scripts/")
+add_test(NAME redirect-with-ipv6-async-test
+         COMMAND "${CMAKE_SOURCE_DIR}/tests/scripts/redirect-with-ipv6-test.sh"
+                 "$<TARGET_FILE:clusterclient_async>"
+         WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/tests/scripts/")
+if(NOT ENABLE_IPV6_TESTS)
+  set_tests_properties(redirect-with-ipv6-test PROPERTIES DISABLED True)
+  set_tests_properties(redirect-with-ipv6-async-test PROPERTIES DISABLED True)
+endif()
 # This test can't be run on hiredis v1.1.0 due to hiredis issue #1171.
 # Disabling the testcase if hiredis contains the issue or if the version is unknown.
 add_test(NAME redirect-with-hostname-test-async
