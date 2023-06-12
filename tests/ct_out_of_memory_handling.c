@@ -1,3 +1,29 @@
+/* Testcases that simulates allocation failures during hiredis-cluster API calls
+ * which verifies the handling of out of memory scenarios (OOM).
+ *
+ * These testcases overrides the default allocators by injecting own functions
+ * which can be configured to fail after a given number of successful allocations.
+ * A testcase can use a prepare function like `prepare_allocation_test()` to
+ * set the number of successful allocations that follows. The allocator will then
+ * count the number of calls before it start to return OOM failures, like
+ * malloc() returning NULL.
+ *
+ * Tests will call a hiredis-cluster API-function while iterating on a number,
+ * the number of successful allocations during the call before it hits an OOM.
+ * The result and the error code is then checked to show "Out of memory".
+ * As a last step the correct number of allocations is prepared to get a
+ * successful API-function call.
+ *
+ * Tip:
+ * When this testcase fails after code changes in the library, run the testcase
+ * in `gdb` to find which API call that failed, and in which iteration.
+ * - Go to the correct stack frame to find which API that triggered a failure.
+ * - Use the gdb command `print i` to find which iteration.
+ * - Investigate if a failure or a success is expected after the code change.
+ * - Set correct `i` in for-loop and the `prepare_allocation_test()` for the test.
+ *   Correct `i` can be hard to know, finding the correct number might require trial
+ *   and error of running with increased/decreased `i` until the edge is found.
+ */
 #include "adapters/libevent.h"
 #include "hircluster.h"
 #include "test_utils.h"
@@ -43,6 +69,10 @@ static void *hi_realloc_fail(void *ptr, size_t size) {
     return NULL;
 }
 
+/* Prepare the test fixture.
+ * Configures the allocator functions with the number of allocations
+ * that will succeed before simulating an out of memory scenario.
+ * Additionally it resets errors in the cluster context. */
 void prepare_allocation_test(redisClusterContext *cc,
                              int _successfulAllocations) {
     successfulAllocations = _successfulAllocations;
@@ -57,16 +87,7 @@ void prepare_allocation_test_async(redisClusterAsyncContext *acc,
     memset(acc->errstr, '\0', strlen(acc->errstr));
 }
 
-// Test of allocation handling
-// The testcase will trigger allocation failures during API calls.
-// It will start by triggering an allocation fault, and the next iteration
-// will start with an successfull allocation and then a failing one,
-// next iteration 2 successful and one failing allocation, and so on..
-//
-// Tip: When this testcase fails after code changes in the library,
-//      use gdb to find out which iteration that fails (print i)
-//      Update i in for-loop and the prepare_allocation_test(_, x) in
-//      the test section just after.
+/* Test of allocation handling in the blocking API */
 void test_alloc_failure_handling(void) {
     int result;
     hiredisAllocFuncs ha = {
@@ -331,15 +352,17 @@ void test_alloc_failure_handling(void) {
 
     // Redirects
     {
-        // Allow allocations until we run commands that results in redirects
+        /* Skip OOM testing during the prepare steps by allowing a high number of
+         * allocations. A specific number of allowed allocations will be used later
+         * in the testcase when we run commands that results in redirects. */
         prepare_allocation_test(cc, 1000);
 
-        // Get the source information for the migration
+        /* Get the source information for the migration. */
         unsigned int slot = redisClusterGetSlotByKey("foo");
         redisClusterNode *srcNode = redisClusterGetNodeByKey(cc, "foo");
         int srcPort = srcNode->port;
 
-        // Get a destination node to migrate the slot to
+        /* Get a destination node to migrate the slot to. */
         redisClusterNode *dstNode;
         nodeIterator ni;
         initNodeIterator(&ni, cc);
@@ -352,14 +375,14 @@ void test_alloc_failure_handling(void) {
 
         redisReply *reply, *replySrcId, *replyDstId;
 
-        // Get node id's
+        /* Get node id's */
         replySrcId = redisClusterCommandToNode(cc, srcNode, "CLUSTER MYID");
         CHECK_REPLY_TYPE(replySrcId, REDIS_REPLY_STRING);
 
         replyDstId = redisClusterCommandToNode(cc, dstNode, "CLUSTER MYID");
         CHECK_REPLY_TYPE(replyDstId, REDIS_REPLY_STRING);
 
-        // Migrate slot
+        /* Migrate slot */
         reply = redisClusterCommandToNode(cc, srcNode,
                                           "CLUSTER SETSLOT %d MIGRATING %s",
                                           slot, replyDstId->str);
@@ -375,7 +398,7 @@ void test_alloc_failure_handling(void) {
         CHECK_REPLY_OK(cc, reply);
         freeReplyObject(reply);
 
-        // ASK reply handling with OOM
+        /* Test ASK reply handling with OOM */
         for (int i = 0; i < 50; ++i) {
             prepare_allocation_test(cc, i);
             reply = redisClusterCommand(cc, "GET foo");
@@ -387,13 +410,14 @@ void test_alloc_failure_handling(void) {
             }
         }
 
-        // ASK reply handling without OOM
+        /* Test ASK reply handling without OOM */
         prepare_allocation_test(cc, 50);
         reply = redisClusterCommand(cc, "GET foo");
         CHECK_REPLY_STR(cc, reply, "one");
         freeReplyObject(reply);
 
-        // Finalize the migration
+        /* Finalize the migration. Skip OOM testing during these steps by
+         * allowing a high number of allocations. */
         prepare_allocation_test(cc, 1000);
         reply = redisClusterCommandToNode(
             cc, srcNode, "CLUSTER SETSLOT %d NODE %s", slot, replyDstId->str);
@@ -404,7 +428,7 @@ void test_alloc_failure_handling(void) {
         CHECK_REPLY_OK(cc, reply);
         freeReplyObject(reply);
 
-        // MOVED reply handling with OOM
+        /* Test MOVED reply handling with OOM */
         for (int i = 0; i < 159; ++i) {
             prepare_allocation_test(cc, i);
             reply = redisClusterCommand(cc, "GET foo");
@@ -416,15 +440,15 @@ void test_alloc_failure_handling(void) {
             }
         }
 
-        // MOVED reply handling without OOM
+        /* Test MOVED reply handling without OOM */
         prepare_allocation_test(cc, 159);
         reply = redisClusterCommand(cc, "GET foo");
         CHECK_REPLY_STR(cc, reply, "one");
         freeReplyObject(reply);
 
-        // MOVED triggers a slotmap update which currently replaces all cluster_node
-        // objects. We can get the new objects by searching for its server ports.
-        // This enables us to migrate the slot back to the original node.
+        /* MOVED triggers a slotmap update which currently replaces all cluster_node
+         * objects. We can get the new objects by searching for its server ports.
+         * This enables us to migrate the slot back to the original node. */
         initNodeIterator(&ni, cc);
         redisClusterNode *node;
         while ((node = nodeNext(&ni)) != NULL) {
@@ -434,8 +458,8 @@ void test_alloc_failure_handling(void) {
                 dstNode = node;
         }
 
-        // Migrate back slot, required by the next testcase.
-        // Skip OOM testing by allowing all allocations
+        /* Migrate back slot, required by the next testcase. Skip OOM testing
+         * during these final steps by allowing a high number of allocations. */
         prepare_allocation_test(cc, 1000);
         reply = redisClusterCommandToNode(cc, dstNode,
                                           "CLUSTER SETSLOT %d MIGRATING %s",
@@ -498,10 +522,6 @@ void commandCallback(redisClusterAsyncContext *cc, void *r, void *privdata) {
 }
 
 // Test of allocation handling in async context
-// The testcase will trigger allocation failures during API calls.
-// It will start by triggering an allocation fault, and the next iteration
-// will start with an successfull allocation and then a failing one,
-// next iteration 2 successful and one failing allocation, and so on..
 void test_alloc_failure_handling_async(void) {
     int result;
     hiredisAllocFuncs ha = {
