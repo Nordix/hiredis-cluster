@@ -2138,29 +2138,37 @@ static int __redisClusterGetReply(redisClusterContext *cc, int slot_num,
     return __redisClusterGetReplyFromNode(cc, node, reply);
 }
 
-static redisClusterNode *node_get_by_ask_error_reply(redisClusterContext *cc,
-                                                     redisReply *reply) {
+/* Parses a MOVED or ASK error reply and returns the destination node. The slot
+ * is returned by pointer, if provided. */
+static redisClusterNode *node_get_by_redirect_reply(redisClusterContext *cc,
+                                                    redisReply *reply,
+                                                    int *slotptr) {
     redisClusterNode *node = NULL;
     sds *part = NULL;
     int part_len = 0;
     char *p;
 
-    /* Expecting ["ASK", "<slot>", "<endpoint>:<port>"] */
+    /* Expecting ["ASK" | "MOVED", "<slot>", "<endpoint>:<port>"] */
     part = sdssplitlen(reply->str, reply->len, " ", 1, &part_len);
     if (part == NULL) {
         goto oom;
     }
     if (part_len != 3) {
         __redisClusterSetError(cc, REDIS_ERR_OTHER,
-                               "failed to parse ASK redirect");
+                               "failed to parse redirect");
         goto done;
+    }
+
+    /* Parse slot if requested. */
+    if (slotptr != NULL) {
+        *slotptr = hi_atoi(part[1], sdslen(part[1]));
     }
 
     /* Find the last occurance of the port separator since
      * IPv6 addresses can contain ':' */
     if ((p = strrchr(part[2], IP_PORT_SEPARATOR)) == NULL) {
         __redisClusterSetError(cc, REDIS_ERR_OTHER,
-                               "port separator missing in ASK redirect");
+                               "port separator missing in redirect");
         goto done;
     }
     // p includes separator
@@ -2168,7 +2176,7 @@ static redisClusterNode *node_get_by_ask_error_reply(redisClusterContext *cc,
     /* Empty endpoint not supported yet */
     if (p - part[2] == 0) {
         __redisClusterSetError(cc, REDIS_ERR_OTHER,
-                               "endpoint missing in ASK redirect");
+                               "endpoint missing in redirect");
         goto done;
     }
 
@@ -2300,7 +2308,7 @@ ask_retry:
 
             break;
         case CLUSTER_ERR_ASK:
-            node = node_get_by_ask_error_reply(cc, reply);
+            node = node_get_by_redirect_reply(cc, reply, NULL);
             if (node == NULL) {
                 freeReplyObject(reply);
                 return NULL;
@@ -3935,7 +3943,7 @@ static void redisClusterAsyncRetryCallback(redisAsyncContext *ac, void *r,
 
             break;
         case CLUSTER_ERR_ASK:
-            node = node_get_by_ask_error_reply(cc, reply);
+            node = node_get_by_redirect_reply(cc, reply, NULL);
             if (node == NULL) {
                 __redisClusterAsyncSetError(acc, cc->err, cc->errstr);
                 goto done;
