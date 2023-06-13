@@ -31,17 +31,17 @@ SEND [[0, 6000, ["127.0.0.1", 7401, "nodeid1"]],[6001, 12000, ["127.0.0.1", 7402
 EXPECT CLOSE
 
 # Topology changed, nodeid2 and nodeid3 are now gone
-EXPECT CONNECT
-EXPECT ["CLUSTER", "SLOTS"]
-SEND [[0, 16383, ["127.0.0.1", 7401, "nodeid1"]]]
-EXPECT CLOSE
+# EXPECT CONNECT
+# EXPECT ["CLUSTER", "SLOTS"]
+# SEND [[0, 16383, ["127.0.0.1", 7401, "nodeid1"]]]
+# EXPECT CLOSE
 
 # This node is now handling all slots.
 EXPECT CONNECT
-EXPECT ["GET", "foo"]
-SEND "boo"
 EXPECT ["GET", "fee"]
 SEND "bee"
+EXPECT ["GET", "foo"]
+SEND "boo"
 
 EXPECT ["SET", "foo", "done"]
 SEND +OK
@@ -54,6 +54,8 @@ timeout 5s ./simulated-redis.pl -p 7402 -d --sigcont $syncpid2 <<'EOF' &
 EXPECT CONNECT
 EXPECT ["GET", "fee"]
 SEND -MOVED 12182 127.0.0.1:7401
+EXPECT ["CLUSTER", "SLOTS"]
+SEND [[0, 16383, ["127.0.0.1", 7401, "nodeid1"]]]
 EXPECT CLOSE
 EOF
 server2=$!
@@ -65,7 +67,7 @@ EXPECT ["GET", "foo"]
 # Late response to avoid race vs. node 2.
 # The pending callback for the GET request will trigger a NULL reply,
 # which will trigger a resend to node 1.
-SLEEP 1
+SLEEP 2
 SEND -MOVED 12182 127.0.0.1:7401
 EXPECT CLOSE
 EOF
@@ -112,11 +114,11 @@ fi
 # Check the output from clusterclient
 expected="unknown error
 resend 'GET foo'
-boo
 bee
+boo
 OK"
 
-cmp "$testname.out" <(echo "$expected") || exit 99
+diff "$testname.out" <(echo "$expected") || exit 99
 
 # Clean up
 rm "$testname.out"
