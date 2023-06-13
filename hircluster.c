@@ -99,7 +99,8 @@ static void freeRedisClusterNode(redisClusterNode *node);
 static void cluster_slot_destroy(cluster_slot *slot);
 static void cluster_open_slot_destroy(copen_slot *oslot);
 static int updateNodesAndSlotmap(redisClusterContext *cc, dict *nodes);
-static int updateSlotMapAsync(redisClusterAsyncContext *acc);
+static int updateSlotMapAsync(redisClusterAsyncContext *acc,
+                              redisAsyncContext *ac);
 
 void listClusterNodeDestructor(void *val) { freeRedisClusterNode(val); }
 
@@ -3689,45 +3690,6 @@ redisAsyncContext *actx_get_by_node(redisClusterAsyncContext *acc,
     return ac;
 }
 
-static redisAsyncContext *
-actx_get_after_update_route_by_slot(redisClusterAsyncContext *acc,
-                                    int slot_num) {
-    int ret;
-    redisClusterContext *cc;
-    redisAsyncContext *ac;
-    redisClusterNode *node;
-
-    if (acc == NULL || slot_num < 0) {
-        return NULL;
-    }
-
-    cc = acc->cc;
-    if (cc == NULL) {
-        return NULL;
-    }
-
-    ret = cluster_update_route(cc);
-    if (ret != REDIS_OK) {
-        __redisClusterAsyncSetError(acc, cc->err, cc->errstr);
-        return NULL;
-    }
-
-    node = node_get_by_table(cc, (uint32_t)slot_num);
-    if (node == NULL) {
-        __redisClusterAsyncSetError(acc, REDIS_ERR_OTHER,
-                                    "node get by table error");
-        return NULL;
-    }
-
-    ac = actx_get_by_node(acc, node);
-    if (ac == NULL) {
-        /* Specific error already set */
-        return NULL;
-    }
-
-    return ac;
-}
-
 redisClusterAsyncContext *redisClusterAsyncContextInit(void) {
     redisClusterContext *cc;
     redisClusterAsyncContext *acc;
@@ -3821,9 +3783,7 @@ void clusterSlotsReplyCallback(redisAsyncContext *ac, void *r, void *privdata) {
 
     if (reply == NULL) {
         /* Retry using available nodes */
-        if (updateSlotMapAsync(acc) == REDIS_OK) {
-            acc->lastSlotmapUpdateAttempt = SLOTMAP_UPDATE_ONGOING;
-        }
+        updateSlotMapAsync(acc, NULL);
         return;
     }
 
@@ -3843,9 +3803,7 @@ void clusterNodesReplyCallback(redisAsyncContext *ac, void *r, void *privdata) {
 
     if (reply == NULL) {
         /* Retry using available nodes */
-        if (updateSlotMapAsync(acc) == REDIS_OK) {
-            acc->lastSlotmapUpdateAttempt = SLOTMAP_UPDATE_ONGOING;
-        }
+        updateSlotMapAsync(acc, NULL);
         return;
     }
 
@@ -3901,22 +3859,31 @@ static redisClusterNode *selectNode(dict *nodes) {
     return selected;
 }
 
-/* Update the slot map by querying a selected cluster node */
-static int updateSlotMapAsync(redisClusterAsyncContext *acc) {
-    if (acc->cc->nodes == NULL) {
-        __redisClusterAsyncSetError(acc, REDIS_ERR_OTHER, "no nodes added");
+/* Update the slot map by querying a selected cluster node. If ac is NULL, an
+ * arbitrary connected node is selected. */
+static int updateSlotMapAsync(redisClusterAsyncContext *acc,
+                              redisAsyncContext *ac) {
+    if (acc->lastSlotmapUpdateAttempt == SLOTMAP_UPDATE_ONGOING) {
+        /* Don't allow concurrent slot map updates. */
         return REDIS_ERR;
     }
 
-    redisClusterNode *node = selectNode(acc->cc->nodes);
-    if (node == NULL) {
-        return REDIS_ERR;
-    }
+    if (ac == NULL) {
+        if (acc->cc->nodes == NULL) {
+            __redisClusterAsyncSetError(acc, REDIS_ERR_OTHER, "no nodes added");
+            goto error;
+        }
 
-    /* Get hiredis context, connect if needed */
-    redisAsyncContext *ac = actx_get_by_node(acc, node);
-    if (ac == NULL)
-        return REDIS_ERR; /* Specific error already set */
+        redisClusterNode *node = selectNode(acc->cc->nodes);
+        if (node == NULL) {
+            goto error;
+        }
+
+        /* Get hiredis context, connect if needed */
+        redisAsyncContext *ac = actx_get_by_node(acc, node);
+        if (ac == NULL)
+            goto error; /* Specific error already set */
+    }
 
     /* Send a command depending of config */
     int status;
@@ -3927,7 +3894,25 @@ static int updateSlotMapAsync(redisClusterAsyncContext *acc) {
         status = redisAsyncCommand(ac, clusterNodesReplyCallback, acc,
                                    REDIS_COMMAND_CLUSTER_NODES);
     }
-    return status;
+
+    if (status == REDIS_OK) {
+        acc->lastSlotmapUpdateAttempt = SLOTMAP_UPDATE_ONGOING;
+        return REDIS_OK;
+    }
+
+error:
+    acc->lastSlotmapUpdateAttempt = hi_usec_now();
+    return REDIS_ERR;
+}
+
+/* Start a slotmap update if the throttling allows. */
+static void throttledUpdateSlotMapAsync(redisClusterAsyncContext *acc,
+                                        redisAsyncContext *ac) {
+    if (acc->lastSlotmapUpdateAttempt != SLOTMAP_UPDATE_ONGOING &&
+        (acc->lastSlotmapUpdateAttempt + SLOTMAP_UPDATE_THROTTLE_USEC) <
+            hi_usec_now()) {
+        updateSlotMapAsync(acc, ac);
+    }
 }
 
 static void redisClusterAsyncRetryCallback(redisAsyncContext *ac, void *r,
@@ -3970,15 +3955,7 @@ static void redisClusterAsyncRetryCallback(redisAsyncContext *ac, void *r,
             goto done; /* Node already removed from topology */
 
         /* Start a slotmap update when the throttling allows */
-        if (acc->lastSlotmapUpdateAttempt != SLOTMAP_UPDATE_ONGOING &&
-            (acc->lastSlotmapUpdateAttempt + SLOTMAP_UPDATE_THROTTLE_USEC) <
-                hi_usec_now()) {
-            if (updateSlotMapAsync(acc) == REDIS_OK) {
-                acc->lastSlotmapUpdateAttempt = SLOTMAP_UPDATE_ONGOING;
-            } else {
-                acc->lastSlotmapUpdateAttempt = hi_usec_now();
-            }
-        }
+        throttledUpdateSlotMapAsync(acc, NULL);
         goto done;
     }
 
@@ -3993,13 +3970,22 @@ static void redisClusterAsyncRetryCallback(redisAsyncContext *ac, void *r,
             goto done;
         }
 
+        int slot = -1;
         switch (error_type) {
         case CLUSTER_ERR_MOVED:
-            ac_retry =
-                actx_get_after_update_route_by_slot(acc, command->slot_num);
-            if (ac_retry == NULL) {
+            /* Initiate slot mapping update using the node that sent MOVED. */
+            throttledUpdateSlotMapAsync(acc, ac);
+
+            node = node_get_by_redirect_reply(cc, reply, &slot);
+            if (node == NULL) {
+                __redisClusterAsyncSetError(acc, cc->err, cc->errstr);
                 goto done;
             }
+            /* Update the slot mapping entry for this slot. */
+            if (slot >= 0) {
+                cc->table[slot] = node;
+            }
+            ac_retry = actx_get_by_node(acc, node);
 
             break;
         case CLUSTER_ERR_ASK:
