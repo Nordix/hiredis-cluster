@@ -3880,10 +3880,10 @@ static int updateSlotMapAsync(redisClusterAsyncContext *acc,
         }
 
         /* Get hiredis context, connect if needed */
-        redisAsyncContext *ac = actx_get_by_node(acc, node);
-        if (ac == NULL)
-            goto error; /* Specific error already set */
+        ac = actx_get_by_node(acc, node);
     }
+    if (ac == NULL)
+        goto error; /* Specific error already set */
 
     /* Send a command depending of config */
     int status;
