@@ -1188,38 +1188,47 @@ error:
 }
 
 /* Sends CLUSTER SLOTS or CLUSTER NODES to the node with context c. */
-int cluster_update_route_send_command(redisClusterContext *cc, redisContext *c) {
+static int clusterUpdateRouteSendCommand(redisClusterContext *cc,
+                                         redisContext *c) {
     const char *cmd = (cc->flags & HIRCLUSTER_FLAG_ROUTE_USE_SLOTS ?
-                       REDIS_COMMAND_CLUSTER_SLOTS :
-                       REDIS_COMMAND_CLUSTER_NODES);
-    int result = redisAppendCommand(c, cmd);
-    if (result != REDIS_OK) {
+                           REDIS_COMMAND_CLUSTER_SLOTS :
+                           REDIS_COMMAND_CLUSTER_NODES);
+    if (redisAppendCommand(c, cmd) != REDIS_OK) {
         const char *msg = (cc->flags & HIRCLUSTER_FLAG_ROUTE_USE_SLOTS ?
-                           "Command (cluster slots) send error." :
-                           "Command (cluster nodes) send error.");
+                               "Command (cluster slots) send error." :
+                               "Command (cluster nodes) send error.");
         __redisClusterSetError(cc, c->err, msg);
+        return REDIS_ERR;
     }
-    return result;
+    /* Flush buffer to socket. */
+    if (redisBufferWrite(c, NULL) == REDIS_ERR)
+        return REDIS_ERR;
+
+    return REDIS_OK;
 }
 
 /* Receives and handles a CLUSTER SLOTS reply from node with context c. */
-static int handle_cluster_slots_reply(redisClusterContext *cc,
-                                      redisContext *c) {
+static int handleClusterSlotsReply(redisClusterContext *cc, redisContext *c) {
     redisReply *reply = NULL;
-    int result = redisGetReply(c, (void **)reply);
+    int result = redisGetReply(c, (void **)&reply);
     if (result != REDIS_OK) {
         if (c->err == REDIS_ERR_TIMEOUT) {
-            __redisClusterSetError(cc, c->err, "Command (cluster slots) reply error (socket timeout)");
+            __redisClusterSetError(
+                cc, c->err,
+                "Command (cluster slots) reply error (socket timeout)");
         } else {
-            __redisClusterSetError(cc, REDIS_ERR_OTHER, "Command (cluster slots) reply error (NULL).");
+            __redisClusterSetError(
+                cc, REDIS_ERR_OTHER,
+                "Command (cluster slots) reply error (NULL).");
         }
         return REDIS_ERR;
     } else if (reply->type != REDIS_REPLY_ARRAY) {
         if (reply->type == REDIS_REPLY_ERROR) {
             __redisClusterSetError(cc, REDIS_ERR_OTHER, reply->str);
         } else {
-            __redisClusterSetError(cc, REDIS_ERR_OTHER,
-                                   "Command (cluster slots) reply error: type is not array.");
+            __redisClusterSetError(
+                cc, REDIS_ERR_OTHER,
+                "Command (cluster slots) reply error: type is not array.");
         }
         freeReplyObject(reply);
         return REDIS_ERR;
@@ -1231,10 +1240,9 @@ static int handle_cluster_slots_reply(redisClusterContext *cc,
 }
 
 /* Receives and handles a CLUSTER NODES reply from node with context c. */
-static int handle_cluster_nodes_reply(redisClusterContext *cc,
-                                      redisContext *c) {
+static int handleClusterNodesReply(redisClusterContext *cc, redisContext *c) {
     redisReply *reply = NULL;
-    int result = redisGetReply(c, (void **)reply);
+    int result = redisGetReply(c, (void **)&reply);
     if (result != REDIS_OK) {
         if (c->err == REDIS_ERR_TIMEOUT) {
             __redisClusterSetError(cc, c->err,
@@ -1265,12 +1273,12 @@ static int handle_cluster_nodes_reply(redisClusterContext *cc,
 
 /* Receives and handles a CLUSTER SLOTS or CLUSTER NODES reply from node with
  * context c. */
-static int cluster_update_route_handle_reply(redisClusterContext *cc,
-                                             redisContext *c) {
+static int clusterUpdateRouteHandleReply(redisClusterContext *cc,
+                                         redisContext *c) {
     if (cc->flags & HIRCLUSTER_FLAG_ROUTE_USE_SLOTS) {
-        return handle_cluster_slots_reply(cc, c);
+        return handleClusterSlotsReply(cc, c);
     } else {
-        return handle_cluster_nodes_reply(cc, c);
+        return handleClusterNodesReply(cc, c);
     }
 }
 
@@ -1319,11 +1327,11 @@ static int cluster_update_route_by_addr(redisClusterContext *cc, const char *ip,
         goto error;
     }
 
-    if (cluster_update_route_send_command(cc, c) != REDIS_OK) {
+    if (clusterUpdateRouteSendCommand(cc, c) != REDIS_OK) {
         goto error;
     }
 
-    if (cluster_update_route_handle_reply(cc, c) != REDIS_OK) {
+    if (clusterUpdateRouteHandleReply(cc, c) != REDIS_OK) {
         goto error;
     }
 
@@ -2154,8 +2162,7 @@ static redisClusterNode *node_get_by_redirect_reply(redisClusterContext *cc,
         goto oom;
     }
     if (part_len != 3) {
-        __redisClusterSetError(cc, REDIS_ERR_OTHER,
-                               "failed to parse redirect");
+        __redisClusterSetError(cc, REDIS_ERR_OTHER, "failed to parse redirect");
         goto done;
     }
 
@@ -2312,8 +2319,8 @@ ask_retry:
             }
 
             if (c_updating_route == NULL) {
-                if (cluster_update_route_send_command(cc, c) == REDIS_OK) {
-                    /* Asynchronous update route using the node that sent the
+                if (clusterUpdateRouteSendCommand(cc, c) == REDIS_OK) {
+                    /* Deferred update route using the node that sent the
                      * redirect. */
                     c_updating_route = c;
                 } else if (cluster_update_route(cc) == REDIS_OK) {
@@ -2389,9 +2396,9 @@ error:
 
 done:
     if (c_updating_route) {
-        /* Asyncronous CLUSTER SLOTS or CLUSTER NODES in progress. Wait for the
+        /* Deferred CLUSTER SLOTS or CLUSTER NODES in progress. Wait for the
          * reply and handle it. */
-        if (cluster_update_route_handle_reply(cc, c_updating_route) != REDIS_OK) {
+        if (clusterUpdateRouteHandleReply(cc, c_updating_route) != REDIS_OK) {
             /* Clear error and update synchronously using another node. */
             cc->err = 0;
             cc->errstr[0] = '\0';
