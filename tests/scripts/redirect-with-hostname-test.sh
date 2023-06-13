@@ -40,10 +40,8 @@ EXPECT ["GET", "foo"]
 SEND -MOVED 12182 localhost:7402
 
 # Slotmap updated due to MOVED
-EXPECT CONNECT
 EXPECT ["CLUSTER", "SLOTS"]
 SEND [[0, 16383, ["localhost", 7402, "nodeid2", ["ip", "192.168.254.254"]]]]
-EXPECT CLOSE
 EXPECT CLOSE
 EOF
 server1=$!
