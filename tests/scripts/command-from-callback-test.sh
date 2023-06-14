@@ -30,15 +30,10 @@ EXPECT ["CLUSTER", "SLOTS"]
 SEND [[0, 6000, ["127.0.0.1", 7401, "nodeid1"]],[6001, 12000, ["127.0.0.1", 7402, "nodeid2"]],[12001, 16383, ["127.0.0.1", 7403, "nodeid3"]]]
 EXPECT CLOSE
 
-# This node is now handling all slots.
+# After slot map update, this node is now handling node2's old slots.
 EXPECT CONNECT
 EXPECT ["GET", "fee"]
 SEND "bee"
-EXPECT ["GET", "foo"]
-SEND "boo"
-
-EXPECT ["SET", "foo", "done"]
-SEND +OK
 EXPECT CLOSE
 EOF
 server1=$!
@@ -47,9 +42,15 @@ server1=$!
 timeout 5s ./simulated-redis.pl -p 7402 -d --sigcont $syncpid2 <<'EOF' &
 EXPECT CONNECT
 EXPECT ["GET", "fee"]
-SEND -MOVED 12182 127.0.0.1:7401
+SEND -MOVED 8471 127.0.0.1:7401
 EXPECT ["CLUSTER", "SLOTS"]
-SEND [[0, 16383, ["127.0.0.1", 7401, "nodeid1"]]]
+SEND [[0, 12000, ["127.0.0.1", 7401, "nodeid1"]], [12001, 16383, ["127.0.0.1", 7402, "nodeid2"]]]
+
+# After update, this node is now handling node3's old slots.
+EXPECT ["GET", "foo"]
+SEND "boo"
+EXPECT ["SET", "foo", "done"]
+SEND +OK
 EXPECT CLOSE
 EOF
 server2=$!
@@ -58,11 +59,9 @@ server2=$!
 timeout 5s ./simulated-redis.pl -p 7403 -d --sigcont $syncpid3 <<'EOF' &
 EXPECT CONNECT
 EXPECT ["GET", "foo"]
-# Late response to avoid race vs. node 2.
-# The pending callback for the GET request will trigger a NULL reply,
-# which will trigger a resend to node 1.
+# Sleep to make sure the command is aborted when node is removed from the slot map.
 SLEEP 1
-SEND -MOVED 12182 127.0.0.1:7401
+SEND -ERR some error not reached
 EXPECT CLOSE
 EOF
 server3=$!
@@ -105,14 +104,22 @@ if [ $clientexit -ne 0 ]; then
     exit $clientexit
 fi
 
-# Check the output from clusterclient
-expected="unknown error
+# Check the output from clusterclient. There's a race so there are two
+# acceptable outcomes.
+expected1="unknown error
 resend 'GET foo'
 bee
 boo
 OK"
+expected2="bee
+unknown error
+resend 'GET foo'
+boo
+OK"
 
-diff -u "$testname.out" <(echo "$expected") || exit 99
+cmp "$testname.out" <(echo "$expected1") || \
+    diff -u "$testname.out" <(echo "$expected2") || \
+    exit 99
 
 # Clean up
 rm "$testname.out"
