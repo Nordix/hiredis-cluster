@@ -2149,9 +2149,9 @@ static int __redisClusterGetReply(redisClusterContext *cc, int slot_num,
 
 /* Parses a MOVED or ASK error reply and returns the destination node. The slot
  * is returned by pointer, if provided. */
-static redisClusterNode *node_get_by_redirect_reply(redisClusterContext *cc,
-                                                    redisReply *reply,
-                                                    int *slotptr) {
+static redisClusterNode *getNodeFromRedirectReply(redisClusterContext *cc,
+                                                  redisReply *reply,
+                                                  int *slotptr) {
     redisClusterNode *node = NULL;
     sds *part = NULL;
     int part_len = 0;
@@ -2305,7 +2305,7 @@ ask_retry:
         int slot = -1;
         switch (error_type) {
         case CLUSTER_ERR_MOVED:
-            node = node_get_by_redirect_reply(cc, reply, &slot);
+            node = getNodeFromRedirectReply(cc, reply, &slot);
             freeReplyObject(reply);
             reply = NULL;
 
@@ -2346,7 +2346,7 @@ ask_retry:
 
             break;
         case CLUSTER_ERR_ASK:
-            node = node_get_by_redirect_reply(cc, reply, NULL);
+            node = getNodeFromRedirectReply(cc, reply, NULL);
             if (node == NULL) {
                 goto error;
             }
@@ -3976,7 +3976,7 @@ static void redisClusterAsyncRetryCallback(redisAsyncContext *ac, void *r,
             /* Initiate slot mapping update using the node that sent MOVED. */
             throttledUpdateSlotMapAsync(acc, ac);
 
-            node = node_get_by_redirect_reply(cc, reply, &slot);
+            node = getNodeFromRedirectReply(cc, reply, &slot);
             if (node == NULL) {
                 __redisClusterAsyncSetError(acc, cc->err, cc->errstr);
                 goto done;
@@ -3989,7 +3989,7 @@ static void redisClusterAsyncRetryCallback(redisAsyncContext *ac, void *r,
 
             break;
         case CLUSTER_ERR_ASK:
-            node = node_get_by_redirect_reply(cc, reply, NULL);
+            node = getNodeFromRedirectReply(cc, reply, NULL);
             if (node == NULL) {
                 __redisClusterAsyncSetError(acc, cc->err, cc->errstr);
                 goto done;
