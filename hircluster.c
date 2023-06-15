@@ -99,7 +99,8 @@ static void freeRedisClusterNode(redisClusterNode *node);
 static void cluster_slot_destroy(cluster_slot *slot);
 static void cluster_open_slot_destroy(copen_slot *oslot);
 static int updateNodesAndSlotmap(redisClusterContext *cc, dict *nodes);
-static int updateSlotMapAsync(redisClusterAsyncContext *acc);
+static int updateSlotMapAsync(redisClusterAsyncContext *acc,
+                              redisAsyncContext *ac);
 
 void listClusterNodeDestructor(void *val) { freeRedisClusterNode(val); }
 
@@ -1187,14 +1188,107 @@ error:
     return NULL;
 }
 
+/* Sends CLUSTER SLOTS or CLUSTER NODES to the node with context c. */
+static int clusterUpdateRouteSendCommand(redisClusterContext *cc,
+                                         redisContext *c) {
+    const char *cmd = (cc->flags & HIRCLUSTER_FLAG_ROUTE_USE_SLOTS ?
+                           REDIS_COMMAND_CLUSTER_SLOTS :
+                           REDIS_COMMAND_CLUSTER_NODES);
+    if (redisAppendCommand(c, cmd) != REDIS_OK) {
+        const char *msg = (cc->flags & HIRCLUSTER_FLAG_ROUTE_USE_SLOTS ?
+                               "Command (cluster slots) send error." :
+                               "Command (cluster nodes) send error.");
+        __redisClusterSetError(cc, c->err, msg);
+        return REDIS_ERR;
+    }
+    /* Flush buffer to socket. */
+    if (redisBufferWrite(c, NULL) == REDIS_ERR)
+        return REDIS_ERR;
+
+    return REDIS_OK;
+}
+
+/* Receives and handles a CLUSTER SLOTS reply from node with context c. */
+static int handleClusterSlotsReply(redisClusterContext *cc, redisContext *c) {
+    redisReply *reply = NULL;
+    int result = redisGetReply(c, (void **)&reply);
+    if (result != REDIS_OK) {
+        if (c->err == REDIS_ERR_TIMEOUT) {
+            __redisClusterSetError(
+                cc, c->err,
+                "Command (cluster slots) reply error (socket timeout)");
+        } else {
+            __redisClusterSetError(
+                cc, REDIS_ERR_OTHER,
+                "Command (cluster slots) reply error (NULL).");
+        }
+        return REDIS_ERR;
+    } else if (reply->type != REDIS_REPLY_ARRAY) {
+        if (reply->type == REDIS_REPLY_ERROR) {
+            __redisClusterSetError(cc, REDIS_ERR_OTHER, reply->str);
+        } else {
+            __redisClusterSetError(
+                cc, REDIS_ERR_OTHER,
+                "Command (cluster slots) reply error: type is not array.");
+        }
+        freeReplyObject(reply);
+        return REDIS_ERR;
+    }
+
+    dict *nodes = parse_cluster_slots(cc, reply, cc->flags);
+    freeReplyObject(reply);
+    return updateNodesAndSlotmap(cc, nodes);
+}
+
+/* Receives and handles a CLUSTER NODES reply from node with context c. */
+static int handleClusterNodesReply(redisClusterContext *cc, redisContext *c) {
+    redisReply *reply = NULL;
+    int result = redisGetReply(c, (void **)&reply);
+    if (result != REDIS_OK) {
+        if (c->err == REDIS_ERR_TIMEOUT) {
+            __redisClusterSetError(cc, c->err,
+                                   "Command (cluster nodes) reply error "
+                                   "(socket timeout)");
+        } else {
+            __redisClusterSetError(cc, REDIS_ERR_OTHER,
+                                   "Command (cluster nodes) reply error "
+                                   "(NULL).");
+        }
+        return REDIS_ERR;
+    } else if (reply->type != REDIS_REPLY_STRING) {
+        if (reply->type == REDIS_REPLY_ERROR) {
+            __redisClusterSetError(cc, REDIS_ERR_OTHER, reply->str);
+        } else {
+            __redisClusterSetError(cc, REDIS_ERR_OTHER,
+                                   "Command(cluster nodes) reply error: "
+                                   "type is not string.");
+        }
+        freeReplyObject(reply);
+        return REDIS_ERR;
+    }
+
+    dict *nodes = parse_cluster_nodes(cc, reply->str, reply->len, cc->flags);
+    freeReplyObject(reply);
+    return updateNodesAndSlotmap(cc, nodes);
+}
+
+/* Receives and handles a CLUSTER SLOTS or CLUSTER NODES reply from node with
+ * context c. */
+static int clusterUpdateRouteHandleReply(redisClusterContext *cc,
+                                         redisContext *c) {
+    if (cc->flags & HIRCLUSTER_FLAG_ROUTE_USE_SLOTS) {
+        return handleClusterSlotsReply(cc, c);
+    } else {
+        return handleClusterNodesReply(cc, c);
+    }
+}
+
 /**
  * Update route with the "cluster nodes" or "cluster slots" command reply.
  */
 static int cluster_update_route_by_addr(redisClusterContext *cc, const char *ip,
                                         int port) {
     redisContext *c = NULL;
-    redisReply *reply = NULL;
-    dict *nodes = NULL;
 
     if (cc == NULL) {
         return REDIS_ERR;
@@ -1234,70 +1328,18 @@ static int cluster_update_route_by_addr(redisClusterContext *cc, const char *ip,
         goto error;
     }
 
-    if (cc->flags & HIRCLUSTER_FLAG_ROUTE_USE_SLOTS) {
-        reply = redisCommand(c, REDIS_COMMAND_CLUSTER_SLOTS);
-        if (reply == NULL) {
-            if (c->err == REDIS_ERR_TIMEOUT) {
-                __redisClusterSetError(
-                    cc, c->err,
-                    "Command(cluster slots) reply error(socket timeout)");
-            } else {
-                __redisClusterSetError(
-                    cc, REDIS_ERR_OTHER,
-                    "Command(cluster slots) reply error(NULL).");
-            }
-            goto error;
-        } else if (reply->type != REDIS_REPLY_ARRAY) {
-            if (reply->type == REDIS_REPLY_ERROR) {
-                __redisClusterSetError(cc, REDIS_ERR_OTHER, reply->str);
-            } else {
-                __redisClusterSetError(
-                    cc, REDIS_ERR_OTHER,
-                    "Command(cluster slots) reply error: type is not array.");
-            }
-
-            goto error;
-        }
-
-        nodes = parse_cluster_slots(cc, reply, cc->flags);
-    } else {
-        reply = redisCommand(c, REDIS_COMMAND_CLUSTER_NODES);
-        if (reply == NULL) {
-            if (c->err == REDIS_ERR_TIMEOUT) {
-                __redisClusterSetError(
-                    cc, c->err,
-                    "Command(cluster nodes) reply error(socket timeout)");
-            } else {
-                __redisClusterSetError(
-                    cc, REDIS_ERR_OTHER,
-                    "Command(cluster nodes) reply error(NULL).");
-            }
-            goto error;
-        } else if (reply->type != REDIS_REPLY_STRING) {
-            if (reply->type == REDIS_REPLY_ERROR) {
-                __redisClusterSetError(cc, REDIS_ERR_OTHER, reply->str);
-            } else {
-                __redisClusterSetError(
-                    cc, REDIS_ERR_OTHER,
-                    "Command(cluster nodes) reply error: type is not string.");
-            }
-
-            goto error;
-        }
-
-        nodes = parse_cluster_nodes(cc, reply->str, reply->len, cc->flags);
-    }
-
-    if (updateNodesAndSlotmap(cc, nodes) != REDIS_OK) {
+    if (clusterUpdateRouteSendCommand(cc, c) != REDIS_OK) {
         goto error;
     }
 
-    freeReplyObject(reply);
+    if (clusterUpdateRouteHandleReply(cc, c) != REDIS_OK) {
+        goto error;
+    }
+
     redisFree(c);
     return REDIS_OK;
 
 error:
-    freeReplyObject(reply);
     redisFree(c);
     return REDIS_ERR;
 }
@@ -2105,29 +2147,36 @@ static int __redisClusterGetReply(redisClusterContext *cc, int slot_num,
     return __redisClusterGetReplyFromNode(cc, node, reply);
 }
 
-static redisClusterNode *node_get_by_ask_error_reply(redisClusterContext *cc,
-                                                     redisReply *reply) {
+/* Parses a MOVED or ASK error reply and returns the destination node. The slot
+ * is returned by pointer, if provided. */
+static redisClusterNode *getNodeFromRedirectReply(redisClusterContext *cc,
+                                                  redisReply *reply,
+                                                  int *slotptr) {
     redisClusterNode *node = NULL;
     sds *part = NULL;
     int part_len = 0;
     char *p;
 
-    /* Expecting ["ASK", "<slot>", "<endpoint>:<port>"] */
+    /* Expecting ["ASK" | "MOVED", "<slot>", "<endpoint>:<port>"] */
     part = sdssplitlen(reply->str, reply->len, " ", 1, &part_len);
     if (part == NULL) {
         goto oom;
     }
     if (part_len != 3) {
-        __redisClusterSetError(cc, REDIS_ERR_OTHER,
-                               "failed to parse ASK redirect");
+        __redisClusterSetError(cc, REDIS_ERR_OTHER, "failed to parse redirect");
         goto done;
+    }
+
+    /* Parse slot if requested. */
+    if (slotptr != NULL) {
+        *slotptr = hi_atoi(part[1], sdslen(part[1]));
     }
 
     /* Find the last occurance of the port separator since
      * IPv6 addresses can contain ':' */
     if ((p = strrchr(part[2], IP_PORT_SEPARATOR)) == NULL) {
         __redisClusterSetError(cc, REDIS_ERR_OTHER,
-                               "port separator missing in ASK redirect");
+                               "port separator missing in redirect");
         goto done;
     }
     // p includes separator
@@ -2135,7 +2184,7 @@ static redisClusterNode *node_get_by_ask_error_reply(redisClusterContext *cc,
     /* Empty endpoint not supported yet */
     if (p - part[2] == 0) {
         __redisClusterSetError(cc, REDIS_ERR_OTHER,
-                               "endpoint missing in ASK redirect");
+                               "endpoint missing in redirect");
         goto done;
     }
 
@@ -2189,58 +2238,59 @@ oom:
 
 static void *redis_cluster_command_execute(redisClusterContext *cc,
                                            struct cmd *command) {
-    int ret;
     void *reply = NULL;
     redisClusterNode *node;
     redisContext *c = NULL;
     int error_type;
+    redisContext *c_updating_route = NULL;
 
 retry:
 
     node = node_get_by_table(cc, (uint32_t)command->slot_num);
     if (node == NULL) {
         __redisClusterSetError(cc, REDIS_ERR_OTHER, "node get by table error");
-        return NULL;
+        goto error;
     }
 
     c = ctx_get_by_node(cc, node);
     if (c == NULL) {
-        return NULL;
+        goto error;
     } else if (c->err) {
         node = node_get_which_connected(cc);
         if (node == NULL) {
             __redisClusterSetError(cc, REDIS_ERR_OTHER,
                                    "no reachable node in cluster");
-            return NULL;
+            goto error;
         }
 
         cc->retry_count++;
         if (cc->retry_count > cc->max_retry_count) {
             __redisClusterSetError(cc, REDIS_ERR_CLUSTER_TOO_MANY_RETRIES,
                                    "too many cluster retries");
-            return NULL;
+            goto error;
         }
 
         c = ctx_get_by_node(cc, node);
         if (c == NULL) {
-            return NULL;
+            goto error;
         } else if (c->err) {
             __redisClusterSetError(cc, c->err, c->errstr);
-            return NULL;
+            goto error;
         }
     }
 
+moved_retry:
 ask_retry:
 
     if (redisAppendFormattedCommand(c, command->cmd, command->clen) !=
         REDIS_OK) {
         __redisClusterSetError(cc, c->err, c->errstr);
-        return NULL;
+        goto error;
     }
 
     if (redisGetReply(c, &reply) != REDIS_OK) {
         __redisClusterSetError(cc, c->err, c->errstr);
-        return NULL;
+        goto error;
     }
 
     error_type = cluster_reply_error_type(reply);
@@ -2249,28 +2299,56 @@ ask_retry:
         if (cc->retry_count > cc->max_retry_count) {
             __redisClusterSetError(cc, REDIS_ERR_CLUSTER_TOO_MANY_RETRIES,
                                    "too many cluster retries");
-            freeReplyObject(reply);
-            return NULL;
+            goto error;
         }
 
+        int slot = -1;
         switch (error_type) {
         case CLUSTER_ERR_MOVED:
+            node = getNodeFromRedirectReply(cc, reply, &slot);
             freeReplyObject(reply);
             reply = NULL;
-            ret = cluster_update_route(cc);
-            if (ret != REDIS_OK) {
-                /* Specific error already set */
-                return NULL;
+
+            if (node == NULL) {
+                /* Failed to parse redirect. Specific error already set. */
+                goto error;
             }
 
-            goto retry;
+            /* Update the slot mapping entry for this slot. */
+            if (slot >= 0) {
+                cc->table[slot] = node;
+            }
+
+            if (c_updating_route == NULL) {
+                if (clusterUpdateRouteSendCommand(cc, c) == REDIS_OK) {
+                    /* Deferred update route using the node that sent the
+                     * redirect. */
+                    c_updating_route = c;
+                } else if (cluster_update_route(cc) == REDIS_OK) {
+                    /* Synchronous update route successful using new connection. */
+                    cc->err = 0;
+                    cc->errstr[0] = '\0';
+                } else {
+                    /* Failed to update route. Specific error already set. */
+                    goto error;
+                }
+            }
+
+            c = ctx_get_by_node(cc, node);
+            if (c == NULL) {
+                goto error;
+            } else if (c->err) {
+                __redisClusterSetError(cc, c->err, c->errstr);
+                goto error;
+            }
+
+            goto moved_retry;
 
             break;
         case CLUSTER_ERR_ASK:
-            node = node_get_by_ask_error_reply(cc, reply);
+            node = getNodeFromRedirectReply(cc, reply, NULL);
             if (node == NULL) {
-                freeReplyObject(reply);
-                return NULL;
+                goto error;
             }
 
             freeReplyObject(reply);
@@ -2278,16 +2356,16 @@ ask_retry:
 
             c = ctx_get_by_node(cc, node);
             if (c == NULL) {
-                return NULL;
+                goto error;
             } else if (c->err) {
                 __redisClusterSetError(cc, c->err, c->errstr);
-                return NULL;
+                goto error;
             }
 
             reply = redisCommand(c, REDIS_COMMAND_ASKING);
             if (reply == NULL) {
                 __redisClusterSetError(cc, c->err, c->errstr);
-                return NULL;
+                goto error;
             }
 
             freeReplyObject(reply);
@@ -2306,6 +2384,30 @@ ask_retry:
         default:
 
             break;
+        }
+    }
+
+    goto done;
+
+error:
+    if (reply) {
+        freeReplyObject(reply);
+        reply = NULL;
+    }
+
+done:
+    if (c_updating_route) {
+        /* Deferred CLUSTER SLOTS or CLUSTER NODES in progress. Wait for the
+         * reply and handle it. */
+        if (clusterUpdateRouteHandleReply(cc, c_updating_route) != REDIS_OK) {
+            /* Clear error and update synchronously using another node. */
+            cc->err = 0;
+            cc->errstr[0] = '\0';
+            if (cluster_update_route(cc) != REDIS_OK) {
+                /* Clear the reply to indicate failure. */
+                freeReplyObject(reply);
+                reply = NULL;
+            }
         }
     }
 
@@ -3588,45 +3690,6 @@ redisAsyncContext *actx_get_by_node(redisClusterAsyncContext *acc,
     return ac;
 }
 
-static redisAsyncContext *
-actx_get_after_update_route_by_slot(redisClusterAsyncContext *acc,
-                                    int slot_num) {
-    int ret;
-    redisClusterContext *cc;
-    redisAsyncContext *ac;
-    redisClusterNode *node;
-
-    if (acc == NULL || slot_num < 0) {
-        return NULL;
-    }
-
-    cc = acc->cc;
-    if (cc == NULL) {
-        return NULL;
-    }
-
-    ret = cluster_update_route(cc);
-    if (ret != REDIS_OK) {
-        __redisClusterAsyncSetError(acc, cc->err, cc->errstr);
-        return NULL;
-    }
-
-    node = node_get_by_table(cc, (uint32_t)slot_num);
-    if (node == NULL) {
-        __redisClusterAsyncSetError(acc, REDIS_ERR_OTHER,
-                                    "node get by table error");
-        return NULL;
-    }
-
-    ac = actx_get_by_node(acc, node);
-    if (ac == NULL) {
-        /* Specific error already set */
-        return NULL;
-    }
-
-    return ac;
-}
-
 redisClusterAsyncContext *redisClusterAsyncContextInit(void) {
     redisClusterContext *cc;
     redisClusterAsyncContext *acc;
@@ -3720,9 +3783,7 @@ void clusterSlotsReplyCallback(redisAsyncContext *ac, void *r, void *privdata) {
 
     if (reply == NULL) {
         /* Retry using available nodes */
-        if (updateSlotMapAsync(acc) == REDIS_OK) {
-            acc->lastSlotmapUpdateAttempt = SLOTMAP_UPDATE_ONGOING;
-        }
+        updateSlotMapAsync(acc, NULL);
         return;
     }
 
@@ -3742,9 +3803,7 @@ void clusterNodesReplyCallback(redisAsyncContext *ac, void *r, void *privdata) {
 
     if (reply == NULL) {
         /* Retry using available nodes */
-        if (updateSlotMapAsync(acc) == REDIS_OK) {
-            acc->lastSlotmapUpdateAttempt = SLOTMAP_UPDATE_ONGOING;
-        }
+        updateSlotMapAsync(acc, NULL);
         return;
     }
 
@@ -3800,22 +3859,31 @@ static redisClusterNode *selectNode(dict *nodes) {
     return selected;
 }
 
-/* Update the slot map by querying a selected cluster node */
-static int updateSlotMapAsync(redisClusterAsyncContext *acc) {
-    if (acc->cc->nodes == NULL) {
-        __redisClusterAsyncSetError(acc, REDIS_ERR_OTHER, "no nodes added");
+/* Update the slot map by querying a selected cluster node. If ac is NULL, an
+ * arbitrary connected node is selected. */
+static int updateSlotMapAsync(redisClusterAsyncContext *acc,
+                              redisAsyncContext *ac) {
+    if (acc->lastSlotmapUpdateAttempt == SLOTMAP_UPDATE_ONGOING) {
+        /* Don't allow concurrent slot map updates. */
         return REDIS_ERR;
     }
 
-    redisClusterNode *node = selectNode(acc->cc->nodes);
-    if (node == NULL) {
-        return REDIS_ERR;
-    }
+    if (ac == NULL) {
+        if (acc->cc->nodes == NULL) {
+            __redisClusterAsyncSetError(acc, REDIS_ERR_OTHER, "no nodes added");
+            goto error;
+        }
 
-    /* Get hiredis context, connect if needed */
-    redisAsyncContext *ac = actx_get_by_node(acc, node);
+        redisClusterNode *node = selectNode(acc->cc->nodes);
+        if (node == NULL) {
+            goto error;
+        }
+
+        /* Get hiredis context, connect if needed */
+        ac = actx_get_by_node(acc, node);
+    }
     if (ac == NULL)
-        return REDIS_ERR; /* Specific error already set */
+        goto error; /* Specific error already set */
 
     /* Send a command depending of config */
     int status;
@@ -3826,7 +3894,25 @@ static int updateSlotMapAsync(redisClusterAsyncContext *acc) {
         status = redisAsyncCommand(ac, clusterNodesReplyCallback, acc,
                                    REDIS_COMMAND_CLUSTER_NODES);
     }
-    return status;
+
+    if (status == REDIS_OK) {
+        acc->lastSlotmapUpdateAttempt = SLOTMAP_UPDATE_ONGOING;
+        return REDIS_OK;
+    }
+
+error:
+    acc->lastSlotmapUpdateAttempt = hi_usec_now();
+    return REDIS_ERR;
+}
+
+/* Start a slotmap update if the throttling allows. */
+static void throttledUpdateSlotMapAsync(redisClusterAsyncContext *acc,
+                                        redisAsyncContext *ac) {
+    if (acc->lastSlotmapUpdateAttempt != SLOTMAP_UPDATE_ONGOING &&
+        (acc->lastSlotmapUpdateAttempt + SLOTMAP_UPDATE_THROTTLE_USEC) <
+            hi_usec_now()) {
+        updateSlotMapAsync(acc, ac);
+    }
 }
 
 static void redisClusterAsyncRetryCallback(redisAsyncContext *ac, void *r,
@@ -3869,15 +3955,7 @@ static void redisClusterAsyncRetryCallback(redisAsyncContext *ac, void *r,
             goto done; /* Node already removed from topology */
 
         /* Start a slotmap update when the throttling allows */
-        if (acc->lastSlotmapUpdateAttempt != SLOTMAP_UPDATE_ONGOING &&
-            (acc->lastSlotmapUpdateAttempt + SLOTMAP_UPDATE_THROTTLE_USEC) <
-                hi_usec_now()) {
-            if (updateSlotMapAsync(acc) == REDIS_OK) {
-                acc->lastSlotmapUpdateAttempt = SLOTMAP_UPDATE_ONGOING;
-            } else {
-                acc->lastSlotmapUpdateAttempt = hi_usec_now();
-            }
-        }
+        throttledUpdateSlotMapAsync(acc, NULL);
         goto done;
     }
 
@@ -3892,17 +3970,26 @@ static void redisClusterAsyncRetryCallback(redisAsyncContext *ac, void *r,
             goto done;
         }
 
+        int slot = -1;
         switch (error_type) {
         case CLUSTER_ERR_MOVED:
-            ac_retry =
-                actx_get_after_update_route_by_slot(acc, command->slot_num);
-            if (ac_retry == NULL) {
+            /* Initiate slot mapping update using the node that sent MOVED. */
+            throttledUpdateSlotMapAsync(acc, ac);
+
+            node = getNodeFromRedirectReply(cc, reply, &slot);
+            if (node == NULL) {
+                __redisClusterAsyncSetError(acc, cc->err, cc->errstr);
                 goto done;
             }
+            /* Update the slot mapping entry for this slot. */
+            if (slot >= 0) {
+                cc->table[slot] = node;
+            }
+            ac_retry = actx_get_by_node(acc, node);
 
             break;
         case CLUSTER_ERR_ASK:
-            node = node_get_by_ask_error_reply(cc, reply);
+            node = getNodeFromRedirectReply(cc, reply, NULL);
             if (node == NULL) {
                 __redisClusterAsyncSetError(acc, cc->err, cc->errstr);
                 goto done;

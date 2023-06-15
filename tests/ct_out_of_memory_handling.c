@@ -429,11 +429,11 @@ void test_alloc_failure_handling(void) {
         freeReplyObject(reply);
 
         /* Test MOVED reply handling with OOM */
-        for (int i = 0; i < 159; ++i) {
+        for (int i = 0; i < 34; ++i) {
             prepare_allocation_test(cc, i);
             reply = redisClusterCommand(cc, "GET foo");
             assert(reply == NULL);
-            if (i < 14 || (i > 26 && i < 158)) {
+            if (i < 14 || i > 26) {
                 ASSERT_STR_EQ(cc->errstr, "Out of memory");
             } else {
                 ASSERT_STR_EQ(cc->errstr, "no reachable node in cluster");
@@ -441,7 +441,7 @@ void test_alloc_failure_handling(void) {
         }
 
         /* Test MOVED reply handling without OOM */
-        prepare_allocation_test(cc, 159);
+        prepare_allocation_test(cc, 34);
         reply = redisClusterCommand(cc, "GET foo");
         CHECK_REPLY_STR(cc, reply, "one");
         freeReplyObject(reply);

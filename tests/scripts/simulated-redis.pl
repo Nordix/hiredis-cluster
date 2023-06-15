@@ -158,17 +158,22 @@ while (<>) {
         my $expected_str = pretty_format_command($expected);
         my $received_str = pretty_format_command($received);
         if ($expected_str ne $received_str) {
-            die "(port $port) Unexpected $received_str received.\n" .
-                "Expected $expected_str.\n";
+            unexpected($port, "$received_str received.\nExpected $expected_str");
         }
     } elsif (/^SLEEP (\d+)$/) {
         sleep $1;
     } else {
-        die "(port $port) Unexpected event: $_\n";
+        unexpected($port, "event: $_");
     }
 }
 print "(port $port) Done.\n" if $debug;
 exit;
+
+sub unexpected {
+    my ($port, $unexpected) = @_;
+    print "(port $port) Unexpected $unexpected\n";
+    die "Unexpected communication\n";
+}
 
 sub redis_encode {
     my $x = shift;
@@ -204,13 +209,13 @@ sub recv_command {
         my $buffer;
         do {
             my $read = read $connection, $buffer, $remaining;
-            die "(port $port) Unexpected EOF while receiving command\n"
+            unexpected($port, "EOF while receiving command")
                 unless $read;
             $result .= $buffer;
             $remaining -= $read;
         } while ($remaining > 0);
         $_ = <$connection>;
-        die "(port $port) Expected \\r\\n after string\n" unless /^\r\n$/
+        unexpected($port, "Expected \\r\\n after string") unless /^\r\n$/
     } else {
         die "Unexpected command: $_\n";
     }
