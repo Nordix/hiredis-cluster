@@ -62,6 +62,9 @@
  * Default is the 'cluster nodes' command. */
 #define HIRCLUSTER_FLAG_ROUTE_USE_SLOTS 0x4000
 
+/* Events, for redisClusterSetEventCallback() */
+#define HIRCLUSTER_EVENT_SLOTMAP_UPDATED 1
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -133,6 +136,7 @@ typedef struct redisClusterContext {
     sslInitFn *ssl_init_fn; /* Func ptr for SSL context initiation */
 
     void (*on_connect)(const struct redisContext *c, int status);
+    void (*event_callback)(const struct redisClusterContext *cc, int event);
 
 } redisClusterContext;
 
@@ -213,6 +217,11 @@ void redisClusterSetMaxRedirect(redisClusterContext *cc,
  * the cause of the error. */
 int redisClusterSetConnectCallback(redisClusterContext *cc,
                                    void(fn)(const redisContext *c, int status));
+
+/* A hook for events, currently only the slot map updated notification. */
+int redisClusterSetEventCallback(redisClusterContext *cc,
+                                 void(fn)(const redisClusterContext *cc,
+                                          int event));
 
 /* Blocking
  * The following functions will block for a reply, or return NULL if there was

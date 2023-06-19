@@ -42,6 +42,7 @@
 	redisClusterGetSlotByKey
 	redisClusterReset
 	redisClusterSetConnectCallback
+	redisClusterSetEventCallback
 	redisClusterSetMaxRedirect
 	redisClusterSetOptionAddNode
 	redisClusterSetOptionAddNodes

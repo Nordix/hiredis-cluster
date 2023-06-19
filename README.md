@@ -207,6 +207,22 @@ if (cc != NULL && cc->err) {
 }
 ```
 
+#### Events per cluster context
+
+There is a hook to get notified when certain events occur.
+Currently, there is only one such event.
+It is that the slotmap has been updated.
+
+```c
+int redisClusterSetEventCallback(redisClusterContext *cc,
+                                 void(fn)(const redisClusterContext *cc, int event));
+```
+
+The callback is called with `event` set to `HIRCLUSTER_EVENT_SLOTMAP_UPDATED`
+when the slotmap has been updated.
+
+#### Events per connection
+
 There is a hook to get notified about connect and reconnect attempts.
 This is useful for applying socket options or access endpoint information for a connection to a particular node.
 The callback is registered using the following function:

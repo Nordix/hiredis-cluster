@@ -9,12 +9,31 @@
 #include <stdlib.h>
 #include <string.h>
 
+void eventCallback(const redisClusterContext *cc, int event) {
+    (void)cc;
+    char *e = event == HIRCLUSTER_EVENT_SLOTMAP_UPDATED ? "slotmap-updated" :
+                                                          "unknown";
+    printf("Event: %s\n", e);
+}
+
 int main(int argc, char **argv) {
-    if (argc <= 1) {
-        fprintf(stderr, "Usage: clusterclient HOST:PORT\n");
+    int show_events = 0;
+
+    int argindex;
+    for (argindex = 1; argindex < argc && argv[argindex][0] == '-';
+         argindex++) {
+        if (strcmp(argv[argindex], "--events") == 0) {
+            show_events = 1;
+        } else {
+            fprintf(stderr, "Unknown argument: '%s'\n", argv[argindex]);
+        }
+    }
+
+    if (argindex >= argc) {
+        fprintf(stderr, "Usage: clusterclient [--events] HOST:PORT\n");
         exit(1);
     }
-    const char *initnode = argv[1];
+    const char *initnode = argv[argindex];
 
     struct timeval timeout = {1, 500000}; // 1.5s
 
@@ -22,6 +41,9 @@ int main(int argc, char **argv) {
     redisClusterSetOptionAddNodes(cc, initnode);
     redisClusterSetOptionConnectTimeout(cc, timeout);
     redisClusterSetOptionRouteUseSlots(cc);
+    if (show_events) {
+        redisClusterSetEventCallback(cc, eventCallback);
+    }
 
     if (redisClusterConnect2(cc) != REDIS_OK) {
         fprintf(stderr, "Connect error: %s\n", cc->errstr);
