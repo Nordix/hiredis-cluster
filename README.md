@@ -181,10 +181,19 @@ using following access ports:
 ### Connecting
 
 The function `redisClusterContextInit` is used to create a `redisClusterContext`.
-The function `redisClusterSetOptionAddNodes` is used to add one or many Redis Cluster addresses.
-The function `redisClusterConnect2` is used to connect to the Redis Cluster.
 The context is where the state for connections is kept.
-The `redisClusterContext`struct has an integer `err` field that is non-zero when the connection is
+
+The function `redisClusterSetOptionAddNodes` is used to add one or many Redis Cluster addresses.
+
+The functions `redisClusterSetOptionUsername` and
+`redisClusterSetOptionPassword` are used to configure authentication, causing
+the AUTH command to be sent on every new connection to Redis.
+
+For more options, see the file [`hircluster.h`](hircluster.h).
+
+The function `redisClusterConnect2` is used to connect to the Redis Cluster.
+
+The `redisClusterContext` struct has an integer `err` field that is non-zero when the connection is
 in an error state. The field `errstr` will contain a string with a description of the error.
 After trying to connect to Redis using `redisClusterContext` you should check the `err` field to see
 if establishing the connection was successful:
