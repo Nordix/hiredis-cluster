@@ -3708,13 +3708,20 @@ redisClusterAsyncContext *redisClusterAsyncContextInit(void) {
     return acc;
 }
 
+/* Creates an asynchronous context with a prepared slot map containing
+ * configured nodes. Since this API is called before any event system can be
+ * attached there is no immediate connection establishment performed.
+ * Users of this API is required to attach an event engine adapter to the
+ * returned cluster context and then any sent command will trigger the
+ * connection attempt. The prepared slot map will probably not match Redis view
+ * and Redis will make sure that hiredis-cluster's slotmap is updated via
+ * a MOVED redirect. */
 redisClusterAsyncContext *redisClusterAsyncConnect(const char *addrs,
                                                    int flags) {
-
     redisClusterContext *cc;
     redisClusterAsyncContext *acc;
 
-    cc = redisClusterConnect(addrs, flags);
+    cc = redisClusterContextInit();
     if (cc == NULL) {
         return NULL;
     }
@@ -3725,6 +3732,32 @@ redisClusterAsyncContext *redisClusterAsyncConnect(const char *addrs,
         return NULL;
     }
 
+    cc->flags = flags;
+    if (redisClusterSetOptionAddNodes(cc, addrs) != REDIS_OK) {
+        return acc;
+    }
+
+    /* Prepare the slot to redisClusterNode lookup table. */
+    cc->table = hi_calloc(REDIS_CLUSTER_SLOTS, sizeof(redisClusterNode *));
+    if (cc->table == NULL) {
+        redisClusterAsyncFree(acc);
+        return NULL;
+    }
+
+    /* Distribute the configured nodes on all slots.
+     * At least one node exists at this stage. */
+    dictIterator di;
+    dictInitIterator(&di, cc->nodes);
+    for (uint32_t i = 0; i < REDIS_CLUSTER_SLOTS; i++) {
+        dictEntry *de = dictNext(&di);
+        if (de == NULL) {
+            /* Last element. Reset the iterator to the first element */
+            dictInitIterator(&di, cc->nodes);
+            de = dictNext(&di);
+            assert(de != NULL);
+        }
+        cc->table[i] = dictGetEntryVal(de);
+    }
     return acc;
 }
 
