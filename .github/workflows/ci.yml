@@ -66,7 +66,7 @@ jobs:
       env:
         CC: ${{ matrix.compiler }}
       working-directory: build
-      run: cmake $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DENABLE_SSL=ON -DDOWNLOAD_HIREDIS=OFF -DUSE_SANITIZER=${{ matrix.sanitizer }} ..
+      run: cmake $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DENABLE_SSL=ON -DENABLE_IPV6_TESTS=ON -DDOWNLOAD_HIREDIS=OFF -DUSE_SANITIZER=${{ matrix.sanitizer }} ..
     - name: Build
       shell: bash
       working-directory: build

@@ -29,7 +29,7 @@ jobs:
       - name: Generate makefiles
         shell: bash
         working-directory: build
-        run: cmake $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=Release -DTEST_WITH_REDIS_VERSION=${{ matrix.redis-version }} ..
+        run: cmake $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=Release -DENABLE_IPV6_TESTS=ON -DTEST_WITH_REDIS_VERSION=${{ matrix.redis-version }} ..
 
       - name: Build
         shell: bash
