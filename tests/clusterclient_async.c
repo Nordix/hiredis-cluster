@@ -64,13 +64,23 @@ void disconnectCallback(const redisAsyncContext *ac, int status) {
     // printf("Disconnected from %s:%d\n", ac->c.tcp.host, ac->c.tcp.port);
 }
 
+void eventCallback(const redisClusterContext *cc, int event) {
+    (void)cc;
+    char *e = event == HIRCLUSTER_EVENT_SLOTMAP_UPDATED ? "slotmap-updated" :
+                                                          "unknown";
+    printf("Event: %s\n", e);
+}
+
 int main(int argc, char **argv) {
     int use_cluster_slots = 1; // Get topology via CLUSTER SLOTS
+    int show_events = 0;
 
     int optind;
     for (optind = 1; optind < argc && argv[optind][0] == '-'; optind++) {
         if (strcmp(argv[optind], "--use-cluster-nodes") == 0) {
             use_cluster_slots = 0; // Use the default CLUSTER NODES instead
+        } else if (strcmp(argv[optind], "--events") == 0) {
+            show_events = 1;
         } else {
             fprintf(stderr, "Unknown argument: '%s'\n", argv[optind]);
         }
@@ -90,6 +100,9 @@ int main(int argc, char **argv) {
     redisClusterSetOptionAddNodes(acc->cc, initnode);
     if (use_cluster_slots) {
         redisClusterSetOptionRouteUseSlots(acc->cc);
+    }
+    if (show_events) {
+        redisClusterSetEventCallback(acc->cc, eventCallback);
     }
 
     if (redisClusterConnect2(acc->cc) != REDIS_OK) {

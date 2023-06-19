@@ -1416,6 +1416,9 @@ static int updateNodesAndSlotmap(redisClusterContext *cc, dict *nodes) {
     if (oldnodes != NULL) {
         dictRelease(oldnodes);
     }
+    if (cc->event_callback != NULL) {
+        cc->event_callback(cc, HIRCLUSTER_EVENT_SLOTMAP_UPDATED);
+    }
     return REDIS_OK;
 
 oom:
@@ -2894,6 +2897,16 @@ int redisClusterSetConnectCallback(redisClusterContext *cc,
                                             int status)) {
     if (cc->on_connect == NULL) {
         cc->on_connect = fn;
+        return REDIS_OK;
+    }
+    return REDIS_ERR;
+}
+
+int redisClusterSetEventCallback(redisClusterContext *cc,
+                                 void(fn)(const redisClusterContext *cc,
+                                          int event)) {
+    if (cc->event_callback == NULL) {
+        cc->event_callback = fn;
         return REDIS_OK;
     }
     return REDIS_ERR;
