@@ -104,22 +104,16 @@ if [ $clientexit -ne 0 ]; then
     exit $clientexit
 fi
 
-# Check the output from clusterclient. There's a race so there are two
-# acceptable outcomes.
-expected1="unknown error
+# Check the output from clusterclient.
+expected="unknown error
 resend 'GET foo'
 bee
 boo
 OK"
-expected2="bee
-unknown error
-resend 'GET foo'
-boo
-OK"
 
-cmp "$testname.out" <(echo "$expected1") || \
-    diff -u "$testname.out" <(echo "$expected2") || \
-    exit 99
+# There's a race so there are three acceptable outcomes. The reply "bee" can
+# come at any point except after "OK". Therefore, we sort before comparing.
+diff -u <(echo "$expected" | sort) <(sort "$testname.out") || exit 99
 
 # Clean up
 rm "$testname.out"
