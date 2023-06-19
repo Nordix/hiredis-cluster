@@ -81,9 +81,10 @@ set_tests_properties(ct_pipeline PROPERTIES LABELS "CT")
 
 add_executable(ct_connection_ipv6 ct_connection_ipv6.c)
 target_link_libraries(ct_connection_ipv6 hiredis_cluster ${SSL_LIBRARY} ${LIBEVENT_LIBRARY})
-if(ENABLE_IPV6_TESTS)
-  add_test(NAME ct_connection_ipv6 COMMAND "$<TARGET_FILE:ct_connection_ipv6>")
-  set_tests_properties(ct_connection_ipv6 PROPERTIES LABELS "CT")
+add_test(NAME ct_connection_ipv6 COMMAND "$<TARGET_FILE:ct_connection_ipv6>")
+set_tests_properties(ct_connection_ipv6 PROPERTIES LABELS "CT")
+if(NOT ENABLE_IPV6_TESTS)
+  set_tests_properties(ct_connection_ipv6 PROPERTIES DISABLED True)
 endif()
 
 add_executable(ct_out_of_memory_handling ct_out_of_memory_handling.c)
