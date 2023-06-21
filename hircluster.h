@@ -294,6 +294,7 @@ int redisClusterAsyncSetDisconnectCallback(redisClusterAsyncContext *acc,
 
 redisClusterAsyncContext *redisClusterAsyncConnect(const char *addrs,
                                                    int flags);
+int redisClusterAsyncConnect2(redisClusterAsyncContext *acc);
 void redisClusterAsyncDisconnect(redisClusterAsyncContext *acc);
 
 /* Commands */

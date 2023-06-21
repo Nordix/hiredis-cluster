@@ -3754,6 +3754,14 @@ redisClusterAsyncContext *redisClusterAsyncConnect(const char *addrs,
     return acc;
 }
 
+int redisClusterAsyncConnect2(redisClusterAsyncContext *acc) {
+    /* An adapter to an async event library is required. */
+    if (acc->adapter == NULL) {
+        return REDIS_ERR;
+    }
+    return updateSlotMapAsync(acc, NULL /*any node*/);
+}
+
 int redisClusterAsyncSetConnectCallback(redisClusterAsyncContext *acc,
                                         redisConnectCallback *fn) {
     if (acc->onConnect == NULL) {
