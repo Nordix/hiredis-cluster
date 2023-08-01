@@ -37,7 +37,10 @@ server2=$!
 wait $syncpid1 $syncpid2;
 
 # Run client
-echo 'DBSIZE' | timeout 3s "$clientprog" 127.0.0.1:7403 > "$testname.out"
+timeout 3s "$clientprog" 127.0.0.1:7403 > "$testname.out" <<'EOF'
+!all
+DBSIZE
+EOF
 clientexit=$?
 
 # Wait for servers to exit

@@ -1,6 +1,13 @@
 /*
  * This program connects to a cluster and then reads commands from stdin, such
  * as "SET foo bar", one per line and prints the results to stdout.
+ *
+ * The behaviour of the client can be altered by following action commands:
+ *
+ * !all    - Send each command to all nodes in the cluster.
+ *           Will send following commands using the `..ToNode()` API and a
+ *           cluster node iterator to send each command to all known nodes.
+ *
  */
 
 #include "hircluster.h"
@@ -8,6 +15,23 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+void printReply(const redisReply *reply) {
+    switch (reply->type) {
+    case REDIS_REPLY_ERROR:
+    case REDIS_REPLY_STATUS:
+    case REDIS_REPLY_STRING:
+    case REDIS_REPLY_VERB:
+    case REDIS_REPLY_BIGNUM:
+        printf("%s\n", reply->str);
+        break;
+    case REDIS_REPLY_INTEGER:
+        printf("%lld\n", reply->integer);
+        break;
+    default:
+        printf("Unhandled reply type: %d\n", reply->type);
+    }
+}
 
 void eventCallback(const redisClusterContext *cc, int event) {
     (void)cc;
@@ -18,6 +42,7 @@ void eventCallback(const redisClusterContext *cc, int event) {
 
 int main(int argc, char **argv) {
     int show_events = 0;
+    int send_to_all = 0;
 
     int argindex;
     for (argindex = 1; argindex < argc && argv[argindex][0] == '-';
@@ -55,13 +80,41 @@ int main(int argc, char **argv) {
         size_t len = strlen(command);
         if (command[len - 1] == '\n') // Chop trailing line break
             command[len - 1] = '\0';
-        redisReply *reply = (redisReply *)redisClusterCommand(cc, command);
-        if (cc->err) {
-            fprintf(stderr, "redisClusterCommand error: %s\n", cc->errstr);
-            exit(101);
+
+        if (command[0] == '\0') /* Skip empty lines */
+            continue;
+        if (command[0] == '#') /* Skip comments */
+            continue;
+        if (command[0] == '!') {
+            if (strcmp(command, "!all") == 0) /* Enable send to all nodes */
+                send_to_all = 1;
+            continue;
         }
-        printf("%s\n", reply->str);
-        freeReplyObject(reply);
+
+        if (send_to_all) {
+            nodeIterator ni;
+            initNodeIterator(&ni, cc);
+
+            redisClusterNode *node;
+            while ((node = nodeNext(&ni)) != NULL) {
+                redisReply *reply =
+                    redisClusterCommandToNode(cc, node, command);
+                if (!reply || cc->err) {
+                    printf("error: %s\n", cc->errstr);
+                } else {
+                    printReply(reply);
+                }
+                freeReplyObject(reply);
+            }
+        } else {
+            redisReply *reply = redisClusterCommand(cc, command);
+            if (!reply || cc->err) {
+                printf("error: %s\n", cc->errstr);
+            } else {
+                printReply(reply);
+            }
+            freeReplyObject(reply);
+        }
     }
 
     redisClusterFree(cc);
