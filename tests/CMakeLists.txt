@@ -149,8 +149,6 @@ endif()
 # Tests using simulated redis node
 add_executable(clusterclient clusterclient.c)
 target_link_libraries(clusterclient hiredis_cluster ${SSL_LIBRARY})
-add_executable(clusterclient_all_nodes clusterclient_all_nodes.c)
-target_link_libraries(clusterclient_all_nodes hiredis_cluster ${SSL_LIBRARY})
 add_executable(clusterclient_async clusterclient_async.c)
 target_link_libraries(clusterclient_async hiredis_cluster ${SSL_LIBRARY} ${LIBEVENT_LIBRARY})
 add_executable(clusterclient_reconnect_async clusterclient_reconnect_async.c)
@@ -191,7 +189,7 @@ add_test(NAME moved-redirect-using-cluster-nodes-test-async
          WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/tests/scripts/")
 add_test(NAME dbsize-to-all-nodes-test
          COMMAND "${CMAKE_SOURCE_DIR}/tests/scripts/dbsize-to-all-nodes-test.sh"
-                 "$<TARGET_FILE:clusterclient_all_nodes>"
+                 "$<TARGET_FILE:clusterclient>"
                  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/tests/scripts/")
 add_test(NAME reconnect-test
          COMMAND "${CMAKE_SOURCE_DIR}/tests/scripts/reconnect-test.sh"
