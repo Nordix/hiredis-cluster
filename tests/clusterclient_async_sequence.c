@@ -19,6 +19,10 @@
  * !sleep  - Sleep a second. Can be used to allow timers to timeout.
  *           Currently not supported while in !async mode.
  *
+ * !all    - Send each command to all nodes in the cluster.
+ *           Will send following commands using the `..ToNode()` API and a
+ *           cluster node iterator to send each command to all known nodes.
+ *
  * An example input of first sending 2 commands and waiting for their responses,
  * before sending a single command and waiting for its response:
  *
@@ -45,8 +49,26 @@ char cmd_history[HISTORY_DEPTH][CMD_SIZE];
 
 int num_running = 0;
 int resend_failed_cmd = 0;
+int send_to_all = 0;
 
 void sendNextCommand(int, short, void *);
+
+void printReply(const redisReply *reply) {
+    switch (reply->type) {
+    case REDIS_REPLY_ERROR:
+    case REDIS_REPLY_STATUS:
+    case REDIS_REPLY_STRING:
+    case REDIS_REPLY_VERB:
+    case REDIS_REPLY_BIGNUM:
+        printf("%s\n", reply->str);
+        break;
+    case REDIS_REPLY_INTEGER:
+        printf("%lld\n", reply->integer);
+        break;
+    default:
+        printf("Unhandled reply type: %d\n", reply->type);
+    }
+}
 
 void replyCallback(redisClusterAsyncContext *acc, void *r, void *privdata) {
     redisReply *reply = (redisReply *)r;
@@ -67,7 +89,7 @@ void replyCallback(redisClusterAsyncContext *acc, void *r, void *privdata) {
             return;
         }
     } else {
-        printf("%s\n", reply->str);
+        printReply(reply);
     }
 
     if (--num_running == 0) {
@@ -109,6 +131,11 @@ void sendNextCommand(int fd, short kind, void *arg) {
             }
             if (strcmp(cmd, "!resend") == 0) /* Enable resend of failed cmd */
                 resend_failed_cmd = 1;
+            if (strcmp(cmd, "!all") == 0) { /* Enable send to all nodes */
+                ASSERT_MSG(resend_failed_cmd == 0,
+                           "!all in !resend not supported");
+                send_to_all = 1;
+            }
             continue; /* Skip line */
         }
 
@@ -116,10 +143,24 @@ void sendNextCommand(int fd, short kind, void *arg) {
         assert(num_running < HISTORY_DEPTH);
         strcpy(cmd_history[num_running], cmd);
 
-        int status = redisClusterAsyncCommand(
-            acc, replyCallback, (void *)((intptr_t)num_running), cmd);
-        ASSERT_MSG(status == REDIS_OK, acc->errstr);
-        num_running++;
+        if (send_to_all) {
+            nodeIterator ni;
+            initNodeIterator(&ni, acc->cc);
+
+            redisClusterNode *node;
+            while ((node = nodeNext(&ni)) != NULL) {
+                int status = redisClusterAsyncCommandToNode(
+                    acc, node, replyCallback, (void *)((intptr_t)num_running),
+                    cmd);
+                ASSERT_MSG(status == REDIS_OK, acc->errstr);
+                num_running++;
+            }
+        } else {
+            int status = redisClusterAsyncCommand(
+                acc, replyCallback, (void *)((intptr_t)num_running), cmd);
+            ASSERT_MSG(status == REDIS_OK, acc->errstr);
+            num_running++;
+        }
 
         if (async)
             continue; /* Send next command as well */

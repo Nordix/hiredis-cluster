@@ -191,6 +191,10 @@ add_test(NAME dbsize-to-all-nodes-test
          COMMAND "${CMAKE_SOURCE_DIR}/tests/scripts/dbsize-to-all-nodes-test.sh"
                  "$<TARGET_FILE:clusterclient>"
                  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/tests/scripts/")
+add_test(NAME dbsize-to-all-nodes-test-async
+         COMMAND "${CMAKE_SOURCE_DIR}/tests/scripts/dbsize-to-all-nodes-test.sh"
+                 "$<TARGET_FILE:clusterclient_async_sequence>"
+                 WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/tests/scripts/")
 add_test(NAME reconnect-test
          COMMAND "${CMAKE_SOURCE_DIR}/tests/scripts/reconnect-test.sh"
                 "$<TARGET_FILE:clusterclient_reconnect_async>"
