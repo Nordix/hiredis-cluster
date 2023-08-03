@@ -5,13 +5,9 @@
 # verify the behaviour when a node is removed from the cluster.
 #
 # First the command DBSIZE is sent to all (two) nodes successfully,
-# then the second node is shutdown. Following DBSIZE commands are
-# also sent to all known nodes.
-#
-# Currently this testcase indicates issues:
-# - The cluster slotmap is not updated as the retry-callback does.
-# - Connection errors are propagated to the following callback, even
-#   for command callbacks from other nodes.
+# then the second node is shutdown. The next DBSIZE command that is sent
+# triggers a slotmap update due to the lost node and all following commands
+# will therefor only be sent to a single node.
 #
 # Usage: $0 /path/to/clusterclient-binary
 
@@ -35,6 +31,9 @@ EXPECT ["DBSIZE"]
 SEND 10
 EXPECT ["DBSIZE"]
 SEND 11
+# The second command to node2 fails which triggers a slotmap update.
+EXPECT ["CLUSTER", "SLOTS"]
+SEND [[0, 16383, ["127.0.0.1", 7401, "nodeid7401"]]]
 EXPECT ["DBSIZE"]
 SEND 12
 EXPECT CLOSE
@@ -58,6 +57,8 @@ timeout 5s "$clientprog" 127.0.0.1:7401 > "$testname.out" <<'EOF'
 !all
 DBSIZE
 DBSIZE
+# Allow slotmap update to finish.
+!sleep
 DBSIZE
 EOF
 clientexit=$?
@@ -84,9 +85,8 @@ fi
 expected="10
 20
 error: Server closed the connection
-error: Server closed the connection
-error: Connection refused
-error: Connection refused"
+11
+12"
 
 echo "$expected" | diff -u - "$testname.out" || exit 99
 
