@@ -71,6 +71,7 @@
 #define CLUSTER_ADDRESS_SEPARATOR ","
 
 #define CLUSTER_DEFAULT_MAX_RETRY_COUNT 5
+#define NO_RETRY -1
 
 #define CRLF "\x0d\x0a"
 #define CRLF_LEN (sizeof("\x0d\x0a") - 1)
@@ -3759,34 +3760,6 @@ int redisClusterAsyncSetDisconnectCallback(redisClusterAsyncContext *acc,
     return REDIS_ERR;
 }
 
-static void redisClusterAsyncCallback(redisAsyncContext *ac, void *r,
-                                      void *privdata) {
-    redisClusterAsyncContext *acc;
-    redisReply *reply = r;
-    cluster_async_data *cad = privdata;
-
-    if (cad == NULL)
-        goto error;
-
-    acc = cad->acc;
-    if (acc == NULL)
-        goto error;
-
-    if (reply == NULL) {
-        __redisClusterAsyncSetError(acc, ac->err, ac->errstr);
-    }
-
-    /* Call the user-registered function */
-    if (acc->err) {
-        cad->callback(acc, NULL, cad->privdata);
-    } else {
-        cad->callback(acc, r, cad->privdata);
-    }
-
-error:
-    cluster_async_data_free(cad);
-}
-
 /* Reply callback function for CLUSTER SLOTS */
 void clusterSlotsReplyCallback(redisAsyncContext *ac, void *r, void *privdata) {
     UNUSED(ac);
@@ -3928,8 +3901,8 @@ static void throttledUpdateSlotMapAsync(redisClusterAsyncContext *acc,
     }
 }
 
-static void redisClusterAsyncRetryCallback(redisAsyncContext *ac, void *r,
-                                           void *privdata) {
+static void redisClusterAsyncCallback(redisAsyncContext *ac, void *r,
+                                      void *privdata) {
     int ret;
     redisReply *reply = r;
     cluster_async_data *cad = privdata;
@@ -3971,6 +3944,9 @@ static void redisClusterAsyncRetryCallback(redisAsyncContext *ac, void *r,
         throttledUpdateSlotMapAsync(acc, NULL);
         goto done;
     }
+
+    if (cad->retry_count == NO_RETRY) /* Skip retry handling */
+        goto done;
 
     error_type = cluster_reply_error_type(reply);
 
@@ -4058,8 +4034,8 @@ done:
 
 retry:
 
-    ret = redisAsyncFormattedCommand(ac_retry, redisClusterAsyncRetryCallback,
-                                     cad, command->cmd, command->clen);
+    ret = redisAsyncFormattedCommand(ac_retry, redisClusterAsyncCallback, cad,
+                                     command->cmd, command->clen);
     if (ret != REDIS_OK) {
         goto error;
     }
@@ -4163,8 +4139,8 @@ int redisClusterAsyncFormattedCommand(redisClusterAsyncContext *acc,
     cad->callback = fn;
     cad->privdata = privdata;
 
-    status = redisAsyncFormattedCommand(ac, redisClusterAsyncRetryCallback, cad,
-                                        cmd, len);
+    status = redisAsyncFormattedCommand(ac, redisClusterAsyncCallback, cad, cmd,
+                                        len);
     if (status != REDIS_OK) {
         goto error;
     }
@@ -4236,6 +4212,7 @@ int redisClusterAsyncFormattedCommandToNode(redisClusterAsyncContext *acc,
     cad->command = command;
     cad->callback = fn;
     cad->privdata = privdata;
+    cad->retry_count = NO_RETRY;
 
     status = redisAsyncFormattedCommand(ac, redisClusterAsyncCallback, cad, cmd,
                                         len);
