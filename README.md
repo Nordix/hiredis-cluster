@@ -264,6 +264,11 @@ anywhere in an argument:
 reply = redisClusterCommand(clustercontext, "SET key:%s %s", myid, value);
 ```
 
+Commands will be sent to the cluster node that the client perceives handling the given key.
+If the cluster topology has changed the Redis node might respond with a redirection error
+which the client will handle, update its slotmap and resend the command to correct node.
+The reply will in this case arrive from the correct node.
+
 ### Sending multi-key commands
 
 Hiredis-cluster supports mget/mset/del multi-key commands.
@@ -282,7 +287,7 @@ When there is a need to send commands to a specific node, the following low-leve
 reply = redisClusterCommandToNode(clustercontext, node, "DBSIZE");
 ```
 
-The function handles printf like arguments similar to `redisClusterCommand()`, but will
+This function handles printf like arguments similar to `redisClusterCommand()`, but will
 only attempt to send the command to the given node and will not perform redirects or retries.
 
 ### Teardown
@@ -398,7 +403,7 @@ For subsequent calls it will return `REDIS_ERR`.
 ### Sending commands and their callbacks
 
 In an asynchronous cluster context, commands are automatically pipelined due to the nature of an event loop.
-Therefore, unlike the synchronous cluster API, there is only a single way to send commands.
+Therefore, unlike the synchronous API, there is only a single way to send commands.
 Because commands are sent to Redis Cluster asynchronously, issuing a command requires a callback function
 that is called when the reply is received. Reply callbacks should have the following prototype:
 ```c
@@ -407,36 +412,53 @@ void(redisClusterAsyncContext *acc, void *reply, void *privdata);
 The `privdata` argument can be used to carry arbitrary data to the callback from the point where
 the command is initially queued for execution.
 
-The functions that can be used to issue commands in an asynchronous context are:
+The most commonly used functions to issue commands in an asynchronous context are:
 ```c
 int redisClusterAsyncCommand(redisClusterAsyncContext *acc,
                              redisClusterCallbackFn *fn,
                              void *privdata, const char *format, ...);
-int redisClusterAsyncCommandToNode(redisClusterAsyncContext *acc,
-                                   redisClusterNode *node,
-                                   redisClusterCallbackFn *fn, void *privdata,
-                                   const char *format, ...);
-int redisClusterAsyncFormattedCommandToNode(redisClusterAsyncContext *acc,
-                                            redisClusterNode *node,
-                                            redisClusterCallbackFn *fn,
-                                            void *privdata, char *cmd, int len);
-int redisClusterAsyncCommandArgvToNode(redisClusterAsyncContext *acc,
-                                       redisClusterNode *node,
-                                       redisClusterCallbackFn *fn,
-                                       void *privdata, int argc,
-                                       const char **argv,
-                                       const size_t *argvlen);
+int redisClusterAsyncCommandArgv(redisClusterAsyncContext *acc,
+                                 redisClusterCallbackFn *fn, void *privdata,
+                                 int argc, const char **argv,
+                                 const size_t *argvlen);
+int redisClusterAsyncFormattedCommand(redisClusterAsyncContext *acc,
+                                      redisClusterCallbackFn *fn,
+                                      void *privdata, char *cmd, int len);
 ```
 These functions works like their blocking counterparts. The return value is `REDIS_OK` when the command
-was successfully added to the output buffer and `REDIS_ERR` otherwise. Example: when the connection
-is being disconnected per user-request, no new commands may be added to the output buffer and `REDIS_ERR` is
-returned on calls to the `redisClusterAsyncCommand` family.
+was successfully added to the output buffer and `REDIS_ERR` otherwise. When the connection is being
+disconnected per user-request, no new commands may be added to the output buffer and `REDIS_ERR` is
+returned.
 
 If the reply for a command with a `NULL` callback is read, it is immediately freed. When the callback
 for a command is non-`NULL`, the memory is freed immediately following the callback: the reply is only
 valid for the duration of the callback.
 
 All pending callbacks are called with a `NULL` reply when the context encountered an error.
+
+### Sending commands to a specific node
+
+When there is a need to send commands to a specific node, the following low-level API can be used.
+
+```c
+int redisClusterAsyncCommandToNode(redisClusterAsyncContext *acc,
+                                   redisClusterNode *node,
+                                   redisClusterCallbackFn *fn, void *privdata,
+                                   const char *format, ...);
+int redisClusterAsyncCommandArgvToNode(redisClusterAsyncContext *acc,
+                                       redisClusterNode *node,
+                                       redisClusterCallbackFn *fn,
+                                       void *privdata, int argc,
+                                       const char **argv,
+                                       const size_t *argvlen);
+int redisClusterAsyncFormattedCommandToNode(redisClusterAsyncContext *acc,
+                                            redisClusterNode *node,
+                                            redisClusterCallbackFn *fn,
+                                            void *privdata, char *cmd, int len);
+```
+
+These functions will only attempt to send the command to a specific node and will not perform redirects or retries,
+but communication errors will trigger a slotmap update just like the commonly used API.
 
 ### Disconnecting
 
