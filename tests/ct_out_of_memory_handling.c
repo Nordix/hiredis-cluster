@@ -364,9 +364,9 @@ void test_alloc_failure_handling(void) {
 
         /* Get a destination node to migrate the slot to. */
         redisClusterNode *dstNode;
-        nodeIterator ni;
-        initNodeIterator(&ni, cc);
-        while ((dstNode = nodeNext(&ni)) != NULL) {
+        redisClusterNodeIterator ni;
+        redisClusterInitNodeIterator(&ni, cc);
+        while ((dstNode = redisClusterNodeNext(&ni)) != NULL) {
             if (dstNode != srcNode)
                 break;
         }
@@ -449,9 +449,9 @@ void test_alloc_failure_handling(void) {
         /* MOVED triggers a slotmap update which currently replaces all cluster_node
          * objects. We can get the new objects by searching for its server ports.
          * This enables us to migrate the slot back to the original node. */
-        initNodeIterator(&ni, cc);
+        redisClusterInitNodeIterator(&ni, cc);
         redisClusterNode *node;
-        while ((node = nodeNext(&ni)) != NULL) {
+        while ((node = redisClusterNodeNext(&ni)) != NULL) {
             if (node->port == srcPort)
                 srcNode = node;
             if (node->port == dstPort)

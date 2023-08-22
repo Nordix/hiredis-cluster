@@ -238,9 +238,9 @@ void test_command_timeout(void) {
     int status = redisClusterConnect2(cc);
     ASSERT_MSG(status == REDIS_OK, cc->errstr);
 
-    nodeIterator ni;
-    initNodeIterator(&ni, cc);
-    redisClusterNode *node = nodeNext(&ni);
+    redisClusterNodeIterator ni;
+    redisClusterInitNodeIterator(&ni, cc);
+    redisClusterNode *node = redisClusterNodeNext(&ni);
     assert(node);
 
     /* Simulate a command timeout */
@@ -272,9 +272,9 @@ void test_command_timeout_set_while_connected(void) {
     int status = redisClusterConnect2(cc);
     ASSERT_MSG(status == REDIS_OK, cc->errstr);
 
-    nodeIterator ni;
-    initNodeIterator(&ni, cc);
-    redisClusterNode *node = nodeNext(&ni);
+    redisClusterNodeIterator ni;
+    redisClusterInitNodeIterator(&ni, cc);
+    redisClusterNode *node = redisClusterNodeNext(&ni);
     assert(node);
 
     redisReply *reply;
@@ -593,9 +593,9 @@ void test_async_command_timeout(void) {
     assert(status == REDIS_OK);
     assert(acc->cc->err == 0);
 
-    nodeIterator ni;
-    initNodeIterator(&ni, acc->cc);
-    redisClusterNode *node = nodeNext(&ni);
+    redisClusterNodeIterator ni;
+    redisClusterInitNodeIterator(&ni, acc->cc);
+    redisClusterNode *node = redisClusterNodeNext(&ni);
     assert(node);
 
     /* Simulate a command timeout and expect a timeout error */
