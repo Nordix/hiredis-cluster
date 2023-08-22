@@ -1,6 +1,5 @@
  EXPORTS
 	actx_get_by_node
-	cluster_update_route
         command_destroy
         command_get
 	ctx_get_by_node
@@ -55,6 +54,7 @@
 	redisClusterSetOptionTimeout
 	redisClusterSetOptionUsername
 	redisClusterSetOptionPassword
+	redisClusterUpdateSlotmap
 	redisClustervAppendCommand
 	redisClustervAsyncCommand
 	redisClustervCommand
