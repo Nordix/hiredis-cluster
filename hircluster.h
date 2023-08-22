@@ -267,8 +267,10 @@ int redisClusterGetReply(redisClusterContext *cc, void **reply);
 /* Reset context after a performed pipelining */
 void redisClusterReset(redisClusterContext *cc);
 
+/* Update the slotmap by querying any node. */
+int redisClusterUpdateSlotmap(redisClusterContext *cc);
+
 /* Internal functions */
-int cluster_update_route(redisClusterContext *cc);
 redisContext *ctx_get_by_node(redisClusterContext *cc, redisClusterNode *node);
 struct dict *parse_cluster_nodes(redisClusterContext *cc, char *str,
                                  int str_len, int flags);
@@ -337,6 +339,7 @@ redisClusterNode *redisClusterGetNodeByKey(redisClusterContext *cc, char *key);
 
 /* Old names of renamed functions and types, kept for backward compatibility. */
 #ifndef HIRCLUSTER_NO_OLD_NAMES
+#define cluster_update_route redisClusterUpdateSlotmap
 #define initNodeIterator redisClusterInitNodeIterator
 #define nodeNext redisClusterNodeNext
 #define redisClusterConnectNonBlock redisClusterConnect

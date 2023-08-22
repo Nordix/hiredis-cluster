@@ -1436,7 +1436,7 @@ error:
     return REDIS_ERR;
 }
 
-int cluster_update_route(redisClusterContext *cc) {
+int redisClusterUpdateSlotmap(redisClusterContext *cc) {
     int ret;
     int flag_err_not_set = 1;
     redisClusterNode *node;
@@ -1547,7 +1547,7 @@ static int _redisClusterConnect2(redisClusterContext *cc) {
         return REDIS_ERR;
     }
 
-    return cluster_update_route(cc);
+    return redisClusterUpdateSlotmap(cc);
 }
 
 /* Connect to a Redis cluster. On error the field error in the returned
@@ -1563,7 +1563,7 @@ static redisClusterContext *_redisClusterConnect(redisClusterContext *cc,
         return cc;
     }
 
-    cluster_update_route(cc);
+    redisClusterUpdateSlotmap(cc);
 
     return cc;
 }
@@ -2333,7 +2333,7 @@ ask_retry:
                     /* Deferred update route using the node that sent the
                      * redirect. */
                     c_updating_route = c;
-                } else if (cluster_update_route(cc) == REDIS_OK) {
+                } else if (redisClusterUpdateSlotmap(cc) == REDIS_OK) {
                     /* Synchronous update route successful using new connection. */
                     cc->err = 0;
                     cc->errstr[0] = '\0';
@@ -2412,7 +2412,7 @@ done:
             /* Clear error and update synchronously using another node. */
             cc->err = 0;
             cc->errstr[0] = '\0';
-            if (cluster_update_route(cc) != REDIS_OK) {
+            if (redisClusterUpdateSlotmap(cc) != REDIS_OK) {
                 /* Clear the reply to indicate failure. */
                 freeReplyObject(reply);
                 reply = NULL;
@@ -3535,7 +3535,7 @@ void redisClusterReset(redisClusterContext *cc) {
     }
 
     if (cc->need_update_route) {
-        status = cluster_update_route(cc);
+        status = redisClusterUpdateSlotmap(cc);
         if (status != REDIS_OK) {
             /* Specific error already set */
             return;
