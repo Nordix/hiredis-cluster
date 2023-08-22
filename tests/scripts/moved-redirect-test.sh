@@ -62,8 +62,10 @@ fi
 
 # Check the output from clusterclient
 expected="Event: slotmap-updated
+Event: ready
 Event: slotmap-updated
-bar"
+bar
+Event: free-context"
 
 echo "$expected" | diff -u - "$testname.out" || exit 99
 

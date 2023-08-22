@@ -1418,7 +1418,12 @@ static int updateNodesAndSlotmap(redisClusterContext *cc, dict *nodes) {
         dictRelease(oldnodes);
     }
     if (cc->event_callback != NULL) {
-        cc->event_callback(cc, HIRCLUSTER_EVENT_SLOTMAP_UPDATED);
+        cc->event_callback(cc, HIRCLUSTER_EVENT_SLOTMAP_UPDATED,
+                           cc->event_privdata);
+        if (cc->route_version == 1) {
+            /* Special event the first time the slotmap was updated. */
+            cc->event_callback(cc, HIRCLUSTER_EVENT_READY, cc->event_privdata);
+        }
     }
     return REDIS_OK;
 
@@ -1489,6 +1494,11 @@ void redisClusterFree(redisClusterContext *cc) {
 
     if (cc == NULL)
         return;
+
+    if (cc->event_callback) {
+        cc->event_callback(cc, HIRCLUSTER_EVENT_FREE_CONTEXT,
+                           cc->event_privdata);
+    }
 
     if (cc->connect_timeout) {
         hi_free(cc->connect_timeout);
@@ -2905,9 +2915,11 @@ int redisClusterSetConnectCallback(redisClusterContext *cc,
 
 int redisClusterSetEventCallback(redisClusterContext *cc,
                                  void(fn)(const redisClusterContext *cc,
-                                          int event)) {
+                                          int event, void *privdata),
+                                 void *privdata) {
     if (cc->event_callback == NULL) {
         cc->event_callback = fn;
+        cc->event_privdata = privdata;
         return REDIS_OK;
     }
     return REDIS_ERR;

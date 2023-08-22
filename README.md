@@ -215,11 +215,18 @@ It is that the slotmap has been updated.
 
 ```c
 int redisClusterSetEventCallback(redisClusterContext *cc,
-                                 void(fn)(const redisClusterContext *cc, int event));
+                                 void(fn)(const redisClusterContext *cc, int event,
+                                          void *privdata),
+                                 void *privdata);
 ```
 
-The callback is called with `event` set to `HIRCLUSTER_EVENT_SLOTMAP_UPDATED`
-when the slotmap has been updated.
+The callback is called with `event` set to one of the following values:
+
+* `HIRCLUSTER_EVENT_SLOTMAP_UPDATED` when the slot mapping has been updated;
+* `HIRCLUSTER_EVENT_READY` when the slot mapping has been fetched for the first
+  time and the client is ready to accept commands;
+* `HIRCLUSTER_EVENT_FREE_CONTEXT` when the cluster context is being freed, so
+  that the user can free the event privdata.
 
 #### Events per connection
 
