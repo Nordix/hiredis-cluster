@@ -7,8 +7,6 @@
 	dictInitIterator
 	dictNext
         hiarray_get
-	initNodeIterator
-	nodeNext
 	parse_cluster_nodes
 	parse_cluster_slots
 	redisClusterAppendCommand
@@ -32,7 +30,6 @@
 	redisClusterCommandToNode
 	redisClusterConnect
 	redisClusterConnect2
-	redisClusterConnectNonBlock
 	redisClusterConnectWithTimeout
 	redisClusterContextInit
 	redisClusterFormattedCommand
@@ -40,6 +37,8 @@
 	redisClusterGetNodeByKey
 	redisClusterGetReply
 	redisClusterGetSlotByKey
+	redisClusterInitNodeIterator
+	redisClusterNodeNext
 	redisClusterReset
 	redisClusterSetConnectCallback
 	redisClusterSetEventCallback

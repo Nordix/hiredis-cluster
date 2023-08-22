@@ -1607,11 +1607,6 @@ redisClusterContext *redisClusterConnectWithTimeout(const char *addrs,
     return _redisClusterConnect(cc, addrs);
 }
 
-/* Deprecated function, replaced by redisClusterConnect() */
-redisClusterContext *redisClusterConnectNonBlock(const char *addrs, int flags) {
-    return redisClusterConnect(addrs, flags);
-}
-
 int redisClusterSetOptionAddNode(redisClusterContext *cc, const char *addr) {
     dictEntry *node_entry;
     redisClusterNode *node = NULL;
@@ -4405,7 +4400,8 @@ void redisClusterAsyncFree(redisClusterAsyncContext *acc) {
 }
 
 /* Initiate an iterator for iterating over current cluster nodes */
-void initNodeIterator(nodeIterator *iter, redisClusterContext *cc) {
+void redisClusterInitNodeIterator(redisClusterNodeIterator *iter,
+                                  redisClusterContext *cc) {
     iter->cc = cc;
     iter->route_version = cc->route_version;
     dictInitIterator(&iter->di, cc->nodes);
@@ -4415,7 +4411,7 @@ void initNodeIterator(nodeIterator *iter, redisClusterContext *cc) {
 /* Get next node from the iterator
  * The iterator will restart if the routing table is updated
  * before all nodes have been iterated. */
-redisClusterNode *nodeNext(nodeIterator *iter) {
+redisClusterNode *redisClusterNodeNext(redisClusterNodeIterator *iter) {
     if (iter->retries_left <= 0)
         return NULL;
 
