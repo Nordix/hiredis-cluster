@@ -222,7 +222,7 @@ void redisClusterSetMaxRedirect(redisClusterContext *cc,
 int redisClusterSetConnectCallback(redisClusterContext *cc,
                                    void(fn)(const redisContext *c, int status));
 
-/* A hook for events, currently only the slot map updated notification. */
+/* A hook for events. */
 int redisClusterSetEventCallback(redisClusterContext *cc,
                                  void(fn)(const redisClusterContext *cc,
                                           int event, void *privdata),
