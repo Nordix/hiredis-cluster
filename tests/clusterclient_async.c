@@ -64,10 +64,23 @@ void disconnectCallback(const redisAsyncContext *ac, int status) {
     // printf("Disconnected from %s:%d\n", ac->c.tcp.host, ac->c.tcp.port);
 }
 
-void eventCallback(const redisClusterContext *cc, int event) {
+void eventCallback(const redisClusterContext *cc, int event, void *privdata) {
     (void)cc;
-    char *e = event == HIRCLUSTER_EVENT_SLOTMAP_UPDATED ? "slotmap-updated" :
-                                                          "unknown";
+    (void)privdata;
+    char *e = NULL;
+    switch (event) {
+    case HIRCLUSTER_EVENT_SLOTMAP_UPDATED:
+        e = "slotmap-updated";
+        break;
+    case HIRCLUSTER_EVENT_READY:
+        e = "ready";
+        break;
+    case HIRCLUSTER_EVENT_FREE_CONTEXT:
+        e = "free-context";
+        break;
+    default:
+        e = "unknown";
+    }
     printf("Event: %s\n", e);
 }
 
@@ -102,7 +115,7 @@ int main(int argc, char **argv) {
         redisClusterSetOptionRouteUseSlots(acc->cc);
     }
     if (show_events) {
-        redisClusterSetEventCallback(acc->cc, eventCallback);
+        redisClusterSetEventCallback(acc->cc, eventCallback, NULL);
     }
 
     if (redisClusterConnect2(acc->cc) != REDIS_OK) {

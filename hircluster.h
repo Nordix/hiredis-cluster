@@ -64,6 +64,8 @@
 
 /* Events, for redisClusterSetEventCallback() */
 #define HIRCLUSTER_EVENT_SLOTMAP_UPDATED 1
+#define HIRCLUSTER_EVENT_READY 2
+#define HIRCLUSTER_EVENT_FREE_CONTEXT 3
 
 #ifdef __cplusplus
 extern "C" {
@@ -136,7 +138,9 @@ typedef struct redisClusterContext {
     sslInitFn *ssl_init_fn; /* Func ptr for SSL context initiation */
 
     void (*on_connect)(const struct redisContext *c, int status);
-    void (*event_callback)(const struct redisClusterContext *cc, int event);
+    void (*event_callback)(const struct redisClusterContext *cc, int event,
+                           void *privdata);
+    void *event_privdata;
 
 } redisClusterContext;
 
@@ -218,10 +222,11 @@ void redisClusterSetMaxRedirect(redisClusterContext *cc,
 int redisClusterSetConnectCallback(redisClusterContext *cc,
                                    void(fn)(const redisContext *c, int status));
 
-/* A hook for events, currently only the slot map updated notification. */
+/* A hook for events. */
 int redisClusterSetEventCallback(redisClusterContext *cc,
                                  void(fn)(const redisClusterContext *cc,
-                                          int event));
+                                          int event, void *privdata),
+                                 void *privdata);
 
 /* Blocking
  * The following functions will block for a reply, or return NULL if there was
