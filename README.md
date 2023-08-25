@@ -405,6 +405,11 @@ if (redisClusterAsyncConnect2(acc) != REDIS_OK) {
 }
 ```
 
+#### Events per cluster context
+
+Use [`redisClusterSetEventCallback`](#events-per-cluster-context) with `acc->cc`
+as the context to get notified when certain events occur.
+
 #### Events per connection
 
 Because the connections that will be created are non-blocking,
