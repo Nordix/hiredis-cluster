@@ -383,7 +383,7 @@ event engine when `redisClusterAsyncConnect2` is called, but the connect and the
 slotmap update is done in a non-blocking fashion.
 
 This means that commands sent directly after `redisClusterAsyncConnect2` may fail
-because the initial slotmap has not yet been retrieved and the client dont know which
+because the initial slotmap has not yet been retrieved and the client doesn't know which
 cluster node to send the command to. You may use the [eventCallback](#events-per-cluster-context)
 to be notified when the slotmap is updated and the client is ready to accept commands.
 An crude example of using the eventCallback can be found in [this testcase](tests/ct_async.c).
