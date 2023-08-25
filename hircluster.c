@@ -2023,11 +2023,23 @@ redisContext *ctx_get_by_node(redisClusterContext *cc, redisClusterNode *node) {
 
 static redisClusterNode *node_get_by_table(redisClusterContext *cc,
                                            uint32_t slot_num) {
-    if (cc == NULL || cc->table == NULL) {
+    if (cc == NULL) {
         return NULL;
     }
 
     if (slot_num >= REDIS_CLUSTER_SLOTS) {
+        __redisClusterSetError(cc, REDIS_ERR_OTHER, "invalid slot");
+        return NULL;
+    }
+
+    if (cc->table == NULL) {
+        __redisClusterSetError(cc, REDIS_ERR_OTHER, "slotmap not available");
+        return NULL;
+    }
+
+    if (cc->table[slot_num] == NULL) {
+        __redisClusterSetError(cc, REDIS_ERR_OTHER,
+                               "slot not served by any node");
         return NULL;
     }
 
@@ -2087,7 +2099,6 @@ static int __redisClusterAppendCommand(redisClusterContext *cc,
 
     node = node_get_by_table(cc, (uint32_t)command->slot_num);
     if (node == NULL) {
-        __redisClusterSetError(cc, REDIS_ERR_OTHER, "node get by slot error");
         return REDIS_ERR;
     }
 
@@ -2153,8 +2164,6 @@ static int __redisClusterGetReply(redisClusterContext *cc, int slot_num,
 
     node = node_get_by_table(cc, (uint32_t)slot_num);
     if (node == NULL) {
-        __redisClusterSetError(cc, REDIS_ERR_OTHER,
-                               "slot not served by any node");
         return REDIS_ERR;
     }
 
@@ -2262,7 +2271,6 @@ retry:
 
     node = node_get_by_table(cc, (uint32_t)command->slot_num);
     if (node == NULL) {
-        __redisClusterSetError(cc, REDIS_ERR_OTHER, "node get by table error");
         goto error;
     }
 
@@ -4130,8 +4138,6 @@ int redisClusterAsyncFormattedCommand(redisClusterAsyncContext *acc,
 
     node = node_get_by_table(cc, (uint32_t)slot_num);
     if (node == NULL) {
-        __redisClusterAsyncSetError(acc, REDIS_ERR_OTHER,
-                                    "node get by table error");
         goto error;
     }
 
