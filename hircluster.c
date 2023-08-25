@@ -1425,6 +1425,7 @@ static int updateNodesAndSlotmap(redisClusterContext *cc, dict *nodes) {
             cc->event_callback(cc, HIRCLUSTER_EVENT_READY, cc->event_privdata);
         }
     }
+    cc->need_update_route = 0;
     return REDIS_OK;
 
 oom:
@@ -2273,8 +2274,19 @@ ask_retry:
         goto error;
     }
 
+    /* If update slotmap has been scheduled, do that in the same pipeline. */
+    if (cc->need_update_route && c_updating_route == NULL) {
+        if (clusterUpdateRouteSendCommand(cc, c) == REDIS_OK) {
+            c_updating_route = c;
+        }
+    }
+
     if (redisGetReply(c, &reply) != REDIS_OK) {
         __redisClusterSetError(cc, c->err, c->errstr);
+        /* We may need to update the slotmap if this node is removed from the
+         * cluster, but the current request may have already timed out so we
+         * schedule it for later. */
+        cc->need_update_route = 1;
         goto error;
     }
 
