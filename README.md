@@ -222,9 +222,9 @@ The callback is called with `event` set to one of the following values:
 
 * `HIRCLUSTER_EVENT_SLOTMAP_UPDATED` when the slot mapping has been updated;
 * `HIRCLUSTER_EVENT_READY` when the slot mapping has been fetched for the first
-  time and the client is ready to accept commands. Useful when initiating the
+  time and the client is ready to accept commands, useful when initiating the
   client with `redisClusterAsyncConnect2()` where a client is not immediately
-  ready after a successful call.
+  ready after a successful call;
 * `HIRCLUSTER_EVENT_FREE_CONTEXT` when the cluster context is being freed, so
   that the user can free the event privdata.
 
