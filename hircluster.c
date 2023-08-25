@@ -4113,6 +4113,11 @@ int redisClusterAsyncFormattedCommand(redisClusterAsyncContext *acc,
 
     node = node_get_by_table(cc, (uint32_t)slot_num);
     if (node == NULL) {
+        /* Error has been set on cc. Move error from cc to acc. */
+        acc->err = cc->err;
+        memcpy(acc->errstr, cc->errstr, 128);
+        cc->err = 0;
+        memset(cc->errstr, '\0', strlen(cc->errstr));
         goto error;
     }
 
