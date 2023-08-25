@@ -358,18 +358,17 @@ There are two alternative ways to initiate a cluster client which also determine
 how the client behaves during the initial connect.
 
 The first alternative is to use the function `redisClusterAsyncConnect`, which initially
-connects to the cluster in a blocking fashion and waits for the slot map before returning.
+connects to the cluster in a blocking fashion and waits for the slotmap before returning.
 Any command sent by the user thereafter will create a new non-blocking connection,
 unless a non-blocking connection already exists to the destination.
-The function returns a pointer to a newly created `redisClusterAsyncContext` struct.
-The `err` field should be checked after creation to make sure the slot map could be
-fetched correctly.
+The function returns a pointer to a newly created `redisClusterAsyncContext` struct and
+its `err` field should be checked to make sure the initial slotmap update was successful.
 
 ```c
+// Insufficient error handling for brevity.
 redisClusterAsyncContext *acc = redisClusterAsyncConnect("127.0.0.1:6379", HIRCLUSTER_FLAG_NULL);
 if (acc->err) {
-    // Handle error.
-    printf("Error: %s\n", acc->errstr);
+    printf("error: %s\n", acc->errstr);
     exit(1);
 }
 
@@ -380,17 +379,17 @@ redisClusterLibeventAttach(acc, base);
 
 The second alternative is to use `redisClusterAsyncContextInit` and `redisClusterAsyncConnect2`
 which avoids the initial blocking connect. This connection alternative requires an attached
-event engine when called but the initial connect and fetch of slot map is done in a
-non-blocking fashion.
+event engine when `redisClusterAsyncConnect2` is called, but the connect and the initial
+slotmap update is done in a non-blocking fashion.
 
-This means that commands sent directly after `redisClusterAsyncConnect2()` returns may fail
-because the initial slotmap has not yet been retrieved and then it is not yet known to which
-Redis node each command should be sent. You may use the [eventCallback](#events-per-cluster-context)
+This means that commands sent directly after `redisClusterAsyncConnect2` may fail
+because the initial slotmap has not yet been retrieved and the client dont know which
+Redis node to send the command to. You may use the [eventCallback](#events-per-cluster-context)
 to be notified when the slotmap is updated and the client is ready to accept commands.
 An crude example of using the eventCallback can be found in [this testcase](tests/ct_async.c).
 
 ```c
-// Error handling omitted for brevity.
+// Insufficient error handling for brevity.
 redisClusterAsyncContext *acc = redisClusterAsyncContextInit();
 
 // Add a cluster node address for the initial connect.
@@ -400,7 +399,10 @@ redisClusterSetOptionAddNodes(acc->cc, "127.0.0.1:6379");
 struct event_base *base = event_base_new();
 redisClusterLibeventAttach(acc, base);
 
-redisClusterAsyncConnect2(acc);
+if (redisClusterAsyncConnect2(acc) != REDIS_OK) {
+    printf("error: %s\n", acc->errstr);
+    exit(1);
+}
 ```
 
 #### Events per connection
