@@ -2046,41 +2046,6 @@ static redisClusterNode *node_get_by_table(redisClusterContext *cc,
     return cc->table[slot_num];
 }
 
-static redisClusterNode *node_get_which_connected(redisClusterContext *cc) {
-    dictEntry *de;
-    redisClusterNode *node;
-    redisContext *c = NULL;
-
-    if (cc == NULL || cc->nodes == NULL) {
-        return NULL;
-    }
-
-    dictIterator di;
-    dictInitIterator(&di, cc->nodes);
-
-    while ((de = dictNext(&di)) != NULL) {
-        node = dictGetEntryVal(de);
-        if (node == NULL) {
-            continue;
-        }
-
-        c = ctx_get_by_node(cc, node);
-        if (c == NULL || c->err) {
-            continue;
-        }
-
-        redisReply *reply = redisCommand(c, REDIS_COMMAND_PING);
-        if (reply != NULL && reply->type == REDIS_REPLY_STATUS &&
-            reply->str != NULL && strcmp(reply->str, "PONG") == 0) {
-            freeReplyObject(reply);
-            return node;
-        }
-        freeReplyObject(reply);
-    }
-
-    return NULL;
-}
-
 /* Helper function for the redisClusterAppendCommand* family of functions.
  *
  * Write a formatted command to the output buffer. When this family
@@ -2275,24 +2240,22 @@ retry:
     }
 
     c = ctx_get_by_node(cc, node);
-    if (c == NULL) {
-        goto error;
-    } else if (c->err) {
-        node = node_get_which_connected(cc);
+    if (c == NULL || c->err) {
+        /* Failed to connect. Maybe there was a failover and this node is gone.
+         * Update slotmap to find out. */
+        if (cluster_update_route(cc) != REDIS_OK) {
+            goto error;
+        }
+
+        redisClusterNode *old_node = node;
+        node = node_get_by_table(cc, (uint32_t)command->slot_num);
         if (node == NULL) {
-            __redisClusterSetError(cc, REDIS_ERR_OTHER,
-                                   "no reachable node in cluster");
             goto error;
         }
-
-        cc->retry_count++;
-        if (cc->retry_count > cc->max_retry_count) {
-            __redisClusterSetError(cc, REDIS_ERR_CLUSTER_TOO_MANY_RETRIES,
-                                   "too many cluster retries");
-            goto error;
+        if (node != old_node) {
+            c = ctx_get_by_node(cc, node);
         }
 
-        c = ctx_get_by_node(cc, node);
         if (c == NULL) {
             goto error;
         } else if (c->err) {
