@@ -222,7 +222,7 @@ The callback is called with `event` set to one of the following values:
 
 * `HIRCLUSTER_EVENT_SLOTMAP_UPDATED` when the slot mapping has been updated;
 * `HIRCLUSTER_EVENT_READY` when the slot mapping has been fetched for the first
-  time and the client is ready to accept commands. Useful when starting the
+  time and the client is ready to accept commands. Useful when initiating the
   client with `redisClusterAsyncConnect2()` where a client is not immediately
   ready after a successful call.
 * `HIRCLUSTER_EVENT_FREE_CONTEXT` when the cluster context is being freed, so
@@ -384,7 +384,7 @@ slotmap update is done in a non-blocking fashion.
 
 This means that commands sent directly after `redisClusterAsyncConnect2` may fail
 because the initial slotmap has not yet been retrieved and the client dont know which
-Redis node to send the command to. You may use the [eventCallback](#events-per-cluster-context)
+cluster node to send the command to. You may use the [eventCallback](#events-per-cluster-context)
 to be notified when the slotmap is updated and the client is ready to accept commands.
 An crude example of using the eventCallback can be found in [this testcase](tests/ct_async.c).
 
