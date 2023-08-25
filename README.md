@@ -523,6 +523,23 @@ See the `adapters/` directory for bindings to *libevent* and a range of other ev
 
 ## Other details
 
+### Cluster node iterator
+
+A `redisClusterNodeIterator` can be used to iterate on all known master nodes in a cluster context.
+First it needs to be initiated using `redisClusterInitNodeIterator()` and then you can repeatedly
+call `redisClusterNodeNext()` to get the next node from the iterator.
+
+```c
+void redisClusterInitNodeIterator(redisClusterNodeIterator *iter,
+                                  redisClusterContext *cc);
+redisClusterNode *redisClusterNodeNext(redisClusterNodeIterator *iter);
+```
+
+The iterator will handle changes due to slotmap updates by restarting the iteration, but on the new
+set of master nodes. There is no bookkeeping for already iterated nodes when a restart is triggered,
+which means that a node can be iterated over more than once depending on when the slotmap update happened
+and the change of cluster nodes.
+
 ### Random number generator
 
 This library uses [random()](https://linux.die.net/man/3/random) while selecting
