@@ -415,6 +415,8 @@ void test_alloc_failure_handling(void) {
         /* Finalize the migration. Skip OOM testing during these steps by
          * allowing a high number of allocations. */
         prepare_allocation_test(cc, 1000);
+        /* Fetch the node again, in case the slotmap has been reloaded. */
+        srcNode = redisClusterGetNodeByKey(cc, "foo");
         reply = redisClusterCommandToNode(
             cc, srcNode, "CLUSTER SETSLOT %d NODE %s", slot, replyDstId->str);
         fprintf(stderr, "reply %p, err %d, errstr \"%s\"\n", (void*)reply, cc->err, cc->errstr);
