@@ -2286,7 +2286,8 @@ ask_retry:
         /* We may need to update the slotmap if this node is removed from the
          * cluster, but the current request may have already timed out so we
          * schedule it for later. */
-        cc->need_update_route = 1;
+        if (c->err != REDIS_ERR_OOM)
+          cc->need_update_route = 1;
         goto error;
     }
 
