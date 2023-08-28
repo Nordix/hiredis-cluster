@@ -97,6 +97,7 @@ redisClusterNode *getNodeByPort(redisClusterContext *cc, int port) {
             return node;
     }
     assert(0);
+    return NULL;
 }
 
 /* Test of allocation handling in the blocking API */

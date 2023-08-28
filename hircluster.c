@@ -2280,7 +2280,7 @@ ask_retry:
          * cluster, but the current request may have already timed out so we
          * schedule it for later. */
         if (c->err != REDIS_ERR_OOM)
-          cc->need_update_route = 1;
+            cc->need_update_route = 1;
         goto error;
     }
 
