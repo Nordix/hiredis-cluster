@@ -10,13 +10,13 @@ static int redis_version_minor;
 /* Helper to extract Redis version information. */
 #define REDIS_VERSION_FIELD "redis_version:"
 void load_redis_version(redisClusterContext *cc) {
-    nodeIterator ni;
+    redisClusterNodeIterator ni;
     redisClusterNode *node;
     char *eptr, *s, *e;
     redisReply *reply = NULL;
 
-    initNodeIterator(&ni, cc);
-    if ((node = nodeNext(&ni)) == NULL)
+    redisClusterInitNodeIterator(&ni, cc);
+    if ((node = redisClusterNodeNext(&ni)) == NULL)
         goto abort;
 
     reply = redisClusterCommandToNode(cc, node, "INFO");

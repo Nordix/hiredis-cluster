@@ -29,11 +29,11 @@ void test_command_to_single_node(redisClusterContext *cc) {
 
 void test_command_to_all_nodes(redisClusterContext *cc) {
 
-    nodeIterator ni;
-    initNodeIterator(&ni, cc);
+    redisClusterNodeIterator ni;
+    redisClusterInitNodeIterator(&ni, cc);
 
     redisClusterNode *node;
-    while ((node = nodeNext(&ni)) != NULL) {
+    while ((node = redisClusterNodeNext(&ni)) != NULL) {
 
         redisReply *reply;
         reply = redisClusterCommandToNode(cc, node, "DBSIZE");
@@ -200,11 +200,11 @@ void test_pipeline_to_single_node(redisClusterContext *cc) {
 
 void test_pipeline_to_all_nodes(redisClusterContext *cc) {
 
-    nodeIterator ni;
-    initNodeIterator(&ni, cc);
+    redisClusterNodeIterator ni;
+    redisClusterInitNodeIterator(&ni, cc);
 
     redisClusterNode *node;
-    while ((node = nodeNext(&ni)) != NULL) {
+    while ((node = redisClusterNodeNext(&ni)) != NULL) {
         int status = redisClusterAppendCommandToNode(cc, node, "DBSIZE");
         ASSERT_MSG(status == REDIS_OK, cc->errstr);
     }
@@ -444,13 +444,13 @@ void test_async_to_all_nodes(void) {
     status = redisClusterLibeventAttach(acc, base);
     assert(status == REDIS_OK);
 
-    nodeIterator ni;
-    initNodeIterator(&ni, acc->cc);
+    redisClusterNodeIterator ni;
+    redisClusterInitNodeIterator(&ni, acc->cc);
 
     ExpectedResult r1 = {.type = REDIS_REPLY_INTEGER};
 
     redisClusterNode *node;
-    while ((node = nodeNext(&ni)) != NULL) {
+    while ((node = redisClusterNodeNext(&ni)) != NULL) {
 
         status = redisClusterAsyncCommandToNode(acc, node, commandCallback, &r1,
                                                 "DBSIZE");

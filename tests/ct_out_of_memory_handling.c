@@ -89,10 +89,10 @@ void prepare_allocation_test_async(redisClusterAsyncContext *acc,
 
 /* Helper */
 redisClusterNode *getNodeByPort(redisClusterContext *cc, int port) {
-    nodeIterator ni;
-    initNodeIterator(&ni, cc);
+    redisClusterNodeIterator ni;
+    redisClusterInitNodeIterator(&ni, cc);
     redisClusterNode *node;
-    while ((node = nodeNext(&ni)) != NULL) {
+    while ((node = redisClusterNodeNext(&ni)) != NULL) {
         if (node->port == port)
             return node;
     }
@@ -376,9 +376,9 @@ void test_alloc_failure_handling(void) {
 
         /* Get a destination node to migrate the slot to. */
         redisClusterNode *dstNode;
-        nodeIterator ni;
-        initNodeIterator(&ni, cc);
-        while ((dstNode = nodeNext(&ni)) != NULL) {
+        redisClusterNodeIterator ni;
+        redisClusterInitNodeIterator(&ni, cc);
+        while ((dstNode = redisClusterNodeNext(&ni)) != NULL) {
             if (dstNode != srcNode)
                 break;
         }
