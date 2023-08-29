@@ -3065,7 +3065,8 @@ void *redisClusterCommandToNode(redisClusterContext *cc, redisClusterNode *node,
 
     if (redisGetReply(c, &reply) != REDIS_OK) {
         __redisClusterSetError(cc, c->err, c->errstr);
-        cc->need_update_route = 1;
+        if (c->err != REDIS_ERR_OOM)
+            cc->need_update_route = 1;
         return NULL;
     }
 
