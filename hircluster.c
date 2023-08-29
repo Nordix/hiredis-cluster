@@ -2241,15 +2241,11 @@ retry:
             goto error;
         }
 
-        redisClusterNode *old_node = node;
         node = node_get_by_table(cc, (uint32_t)command->slot_num);
         if (node == NULL) {
             goto error;
         }
-        if (node != old_node) {
-            c = ctx_get_by_node(cc, node);
-        }
-
+        c = ctx_get_by_node(cc, node);
         if (c == NULL) {
             goto error;
         } else if (c->err) {
@@ -4107,11 +4103,8 @@ int redisClusterAsyncFormattedCommand(redisClusterAsyncContext *acc,
 
     node = node_get_by_table(cc, (uint32_t)slot_num);
     if (node == NULL) {
-        /* Error has been set on cc. Move error from cc to acc. */
-        acc->err = cc->err;
-        memcpy(acc->errstr, cc->errstr, 128);
-        cc->err = 0;
-        memset(cc->errstr, '\0', strlen(cc->errstr));
+        /* node_get_by_table() has set the error on cc. */
+        __redisClusterAsyncSetError(acc, cc->err, cc->errstr);
         goto error;
     }
 
