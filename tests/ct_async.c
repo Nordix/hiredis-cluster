@@ -32,35 +32,57 @@ void disconnectCallback(const redisAsyncContext *ac, int status) {
     printf("Disconnected from %s:%d\n", ac->c.tcp.host, ac->c.tcp.port);
 }
 
+void eventCallback(const redisClusterContext *cc, int event, void *privdata) {
+    (void)cc;
+    redisClusterAsyncContext *acc = (redisClusterAsyncContext *)privdata;
+
+    /* We send our commands when the client is ready to accept commands. */
+    if (event == HIRCLUSTER_EVENT_READY) {
+        int status;
+        status = redisClusterAsyncCommand(acc, setCallback, (char *)"ID",
+                                          "SET key12345 value");
+        ASSERT_MSG(status == REDIS_OK, acc->errstr);
+
+        /* This command will trigger a disconnect in its reply callback. */
+        status = redisClusterAsyncCommand(acc, getCallback, (char *)"ID",
+                                          "GET key12345");
+        ASSERT_MSG(status == REDIS_OK, acc->errstr);
+
+        status = redisClusterAsyncCommand(acc, setCallback, (char *)"ID",
+                                          "SET key23456 value2");
+        ASSERT_MSG(status == REDIS_OK, acc->errstr);
+
+        status = redisClusterAsyncCommand(acc, getCallback, (char *)"ID",
+                                          "GET key23456");
+        ASSERT_MSG(status == REDIS_OK, acc->errstr);
+    }
+}
+
 int main(void) {
-    redisClusterAsyncContext *acc =
-        redisClusterAsyncConnect(CLUSTER_NODE, HIRCLUSTER_FLAG_NULL);
+
+    redisClusterAsyncContext *acc = redisClusterAsyncContextInit();
     assert(acc);
-    ASSERT_MSG(acc->err == 0, acc->errstr);
 
     int status;
+    status = redisClusterAsyncSetConnectCallback(acc, connectCallback);
+    assert(status == REDIS_OK);
+    status = redisClusterAsyncSetDisconnectCallback(acc, disconnectCallback);
+    assert(status == REDIS_OK);
+    status = redisClusterSetEventCallback(acc->cc, eventCallback, acc);
+    assert(status == REDIS_OK);
+    status = redisClusterSetOptionAddNodes(acc->cc, CLUSTER_NODE);
+    assert(status == REDIS_OK);
+
+    /* Expect error when connecting without an attached event library. */
+    status = redisClusterAsyncConnect2(acc);
+    assert(status == REDIS_ERR);
+
     struct event_base *base = event_base_new();
     status = redisClusterLibeventAttach(acc, base);
     assert(status == REDIS_OK);
 
-    redisClusterAsyncSetConnectCallback(acc, connectCallback);
-    redisClusterAsyncSetDisconnectCallback(acc, disconnectCallback);
-
-    status = redisClusterAsyncCommand(acc, setCallback, (char *)"ID",
-                                      "SET key12345 value");
-    ASSERT_MSG(status == REDIS_OK, acc->errstr);
-
-    status = redisClusterAsyncCommand(acc, getCallback, (char *)"ID",
-                                      "GET key12345");
-    ASSERT_MSG(status == REDIS_OK, acc->errstr);
-
-    status = redisClusterAsyncCommand(acc, setCallback, (char *)"ID",
-                                      "SET key23456 value2");
-    ASSERT_MSG(status == REDIS_OK, acc->errstr);
-
-    status = redisClusterAsyncCommand(acc, getCallback, (char *)"ID",
-                                      "GET key23456");
-    ASSERT_MSG(status == REDIS_OK, acc->errstr);
+    status = redisClusterAsyncConnect2(acc);
+    assert(status == REDIS_OK);
 
     event_base_dispatch(base);
 

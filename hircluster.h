@@ -289,8 +289,11 @@ int redisClusterAsyncSetConnectCallback(redisClusterAsyncContext *acc,
 int redisClusterAsyncSetDisconnectCallback(redisClusterAsyncContext *acc,
                                            redisDisconnectCallback *fn);
 
+/* Connect and update slotmap, will block until complete. */
 redisClusterAsyncContext *redisClusterAsyncConnect(const char *addrs,
                                                    int flags);
+/* Connect and update slotmap asynchronously using configured event engine. */
+int redisClusterAsyncConnect2(redisClusterAsyncContext *acc);
 void redisClusterAsyncDisconnect(redisClusterAsyncContext *acc);
 
 /* Commands */

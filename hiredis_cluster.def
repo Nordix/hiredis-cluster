@@ -18,6 +18,7 @@
 	redisClusterAsyncCommandArgvToNode
 	redisClusterAsyncCommandToNode
 	redisClusterAsyncConnect
+	redisClusterAsyncConnect2
 	redisClusterAsyncDisconnect
 	redisClusterAsyncFormattedCommand
 	redisClusterAsyncFormattedCommandToNode

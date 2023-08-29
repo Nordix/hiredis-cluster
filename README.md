@@ -210,8 +210,6 @@ if (cc != NULL && cc->err) {
 #### Events per cluster context
 
 There is a hook to get notified when certain events occur.
-Currently, there is only one such event.
-It is that the slotmap has been updated.
 
 ```c
 int redisClusterSetEventCallback(redisClusterContext *cc,
@@ -224,7 +222,9 @@ The callback is called with `event` set to one of the following values:
 
 * `HIRCLUSTER_EVENT_SLOTMAP_UPDATED` when the slot mapping has been updated;
 * `HIRCLUSTER_EVENT_READY` when the slot mapping has been fetched for the first
-  time and the client is ready to accept commands;
+  time and the client is ready to accept commands, useful when initiating the
+  client with `redisClusterAsyncConnect2()` where a client is not immediately
+  ready after a successful call;
 * `HIRCLUSTER_EVENT_FREE_CONTEXT` when the cluster context is being freed, so
   that the user can free the event privdata.
 
@@ -354,19 +354,63 @@ for hiredis-cluster as well.
 
 ### Connecting
 
-The function `redisClusterAsyncConnect` can be used to
-establish a set of non-blocking connections to a Redis cluster.
-It returns a pointer to the newly created `redisClusterAsyncContext` struct.
-The `err` field should be checked after creation
-to see if there were errors creating the asynchronous cluster context.
+There are two alternative ways to initiate a cluster client which also determines
+how the client behaves during the initial connect.
+
+The first alternative is to use the function `redisClusterAsyncConnect`, which initially
+connects to the cluster in a blocking fashion and waits for the slotmap before returning.
+Any command sent by the user thereafter will create a new non-blocking connection,
+unless a non-blocking connection already exists to the destination.
+The function returns a pointer to a newly created `redisClusterAsyncContext` struct and
+its `err` field should be checked to make sure the initial slotmap update was successful.
 
 ```c
+// Insufficient error handling for brevity.
 redisClusterAsyncContext *acc = redisClusterAsyncConnect("127.0.0.1:6379", HIRCLUSTER_FLAG_NULL);
 if (acc->err) {
-    printf("Error: %s\n", acc->errstr);
-    // handle error
+    printf("error: %s\n", acc->errstr);
+    exit(1);
+}
+
+// Attach an event engine. In this example we use libevent.
+struct event_base *base = event_base_new();
+redisClusterLibeventAttach(acc, base);
+```
+
+The second alternative is to use `redisClusterAsyncContextInit` and `redisClusterAsyncConnect2`
+which avoids the initial blocking connect. This connection alternative requires an attached
+event engine when `redisClusterAsyncConnect2` is called, but the connect and the initial
+slotmap update is done in a non-blocking fashion.
+
+This means that commands sent directly after `redisClusterAsyncConnect2` may fail
+because the initial slotmap has not yet been retrieved and the client doesn't know which
+cluster node to send the command to. You may use the [eventCallback](#events-per-cluster-context)
+to be notified when the slotmap is updated and the client is ready to accept commands.
+An crude example of using the eventCallback can be found in [this testcase](tests/ct_async.c).
+
+```c
+// Insufficient error handling for brevity.
+redisClusterAsyncContext *acc = redisClusterAsyncContextInit();
+
+// Add a cluster node address for the initial connect.
+redisClusterSetOptionAddNodes(acc->cc, "127.0.0.1:6379");
+
+// Attach an event engine. In this example we use libevent.
+struct event_base *base = event_base_new();
+redisClusterLibeventAttach(acc, base);
+
+if (redisClusterAsyncConnect2(acc) != REDIS_OK) {
+    printf("error: %s\n", acc->errstr);
+    exit(1);
 }
 ```
+
+#### Events per cluster context
+
+Use [`redisClusterSetEventCallback`](#events-per-cluster-context) with `acc->cc`
+as the context to get notified when certain events occur.
+
+#### Events per connection
 
 Because the connections that will be created are non-blocking,
 the kernel is not able to instantly return if the specified
