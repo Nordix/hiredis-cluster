@@ -60,9 +60,7 @@
 
 #define REDIS_COMMAND_CLUSTER_NODES "CLUSTER NODES"
 #define REDIS_COMMAND_CLUSTER_SLOTS "CLUSTER SLOTS"
-
 #define REDIS_COMMAND_ASKING "ASKING"
-#define REDIS_COMMAND_PING "PING"
 
 #define IP_PORT_SEPARATOR ':'
 
@@ -1425,6 +1423,7 @@ static int updateNodesAndSlotmap(redisClusterContext *cc, dict *nodes) {
             cc->event_callback(cc, HIRCLUSTER_EVENT_READY, cc->event_privdata);
         }
     }
+    cc->need_update_route = 0;
     return REDIS_OK;
 
 oom:
@@ -2018,50 +2017,27 @@ redisContext *ctx_get_by_node(redisClusterContext *cc, redisClusterNode *node) {
 
 static redisClusterNode *node_get_by_table(redisClusterContext *cc,
                                            uint32_t slot_num) {
-    if (cc == NULL || cc->table == NULL) {
+    if (cc == NULL) {
         return NULL;
     }
 
     if (slot_num >= REDIS_CLUSTER_SLOTS) {
+        __redisClusterSetError(cc, REDIS_ERR_OTHER, "invalid slot");
+        return NULL;
+    }
+
+    if (cc->table == NULL) {
+        __redisClusterSetError(cc, REDIS_ERR_OTHER, "slotmap not available");
+        return NULL;
+    }
+
+    if (cc->table[slot_num] == NULL) {
+        __redisClusterSetError(cc, REDIS_ERR_OTHER,
+                               "slot not served by any node");
         return NULL;
     }
 
     return cc->table[slot_num];
-}
-
-static redisClusterNode *node_get_which_connected(redisClusterContext *cc) {
-    dictEntry *de;
-    redisClusterNode *node;
-    redisContext *c = NULL;
-
-    if (cc == NULL || cc->nodes == NULL) {
-        return NULL;
-    }
-
-    dictIterator di;
-    dictInitIterator(&di, cc->nodes);
-
-    while ((de = dictNext(&di)) != NULL) {
-        node = dictGetEntryVal(de);
-        if (node == NULL) {
-            continue;
-        }
-
-        c = ctx_get_by_node(cc, node);
-        if (c == NULL || c->err) {
-            continue;
-        }
-
-        redisReply *reply = redisCommand(c, REDIS_COMMAND_PING);
-        if (reply != NULL && reply->type == REDIS_REPLY_STATUS &&
-            reply->str != NULL && strcmp(reply->str, "PONG") == 0) {
-            freeReplyObject(reply);
-            return node;
-        }
-        freeReplyObject(reply);
-    }
-
-    return NULL;
 }
 
 /* Helper function for the redisClusterAppendCommand* family of functions.
@@ -2082,7 +2058,6 @@ static int __redisClusterAppendCommand(redisClusterContext *cc,
 
     node = node_get_by_table(cc, (uint32_t)command->slot_num);
     if (node == NULL) {
-        __redisClusterSetError(cc, REDIS_ERR_OTHER, "node get by slot error");
         return REDIS_ERR;
     }
 
@@ -2148,8 +2123,6 @@ static int __redisClusterGetReply(redisClusterContext *cc, int slot_num,
 
     node = node_get_by_table(cc, (uint32_t)slot_num);
     if (node == NULL) {
-        __redisClusterSetError(cc, REDIS_ERR_OTHER,
-                               "slot not served by any node");
         return REDIS_ERR;
     }
 
@@ -2257,28 +2230,21 @@ retry:
 
     node = node_get_by_table(cc, (uint32_t)command->slot_num);
     if (node == NULL) {
-        __redisClusterSetError(cc, REDIS_ERR_OTHER, "node get by table error");
         goto error;
     }
 
     c = ctx_get_by_node(cc, node);
-    if (c == NULL) {
-        goto error;
-    } else if (c->err) {
-        node = node_get_which_connected(cc);
+    if (c == NULL || c->err) {
+        /* Failed to connect. Maybe there was a failover and this node is gone.
+         * Update slotmap to find out. */
+        if (cluster_update_route(cc) != REDIS_OK) {
+            goto error;
+        }
+
+        node = node_get_by_table(cc, (uint32_t)command->slot_num);
         if (node == NULL) {
-            __redisClusterSetError(cc, REDIS_ERR_OTHER,
-                                   "no reachable node in cluster");
             goto error;
         }
-
-        cc->retry_count++;
-        if (cc->retry_count > cc->max_retry_count) {
-            __redisClusterSetError(cc, REDIS_ERR_CLUSTER_TOO_MANY_RETRIES,
-                                   "too many cluster retries");
-            goto error;
-        }
-
         c = ctx_get_by_node(cc, node);
         if (c == NULL) {
             goto error;
@@ -2297,8 +2263,20 @@ ask_retry:
         goto error;
     }
 
+    /* If update slotmap has been scheduled, do that in the same pipeline. */
+    if (cc->need_update_route && c_updating_route == NULL) {
+        if (clusterUpdateRouteSendCommand(cc, c) == REDIS_OK) {
+            c_updating_route = c;
+        }
+    }
+
     if (redisGetReply(c, &reply) != REDIS_OK) {
         __redisClusterSetError(cc, c->err, c->errstr);
+        /* We may need to update the slotmap if this node is removed from the
+         * cluster, but the current request may have already timed out so we
+         * schedule it for later. */
+        if (c->err != REDIS_ERR_OOM)
+            cc->need_update_route = 1;
         goto error;
     }
 
@@ -4133,8 +4111,8 @@ int redisClusterAsyncFormattedCommand(redisClusterAsyncContext *acc,
 
     node = node_get_by_table(cc, (uint32_t)slot_num);
     if (node == NULL) {
-        __redisClusterAsyncSetError(acc, REDIS_ERR_OTHER,
-                                    "node get by table error");
+        /* node_get_by_table() has set the error on cc. */
+        __redisClusterAsyncSetError(acc, cc->err, cc->errstr);
         goto error;
     }
 

@@ -87,6 +87,19 @@ void prepare_allocation_test_async(redisClusterAsyncContext *acc,
     memset(acc->errstr, '\0', strlen(acc->errstr));
 }
 
+/* Helper */
+redisClusterNode *getNodeByPort(redisClusterContext *cc, int port) {
+    redisClusterNodeIterator ni;
+    redisClusterInitNodeIterator(&ni, cc);
+    redisClusterNode *node;
+    while ((node = redisClusterNodeNext(&ni)) != NULL) {
+        if (node->port == port)
+            return node;
+    }
+    assert(0);
+    return NULL;
+}
+
 /* Test of allocation handling in the blocking API */
 void test_alloc_failure_handling(void) {
     int result;
@@ -403,11 +416,7 @@ void test_alloc_failure_handling(void) {
             prepare_allocation_test(cc, i);
             reply = redisClusterCommand(cc, "GET foo");
             assert(reply == NULL);
-            if (i < 14 || i > 26) {
-                ASSERT_STR_EQ(cc->errstr, "Out of memory");
-            } else {
-                ASSERT_STR_EQ(cc->errstr, "no reachable node in cluster");
-            }
+            ASSERT_STR_EQ(cc->errstr, "Out of memory");
         }
 
         /* Test ASK reply handling without OOM */
@@ -419,6 +428,9 @@ void test_alloc_failure_handling(void) {
         /* Finalize the migration. Skip OOM testing during these steps by
          * allowing a high number of allocations. */
         prepare_allocation_test(cc, 1000);
+        /* Fetch the nodes again, in case the slotmap has been reloaded. */
+        srcNode = redisClusterGetNodeByKey(cc, "foo");
+        dstNode = getNodeByPort(cc, dstPort);
         reply = redisClusterCommandToNode(
             cc, srcNode, "CLUSTER SETSLOT %d NODE %s", slot, replyDstId->str);
         CHECK_REPLY_OK(cc, reply);
@@ -433,11 +445,7 @@ void test_alloc_failure_handling(void) {
             prepare_allocation_test(cc, i);
             reply = redisClusterCommand(cc, "GET foo");
             assert(reply == NULL);
-            if (i < 14 || i > 26) {
-                ASSERT_STR_EQ(cc->errstr, "Out of memory");
-            } else {
-                ASSERT_STR_EQ(cc->errstr, "no reachable node in cluster");
-            }
+            ASSERT_STR_EQ(cc->errstr, "Out of memory");
         }
 
         /* Test MOVED reply handling without OOM */
@@ -449,14 +457,8 @@ void test_alloc_failure_handling(void) {
         /* MOVED triggers a slotmap update which currently replaces all cluster_node
          * objects. We can get the new objects by searching for its server ports.
          * This enables us to migrate the slot back to the original node. */
-        redisClusterInitNodeIterator(&ni, cc);
-        redisClusterNode *node;
-        while ((node = redisClusterNodeNext(&ni)) != NULL) {
-            if (node->port == srcPort)
-                srcNode = node;
-            if (node->port == dstPort)
-                dstNode = node;
-        }
+        srcNode = getNodeByPort(cc, srcPort);
+        dstNode = getNodeByPort(cc, dstPort);
 
         /* Migrate back slot, required by the next testcase. Skip OOM testing
          * during these final steps by allowing a high number of allocations. */

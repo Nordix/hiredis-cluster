@@ -399,7 +399,7 @@ void test_async_password_wrong(void) {
     ret = redisClusterAsyncCommand(acc, commandCallback, &r, "SET key1 Hello");
     assert(ret == REDIS_ERR);
     assert(acc->err == REDIS_ERR_OTHER);
-    assert(strcmp(acc->errstr, "node get by table error") == 0);
+    assert(strcmp(acc->errstr, "slotmap not available") == 0);
 
     event_base_dispatch(base);
 
@@ -432,7 +432,7 @@ void test_async_password_missing(void) {
     ret = redisClusterAsyncCommand(acc, commandCallback, &r, "SET key1 Hello");
     assert(ret == REDIS_ERR);
     assert(acc->err == REDIS_ERR_OTHER);
-    assert(strcmp(acc->errstr, "node get by table error") == 0);
+    assert(strcmp(acc->errstr, "slotmap not available") == 0);
 
     event_base_dispatch(base);
 
