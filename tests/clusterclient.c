@@ -54,13 +54,16 @@ void eventCallback(const redisClusterContext *cc, int event, void *privdata) {
 }
 
 int main(int argc, char **argv) {
+    int use_cluster_slots = 1;
     int show_events = 0;
     int send_to_all = 0;
 
     int argindex;
     for (argindex = 1; argindex < argc && argv[argindex][0] == '-';
          argindex++) {
-        if (strcmp(argv[argindex], "--events") == 0) {
+        if (strcmp(argv[argindex], "--use-cluster-nodes") == 0) {
+            use_cluster_slots = 0;
+        } else if (strcmp(argv[argindex], "--events") == 0) {
             show_events = 1;
         } else {
             fprintf(stderr, "Unknown argument: '%s'\n", argv[argindex]);
@@ -78,14 +81,16 @@ int main(int argc, char **argv) {
     redisClusterContext *cc = redisClusterContextInit();
     redisClusterSetOptionAddNodes(cc, initnode);
     redisClusterSetOptionConnectTimeout(cc, timeout);
-    redisClusterSetOptionRouteUseSlots(cc);
+    if (use_cluster_slots) {
+        redisClusterSetOptionRouteUseSlots(cc);
+    }
     if (show_events) {
         redisClusterSetEventCallback(cc, eventCallback, NULL);
     }
 
     if (redisClusterConnect2(cc) != REDIS_OK) {
         fprintf(stderr, "Connect error: %s\n", cc->errstr);
-        exit(100);
+        exit(2);
     }
 
     char command[256];
