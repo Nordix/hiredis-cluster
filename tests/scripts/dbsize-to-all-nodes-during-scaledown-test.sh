@@ -31,11 +31,12 @@ EXPECT ["DBSIZE"]
 SEND 10
 EXPECT ["DBSIZE"]
 SEND 11
-# The second command to node2 fails which triggers a slotmap update.
-EXPECT ["CLUSTER", "SLOTS"]
-SEND [[0, 16383, ["127.0.0.1", 7401, "nodeid7401"]]]
 EXPECT ["DBSIZE"]
 SEND 12
+# The second command to node2 fails which triggers a slotmap update pipelined
+# onto the 3rd DBSIZE to this node.
+EXPECT ["CLUSTER", "SLOTS"]
+SEND [[0, 16383, ["127.0.0.1", 7401, "nodeid7401"]]]
 EXPECT CLOSE
 EOF
 server1=$!
@@ -84,8 +85,8 @@ fi
 # Check the output from clusterclient
 expected="10
 20
-error: Server closed the connection
 11
+error: Server closed the connection
 12"
 
 echo "$expected" | diff -u - "$testname.out" || exit 99

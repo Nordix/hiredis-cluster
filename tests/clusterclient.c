@@ -118,6 +118,10 @@ int main(int argc, char **argv) {
                     printReply(reply);
                 }
                 freeReplyObject(reply);
+                if (ni.route_version != cc->route_version) {
+                    /* Updated slotmap resets the iterator. Abort iteration. */
+                    break;
+                }
             }
         } else {
             redisReply *reply = redisClusterCommand(cc, command);

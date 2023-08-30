@@ -3047,6 +3047,11 @@ void *redisClusterCommandToNode(redisClusterContext *cc, redisClusterNode *node,
         return NULL;
     }
 
+    if (cc->err) {
+        cc->err = 0;
+        memset(cc->errstr, '\0', sizeof(cc->errstr));
+    }
+
     va_start(ap, format);
     ret = redisvAppendCommand(c, format, ap);
     va_end(ap);
