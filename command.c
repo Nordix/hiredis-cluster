@@ -274,28 +274,29 @@ void redis_parse_cmd(struct cmd *r) {
             goto error;
         }
 
-        /* Skip forward to the 'startfrom' arg index. */
+        /* Skip forward to the 'startfrom' arg index, then search for the keyword. */
         arg = arg1;
         arglen = arg1_len;
-        while (argidx < startfrom) {
+        while (argidx < (int)rnarg - 1) {
             if ((p = redis_parse_bulk(p, end, &arg, &arglen)) == NULL)
                 goto error; /* Keyword not provided, thus no keys. */
-            argidx++;
+            if (argidx++ < startfrom)
+                continue; /* Keyword can't appear in a position before 'startfrom' */
+            if (!strncasecmp(keyword, arg, arglen)) {
+                /* Keyword found. Now the first key is the next arg. */
+                if ((p = redis_parse_bulk(p, end, &arg, &arglen)) == NULL)
+                    goto error;
+                struct keypos *kpos = hiarray_push(r->keys);
+                if (kpos == NULL)
+                    goto oom;
+                kpos->start = arg;
+                kpos->end = arg + arglen;
+                goto done;
+            }
         }
 
-        /* Check that we found the keyword. */
-        if (strncasecmp(keyword, arg, arglen))
-            goto error;
-
-        /* Now find key is the next arg. */
-        if ((p = redis_parse_bulk(p, end, &arg, &arglen)) == NULL)
-            goto error;
-        struct keypos *kpos = hiarray_push(r->keys);
-        if (kpos == NULL)
-            goto oom;
-        kpos->start = arg;
-        kpos->end = arg + arglen;
-        goto done;
+        /* Keyword not provided. */
+        goto error;
     }
 
     /* Find first key arg. */

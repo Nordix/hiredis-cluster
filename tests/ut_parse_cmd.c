@@ -131,6 +131,16 @@ void test_redis_parse_cmd_xgroup_destroy_ok(void) {
     command_destroy(c);
 }
 
+void test_redis_parse_cmd_xreadgroup_ok(void) {
+    struct cmd *c = command_get();
+    int len = redisFormatCommand(&c->cmd, "XREADGROUP GROUP XX XX COUNT 1 STREAMS mystream >");
+    ASSERT_MSG(len >= 0, "Format command error");
+    c->clen = len;
+    redis_parse_cmd(c);
+    ASSERT_KEYS(c, "mystream");
+    command_destroy(c);
+}
+
 int main(void) {
     test_redis_parse_error_nonresp();
     test_redis_parse_cmd_get();
@@ -140,5 +150,6 @@ int main(void) {
     test_redis_parse_cmd_xgroup_no_subcommand();
     test_redis_parse_cmd_xgroup_destroy_no_key();
     test_redis_parse_cmd_xgroup_destroy_ok();
+    test_redis_parse_cmd_xreadgroup_ok();
     return 0;
 }
