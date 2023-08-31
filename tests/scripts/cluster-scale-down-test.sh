@@ -1,8 +1,23 @@
 #!/bin/sh
 #
-# Simulate a 3 node cluster where:
-# - 'nodeid3' is removed before the client has connected to it.
-# - 'nodeid2' is removed after the client has already connected to it.
+# To verify the clients behaviour in a cluster scaledown scenario.
+# The testcase will send commands, all targeting hash slot 12182, while removing
+# the cluster members handling this slot.
+#
+# Test steps:
+# 1. At start there are 3 known cluster nodes; 'nodeid1', 'nodeid2' and 'nodeid3'.
+#    'nodeid3' is not started in the testcase to simulate that the initial slot
+#    owner, i.e. 'nodeid3', is removed before the client has connected to it.
+# 2. The first command is sent.
+#    Due to the connect failure to 'nodeid3' the slotmap will be updated before
+#    successfully sending the command to the new slot owner 'nodeid2'.
+# 3. The slot owner 'nodeid2' is now removed, which results in a closed connection.
+# 4. The second command is sent.
+#    The closed connection will result in a scheduled slotmap update and a
+#    returned failure code.
+# 5. The third command is sent.
+#    Since previous command failed this will perform a slotmap update and then
+#    successfully send the command to the new slot owner 'nodeid1'.
 #
 # Usage: $0 /path/to/clusterclient-binary
 
@@ -23,13 +38,15 @@ EXPECT ["CLUSTER", "SLOTS"]
 SEND [[0, 5000, ["127.0.0.1", 7401, "nodeid1"]],[5001, 10000, ["127.0.0.1", 7402, "nodeid2"]],[10001, 16383, ["127.0.0.1", 7403, "nodeid3"]]]
 EXPECT CLOSE
 
-# Connect failure to nodeid3 triggers a slotmap update.
+# The command "GET {foo}1" is first sent to the slot owner nodeid3, but since this
+# node does not exist the failed connection attempt will trigger a slotmap update.
 EXPECT CONNECT
 EXPECT ["CLUSTER", "SLOTS"]
 SEND [[0, 8000, ["127.0.0.1", 7401, "nodeid1"]],[8001, 16383, ["127.0.0.1", 7402, "nodeid2"]]]
 EXPECT CLOSE
 
-# The send failure of "GET {foo}2" triggers a slotmap update when sending "GET {foo}3".
+# The send failure of "GET {foo}2" schedules a slotmap update, which is
+# performed when (and just before) the next command "GET {foo}3" is sent.
 EXPECT CONNECT
 EXPECT ["CLUSTER", "SLOTS"]
 SEND [[0, 16383, ["127.0.0.1", 7401, "nodeid1"]]]
