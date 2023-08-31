@@ -276,6 +276,14 @@ If the cluster topology has changed the Redis node might respond with a redirect
 which the client will handle, update its slotmap and resend the command to correct node.
 The reply will in this case arrive from the correct node.
 
+If a node is unreachable, for example if the command times out or if the connect
+times out, it can indicated that there has been a failover and the node is no
+longer part of the cluster. In this case, `redisClusterCommand` returns NULL and
+sets `err` and `errstr` on the cluster context, but additionally, hiredis
+cluster schedules a slotmap updated to be performed when the next command is
+sent. That means that if you try the same command again, there is a good chance
+the command will be sent to another node and the command can succeed.
+
 ### Sending multi-key commands
 
 Hiredis-cluster supports mget/mset/del multi-key commands.
@@ -296,6 +304,10 @@ reply = redisClusterCommandToNode(clustercontext, node, "DBSIZE");
 
 This function handles printf like arguments similar to `redisClusterCommand()`, but will
 only attempt to send the command to the given node and will not perform redirects or retries.
+
+If the command times out or the connection to the node fails, slotmap update is
+scheduled to be performed by the next command. `redisClusterCommandToNode` also
+performs a slotmap update if it has previously been scheduled.
 
 ### Teardown
 
@@ -546,6 +558,21 @@ The iterator will handle changes due to slotmap updates by restarting the iterat
 set of master nodes. There is no bookkeeping for already iterated nodes when a restart is triggered,
 which means that a node can be iterated over more than once depending on when the slotmap update happened
 and the change of cluster nodes.
+
+Note that when `redisClusterCommandToNode` is called, a slotmap update can
+happen if it has been scheduled by the previous command, for example if the
+previous call to `redisClusterCommandToNode` timed out or the node wasn't
+reachable.
+
+To detect when the slotmap has been updated, you can check if the iterator's
+slotmap version (`iter.route_version`) is equal to the current cluster context's
+slotmap version (`cc->route_version`). If it isn't, it means that the slotmap
+has been updated and the iterator will restart itself at the next call to
+`redisClusterNodeNext`.
+
+Another way to detect that the slotmap has been updated is to [register an event
+callback](#events-per-cluster-context) and look for the event
+`HIRCLUSTER_EVENT_SLOTMAP_UPDATED`.
 
 ### Random number generator
 
