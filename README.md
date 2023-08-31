@@ -280,9 +280,9 @@ If a node is unreachable, for example if the command times out or if the connect
 times out, it can indicated that there has been a failover and the node is no
 longer part of the cluster. In this case, `redisClusterCommand` returns NULL and
 sets `err` and `errstr` on the cluster context, but additionally, hiredis
-cluster schedules a slotmap updated to be performed when the next command is
+cluster schedules a slotmap update to be performed when the next command is
 sent. That means that if you try the same command again, there is a good chance
-the command will be sent to another node and the command can succeed.
+the command will be sent to another node and the command may succeed.
 
 ### Sending multi-key commands
 
@@ -305,9 +305,10 @@ reply = redisClusterCommandToNode(clustercontext, node, "DBSIZE");
 This function handles printf like arguments similar to `redisClusterCommand()`, but will
 only attempt to send the command to the given node and will not perform redirects or retries.
 
-If the command times out or the connection to the node fails, slotmap update is
-scheduled to be performed by the next command. `redisClusterCommandToNode` also
-performs a slotmap update if it has previously been scheduled.
+If the command times out or the connection to the node fails, a slotmap update
+is scheduled to be performed when the next command is sent.
+`redisClusterCommandToNode` also performs a slotmap update if it has previously
+been scheduled.
 
 ### Teardown
 
