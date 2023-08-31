@@ -133,7 +133,8 @@ void test_redis_parse_cmd_xgroup_destroy_ok(void) {
 
 void test_redis_parse_cmd_xreadgroup_ok(void) {
     struct cmd *c = command_get();
-    int len = redisFormatCommand(&c->cmd, "XREADGROUP GROUP XX XX COUNT 1 STREAMS mystream >");
+    int len = redisFormatCommand(
+        &c->cmd, "XREADGROUP GROUP XX XX COUNT 1 STREAMS mystream >");
     ASSERT_MSG(len >= 0, "Format command error");
     c->clen = len;
     redis_parse_cmd(c);
