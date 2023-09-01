@@ -71,7 +71,8 @@ int main(int argc, char **argv) {
     }
 
     if (argindex >= argc) {
-        fprintf(stderr, "Usage: clusterclient [--events] [--use-cluster-nodes] HOST:PORT\n");
+        fprintf(stderr, "Usage: clusterclient [--events] [--use-cluster-nodes] "
+                        "HOST:PORT\n");
         exit(1);
     }
     const char *initnode = argv[argindex];
