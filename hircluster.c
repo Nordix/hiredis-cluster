@@ -3037,6 +3037,7 @@ void *redisClusterCommandToNode(redisClusterContext *cc, redisClusterNode *node,
     va_list ap;
     int ret;
     void *reply;
+    int updating_slotmap = 0;
 
     c = ctx_get_by_node(cc, node);
     if (c == NULL) {
@@ -3044,6 +3045,11 @@ void *redisClusterCommandToNode(redisClusterContext *cc, redisClusterNode *node,
     } else if (c->err) {
         __redisClusterSetError(cc, c->err, c->errstr);
         return NULL;
+    }
+
+    if (cc->err) {
+        cc->err = 0;
+        memset(cc->errstr, '\0', sizeof(cc->errstr));
     }
 
     va_start(ap, format);
@@ -3055,9 +3061,27 @@ void *redisClusterCommandToNode(redisClusterContext *cc, redisClusterNode *node,
         return NULL;
     }
 
+    if (cc->need_update_route) {
+        /* Pipeline slotmap update on the same connection. */
+        if (clusterUpdateRouteSendCommand(cc, c) == REDIS_OK) {
+            updating_slotmap = 1;
+        }
+    }
+
     if (redisGetReply(c, &reply) != REDIS_OK) {
         __redisClusterSetError(cc, c->err, c->errstr);
+        if (c->err != REDIS_ERR_OOM)
+            cc->need_update_route = 1;
         return NULL;
+    }
+
+    if (updating_slotmap) {
+        /* Handle reply from pipelined CLUSTER SLOTS or CLUSTER NODES. */
+        if (clusterUpdateRouteHandleReply(cc, c) != REDIS_OK) {
+            /* Ignore error. Update will be triggered on the next command. */
+            cc->err = 0;
+            cc->errstr[0] = '\0';
+        }
     }
 
     return reply;

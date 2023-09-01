@@ -11,8 +11,8 @@
 #
 # Usage: $0 /path/to/clusterclient-binary
 
-clientprog=${1:-./clusterclient}
-testname=dbsize-to-all-nodes-during-scaledown-test
+clientprog=${1:-./clusterclient_async}
+testname=dbsize-to-all-nodes-during-scaledown-test-async
 
 # Sync processes waiting for CONT signals.
 perl -we 'use sigtrap "handler", sub{exit}, "CONT"; sleep 1; die "timeout"' &
@@ -31,12 +31,11 @@ EXPECT ["DBSIZE"]
 SEND 10
 EXPECT ["DBSIZE"]
 SEND 11
-EXPECT ["DBSIZE"]
-SEND 12
-# The second command to node2 fails which triggers a slotmap update pipelined
-# onto the 3rd DBSIZE to this node.
+# The second command to node2 fails which triggers a slotmap update.
 EXPECT ["CLUSTER", "SLOTS"]
 SEND [[0, 16383, ["127.0.0.1", 7401, "nodeid7401"]]]
+EXPECT ["DBSIZE"]
+SEND 12
 EXPECT CLOSE
 EOF
 server1=$!
@@ -85,8 +84,8 @@ fi
 # Check the output from clusterclient
 expected="10
 20
-11
 error: Server closed the connection
+11
 12"
 
 echo "$expected" | diff -u - "$testname.out" || exit 99

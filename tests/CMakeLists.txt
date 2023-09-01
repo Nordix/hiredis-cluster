@@ -195,6 +195,10 @@ add_test(NAME dbsize-to-all-nodes-test-async
                  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/tests/scripts/")
 add_test(NAME dbsize-to-all-nodes-during-scaledown-test
          COMMAND "${CMAKE_SOURCE_DIR}/tests/scripts/dbsize-to-all-nodes-during-scaledown-test.sh"
+                 "$<TARGET_FILE:clusterclient>"
+                 WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/tests/scripts/")
+add_test(NAME dbsize-to-all-nodes-during-scaledown-test-async
+         COMMAND "${CMAKE_SOURCE_DIR}/tests/scripts/dbsize-to-all-nodes-during-scaledown-test-async.sh"
                  "$<TARGET_FILE:clusterclient_async>"
                  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/tests/scripts/")
 add_test(NAME reconnect-test
