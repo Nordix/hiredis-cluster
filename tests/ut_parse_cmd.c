@@ -131,6 +131,30 @@ void test_redis_parse_cmd_xgroup_destroy_ok(void) {
     command_destroy(c);
 }
 
+void test_redis_parse_cmd_xreadgroup_ok(void) {
+    struct cmd *c = command_get();
+    /* Use group name and consumer name "streams" just to try to confuse the
+     * parser. The parser shouldn't mistake those for the STREAMS keyword. */
+    int len = redisFormatCommand(
+        &c->cmd, "XREADGROUP GROUP streams streams COUNT 1 streams mystream >");
+    ASSERT_MSG(len >= 0, "Format command error");
+    c->clen = len;
+    redis_parse_cmd(c);
+    ASSERT_KEYS(c, "mystream");
+    command_destroy(c);
+}
+
+void test_redis_parse_cmd_xread_ok(void) {
+    struct cmd *c = command_get();
+    int len = redisFormatCommand(&c->cmd,
+                                 "XREAD BLOCK 42 STREAMS mystream another $ $");
+    ASSERT_MSG(len >= 0, "Format command error");
+    c->clen = len;
+    redis_parse_cmd(c);
+    ASSERT_KEYS(c, "mystream");
+    command_destroy(c);
+}
+
 int main(void) {
     test_redis_parse_error_nonresp();
     test_redis_parse_cmd_get();
@@ -140,5 +164,7 @@ int main(void) {
     test_redis_parse_cmd_xgroup_no_subcommand();
     test_redis_parse_cmd_xgroup_destroy_no_key();
     test_redis_parse_cmd_xgroup_destroy_ok();
+    test_redis_parse_cmd_xreadgroup_ok();
+    test_redis_parse_cmd_xread_ok();
     return 0;
 }
