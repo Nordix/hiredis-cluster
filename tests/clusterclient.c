@@ -54,24 +54,24 @@ void eventCallback(const redisClusterContext *cc, int event, void *privdata) {
 }
 
 int main(int argc, char **argv) {
-    int use_cluster_slots = 1;
     int show_events = 0;
+    int use_cluster_slots = 1;
     int send_to_all = 0;
 
     int argindex;
     for (argindex = 1; argindex < argc && argv[argindex][0] == '-';
          argindex++) {
-        if (strcmp(argv[argindex], "--use-cluster-nodes") == 0) {
-            use_cluster_slots = 0;
-        } else if (strcmp(argv[argindex], "--events") == 0) {
+        if (strcmp(argv[argindex], "--events") == 0) {
             show_events = 1;
+        } else if (strcmp(argv[argindex], "--use-cluster-nodes") == 0) {
+            use_cluster_slots = 0;
         } else {
             fprintf(stderr, "Unknown argument: '%s'\n", argv[argindex]);
         }
     }
 
     if (argindex >= argc) {
-        fprintf(stderr, "Usage: clusterclient [--events] HOST:PORT\n");
+        fprintf(stderr, "Usage: clusterclient [--events] [--use-cluster-nodes] HOST:PORT\n");
         exit(1);
     }
     const char *initnode = argv[argindex];
@@ -89,8 +89,8 @@ int main(int argc, char **argv) {
     }
 
     if (redisClusterConnect2(cc) != REDIS_OK) {
-        fprintf(stderr, "Connect error: %s\n", cc->errstr);
-        exit(2);
+        printf("Connect error: %s\n", cc->errstr);
+        exit(1);
     }
 
     char command[256];

@@ -31,7 +31,7 @@ server=$!
 wait $syncpid;
 
 # Run client and use CLUSTER NODES to get topology
-timeout 3s "$clientprog" --use-cluster-nodes 127.0.0.1:7400 > "$testname.out" 2>&1
+timeout 3s "$clientprog" --use-cluster-nodes 127.0.0.1:7400 > "$testname.out"
 clientexit=$?
 
 # Wait for server to exit
@@ -44,7 +44,7 @@ if [ $serverexit -ne 0 ]; then
 fi
 
 # Check exit status on client, which SHOULD fail.
-if [ $clientexit -ne 2 ]; then
+if [ $clientexit -ne 1 ]; then
     echo "$clientprog exited with status $clientexit"
     exit $clientexit
 fi
