@@ -250,3 +250,7 @@ add_test(NAME redirect-with-hostname-test-async
 if(hiredis_VERSION VERSION_EQUAL "1.1.0" OR hiredis_VERSION VERSION_EQUAL "0")
   set_tests_properties(redirect-with-hostname-test-async PROPERTIES DISABLED True)
 endif()
+add_test(NAME cluster-scale-down-test
+         COMMAND "${CMAKE_SOURCE_DIR}/tests/scripts/cluster-scale-down-test.sh"
+                "$<TARGET_FILE:clusterclient>"
+         WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/tests/scripts/")
