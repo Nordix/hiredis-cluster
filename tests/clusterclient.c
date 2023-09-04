@@ -8,6 +8,10 @@
  *           Will send following commands using the `..ToNode()` API and a
  *           cluster node iterator to send each command to all known nodes.
  *
+ * Exit statuses this program can return:
+ *   0 - Successful execution of program.
+ *   1 - The required argument "HOST:PORT" is not given.
+ *   2 - Client failed to get initial slotmap from given "HOST:PORT".
  */
 
 #include "hircluster.h"
@@ -91,7 +95,7 @@ int main(int argc, char **argv) {
 
     if (redisClusterConnect2(cc) != REDIS_OK) {
         printf("Connect error: %s\n", cc->errstr);
-        exit(1);
+        exit(2);
     }
 
     char command[256];
