@@ -97,12 +97,12 @@ if [ $clientexit -ne 0 ]; then
 fi
 
 # Check the output from clusterclient, which depends on timing.
-# Client sends the command 'GET {foo}2' just after node2 closes its socket.
+# Client sends the command 'GET {foo}2' just after nodeid2 closes its socket.
 expected1="bar1
 error: Server closed the connection
 bar3"
 
-# Client sends the command 'GET {foo}2' just before node2 closes its socket.
+# Client sends the command 'GET {foo}2' just before nodeid2 closes its socket.
 expected2="bar1
 error: Connection reset by peer
 bar3"
