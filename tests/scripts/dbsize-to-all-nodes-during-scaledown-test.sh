@@ -46,7 +46,7 @@ timeout 5s ./simulated-redis.pl -p 7402 -d --sigcont $syncpid2 <<'EOF' &
 EXPECT CONNECT
 EXPECT ["DBSIZE"]
 SEND 20
-CLOSE
+# Forced close. The second command to node2 should trigger a slotmap update.
 EOF
 server2=$!
 

@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 #
 # To verify the clients behaviour in a cluster scaledown scenario.
 # The testcase will send commands, all targeting hash slot 12182, while removing
@@ -64,7 +64,6 @@ EXPECT CONNECT
 EXPECT ["GET", "{foo}1"]
 SEND "bar1"
 # Forced close. The next command "GET {foo}2" will fail.
-CLOSE
 EOF
 server2=$!
 
@@ -97,12 +96,18 @@ if [ $clientexit -ne 0 ]; then
     exit $clientexit
 fi
 
-# Check the output from clusterclient
-expected="bar1
+# Check the output from clusterclient, which depends on timing.
+# Client sends command 'GET {foo}2' just after the server closed its socket.
+expected1="bar1
 error: Server closed the connection
 bar3"
 
-echo "$expected" | diff -u - "$testname.out" || exit 99
+# Client sends command 'GET {foo}2' just before the server closes its socket.
+expected2="bar1
+error: Connection reset by peer
+bar3"
+
+diff -u "$testname.out" <(echo "$expected1") || diff -u "$testname.out" <(echo "$expected2") || exit 99
 
 # Clean up
 rm "$testname.out"
