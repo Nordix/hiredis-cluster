@@ -82,14 +82,22 @@ if [ $clientexit -ne 0 ]; then
     exit $clientexit
 fi
 
-# Check the output from clusterclient
-expected="10
+# Check the output from clusterclient, which depends on timing.
+# Client sends the second 'DBSIZE' to node2 just after node2 closes its socket.
+expected1="10
 20
 11
 error: Server closed the connection
 12"
 
-echo "$expected" | diff -u - "$testname.out" || exit 99
+# Client sends the second 'DBSIZE' to node2 just before node2 closes its socket.
+expected2="10
+20
+11
+error: Connection reset by peer
+12"
+
+diff -u "$testname.out" <(echo "$expected1") || diff -u "$testname.out" <(echo "$expected2") || exit 99
 
 # Clean up
 rm "$testname.out"
