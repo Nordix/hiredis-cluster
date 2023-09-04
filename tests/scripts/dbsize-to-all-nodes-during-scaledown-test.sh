@@ -33,7 +33,7 @@ EXPECT ["DBSIZE"]
 SEND 11
 EXPECT ["DBSIZE"]
 SEND 12
-# The second command to node2 fails which triggers a slotmap update pipelined
+# The second command to node #2 fails which triggers a slotmap update pipelined
 # onto the 3rd DBSIZE to this node.
 EXPECT ["CLUSTER", "SLOTS"]
 SEND [[0, 16383, ["127.0.0.1", 7401, "nodeid7401"]]]
@@ -46,7 +46,7 @@ timeout 5s ./simulated-redis.pl -p 7402 -d --sigcont $syncpid2 <<'EOF' &
 EXPECT CONNECT
 EXPECT ["DBSIZE"]
 SEND 20
-# Forced close. The second command to node2 should trigger a slotmap update.
+# Forced close. The second command to node #2 should trigger a slotmap update.
 EOF
 server2=$!
 
@@ -83,21 +83,23 @@ if [ $clientexit -ne 0 ]; then
 fi
 
 # Check the output from clusterclient, which depends on timing.
-# Client sends the second 'DBSIZE' to node2 just after node2 closes its socket.
+# Client sends the second 'DBSIZE' to node #2 just after node #2 closes its socket.
 expected1="10
 20
 11
 error: Server closed the connection
 12"
 
-# Client sends the second 'DBSIZE' to node2 just before node2 closes its socket.
+# Client sends the second 'DBSIZE' to node #2 just before node #2 closes its socket.
 expected2="10
 20
 11
 error: Connection reset by peer
 12"
 
-diff -u "$testname.out" <(echo "$expected1") || diff -u "$testname.out" <(echo "$expected2") || exit 99
+diff -u "$testname.out" <(echo "$expected1") || \
+    diff -u "$testname.out" <(echo "$expected2") || \
+    exit 99
 
 # Clean up
 rm "$testname.out"

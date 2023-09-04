@@ -107,7 +107,9 @@ expected2="bar1
 error: Connection reset by peer
 bar3"
 
-diff -u "$testname.out" <(echo "$expected1") || diff -u "$testname.out" <(echo "$expected2") || exit 99
+diff -u "$testname.out" <(echo "$expected1") || \
+    diff -u "$testname.out" <(echo "$expected2") || \
+    exit 99
 
 # Clean up
 rm "$testname.out"
