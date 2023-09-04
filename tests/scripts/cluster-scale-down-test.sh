@@ -97,6 +97,7 @@ if [ $clientexit -ne 0 ]; then
 fi
 
 # Check the output from clusterclient, which depends on timing.
+
 # Client sends the command 'GET {foo}2' just after node2 closes its socket.
 expected1="bar1
 error: Server closed the connection
