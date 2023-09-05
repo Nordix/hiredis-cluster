@@ -211,7 +211,7 @@ add_test(NAME timeout-handling-test
          WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/tests/scripts/")
 add_test(NAME connect-error-using-cluster-nodes-test
          COMMAND "${CMAKE_SOURCE_DIR}/tests/scripts/connect-error-using-cluster-nodes-test.sh"
-                 "$<TARGET_FILE:clusterclient_async>"
+                 "$<TARGET_FILE:clusterclient>"
          WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/tests/scripts/")
 add_test(NAME command-from-callback-test
          COMMAND "${CMAKE_SOURCE_DIR}/tests/scripts/command-from-callback-test.sh"

@@ -8,6 +8,10 @@
  *           Will send following commands using the `..ToNode()` API and a
  *           cluster node iterator to send each command to all known nodes.
  *
+ * Exit statuses this program can return:
+ *   0 - Successful execution of program.
+ *   1 - Bad arguments.
+ *   2 - Client failed to get initial slotmap from given "HOST:PORT".
  */
 
 #include "hircluster.h"
@@ -55,6 +59,7 @@ void eventCallback(const redisClusterContext *cc, int event, void *privdata) {
 
 int main(int argc, char **argv) {
     int show_events = 0;
+    int use_cluster_slots = 1;
     int send_to_all = 0;
 
     int argindex;
@@ -62,13 +67,17 @@ int main(int argc, char **argv) {
          argindex++) {
         if (strcmp(argv[argindex], "--events") == 0) {
             show_events = 1;
+        } else if (strcmp(argv[argindex], "--use-cluster-nodes") == 0) {
+            use_cluster_slots = 0;
         } else {
             fprintf(stderr, "Unknown argument: '%s'\n", argv[argindex]);
+            exit(1);
         }
     }
 
     if (argindex >= argc) {
-        fprintf(stderr, "Usage: clusterclient [--events] HOST:PORT\n");
+        fprintf(stderr, "Usage: clusterclient [--events] [--use-cluster-nodes] "
+                        "HOST:PORT\n");
         exit(1);
     }
     const char *initnode = argv[argindex];
@@ -78,14 +87,16 @@ int main(int argc, char **argv) {
     redisClusterContext *cc = redisClusterContextInit();
     redisClusterSetOptionAddNodes(cc, initnode);
     redisClusterSetOptionConnectTimeout(cc, timeout);
-    redisClusterSetOptionRouteUseSlots(cc);
+    if (use_cluster_slots) {
+        redisClusterSetOptionRouteUseSlots(cc);
+    }
     if (show_events) {
         redisClusterSetEventCallback(cc, eventCallback, NULL);
     }
 
     if (redisClusterConnect2(cc) != REDIS_OK) {
-        fprintf(stderr, "Connect error: %s\n", cc->errstr);
-        exit(100);
+        printf("Connect error: %s\n", cc->errstr);
+        exit(2);
     }
 
     char command[256];

@@ -11,7 +11,7 @@
 #
 # Usage: $0 /path/to/clusterclient-binary
 
-clientprog=${1:-./clusterclient_async}
+clientprog=${1:-./clusterclient}
 testname=connect-error-using-cluster-nodes-test
 
 # Sync process just waiting for server to be ready to accept connection.
@@ -50,7 +50,7 @@ if [ $clientexit -ne 2 ]; then
 fi
 
 # Check the output from clusterclient
-printf 'Connect error: No slot information\n' | cmp "$testname.out" - || exit 99
+printf 'Connect error: No slot information\n' | diff -u - "$testname.out" || exit 99
 
 # Clean up
 rm "$testname.out"
