@@ -10,7 +10,7 @@
  *
  * Exit statuses this program can return:
  *   0 - Successful execution of program.
- *   1 - The required argument "HOST:PORT" is not given.
+ *   1 - Bad arguments.
  *   2 - Client failed to get initial slotmap from given "HOST:PORT".
  */
 
@@ -71,6 +71,7 @@ int main(int argc, char **argv) {
             use_cluster_slots = 0;
         } else {
             fprintf(stderr, "Unknown argument: '%s'\n", argv[argindex]);
+            exit(1);
         }
     }
 
