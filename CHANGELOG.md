@@ -1,3 +1,21 @@
+### 0.11.0 - Sep 15, 2023
+
+* Add event callback for events like 'slotmap updated'.
+* Add connect callback for the sync API.
+* Add connect function in the async API for fully asynchronous startup.
+* Update the slotmap asynchronously in the async API.
+* Follow MOVED redirect and update slot mapping concurrently.
+* Update slotmap on error.
+  When connect failed, update slotmap instead of sending command to random node.
+  When command fails (timeout, etc.) schedule slotmap update for next command.
+* Update slotmap when redisClusterCommandToNode() fails.
+* Correct parsing of an IPv6 address in an ASK redirect.
+* Correct handling of XREAD and XREADGROUP.
+* Rename of some types and functions.
+  (Old names are still defined by default for backward compability.)
+* Update hiredis to v1.2.0 when the CMake build handles the download.
+* Build improvements.
+
 ### 0.10.0 - Feb 02, 2023
 
 * More commands are supported.

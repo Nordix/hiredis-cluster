@@ -82,7 +82,7 @@ if(DOWNLOAD_HIREDIS)
       "Upgrade CMake or manually install 'hiredis' and use -DDOWNLOAD_HIREDIS=OFF")
   endif()
 
-  set(HIREDIS_VERSION "1.1.0")
+  set(HIREDIS_VERSION "1.2.0")
   message("Downloading dependency: hiredis v${HIREDIS_VERSION}")
 
   include(FetchContent)
