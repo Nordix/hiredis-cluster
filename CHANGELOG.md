@@ -2,7 +2,7 @@
 
 * Add event callback for events like 'slotmap updated'.
 * Add connect callback for the sync API.
-* Add redisClusterAsyncConnect2() in API.
+* Add connect function in the async API for fully asynchronous startup.
 * Update the slotmap asynchronously in the async API.
 * Follow MOVED redirect and update slot mapping concurrently.
 * Update slotmap on error.
