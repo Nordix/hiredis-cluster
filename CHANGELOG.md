@@ -7,7 +7,7 @@
 * Follow MOVED redirect and update slot mapping concurrently.
 * Update slotmap on error.
   When connect failed, update slotmap instead of sending command to random node.
-  When command failes (timeout, etc.) schedule slotmap update for next command.
+  When command fails (timeout, etc.) schedule slotmap update for next command.
 * Update slotmap when redisClusterCommandToNode() fails.
 * Correct parsing of an IPv6 address in an ASK redirect.
 * Correct handling of XREAD and XREADGROUP.
