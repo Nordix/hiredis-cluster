@@ -12,8 +12,7 @@
 * Correct parsing of an IPv6 address in an ASK redirect.
 * Correct handling of XREAD and XREADGROUP.
 * Rename of some types and functions.
-  Old names are still defined for backward compability. HIRCLUSTER_NO_OLD_NAMES
-  can be defined when backward compability is not needed.
+  (Old names are still defined by default for backward compability.)
 * Update hiredis to v1.2.0 when the CMake build handles the download.
 * Build improvements.
 
