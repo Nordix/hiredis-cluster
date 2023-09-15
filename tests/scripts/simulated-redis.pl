@@ -166,6 +166,7 @@ while (<>) {
         unexpected($port, "event: $_");
     }
 }
+close $listener;
 print "(port $port) Done.\n" if $debug;
 exit;
 
