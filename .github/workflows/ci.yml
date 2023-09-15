@@ -45,14 +45,12 @@ jobs:
       with:
         packages: libevent-dev libuv1-dev libev-dev libglib2.0-dev ${{ matrix.compiler }}
         version: 1.0
-    - name: Install hiredis (pre-v1.1.1)
+    - name: Install hiredis
       env:
-        SHA: d13c091e9f09fe4ad1858cd54ed3a842ac00b8e6
+        VERSION: 1.2.0
       run: |
-        # When v1.1.1 is released update to:
-        # curl -L https://github.com/redis/hiredis/archive/refs/tags/v1.1.1.tar.gz | tar -xz
-        curl -L https://github.com/redis/hiredis/archive/${SHA}.tar.gz | tar -xz
-        cmake -S hiredis-${SHA} -B hiredis-build -DENABLE_SSL=ON
+        curl -L https://github.com/redis/hiredis/archive/v${VERSION}.tar.gz | tar -xz
+        cmake -S hiredis-${VERSION} -B hiredis-build -DENABLE_SSL=ON
         sudo make -C hiredis-build install
     - name: Setup cmake
       uses: jwlawson/actions-setup-cmake@v1
