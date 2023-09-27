@@ -163,7 +163,8 @@ void sendNextCommand(int fd, short kind, void *arg) {
                 printf("error: %s\n", acc->errstr);
 
                 /* Schedule a read from stdin and handle next command. */
-                event_base_once(acc->adapter, -1, EV_TIMEOUT, sendNextCommand, acc, NULL);
+                event_base_once(acc->adapter, -1, EV_TIMEOUT, sendNextCommand,
+                                acc, NULL);
             }
         }
 
