@@ -2245,7 +2245,7 @@ retry:
     if (c == NULL || c->err) {
         /* Failed to connect. Maybe there was a failover and this node is gone.
          * Update slotmap to find out. */
-        if (cluster_update_route(cc) != REDIS_OK) {
+        if (redisClusterUpdateSlotmap(cc) != REDIS_OK) {
             goto error;
         }
 
