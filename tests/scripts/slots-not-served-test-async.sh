@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Usage: $0 /path/to/clusterclient-binary
+# Usage: $0 /path/to/clusterclient-async
 
 clientprog=${1:-./clusterclient-async}
 testname=slots-not-served-test-async
