@@ -157,8 +157,15 @@ void sendNextCommand(int fd, short kind, void *arg) {
         } else {
             int status = redisClusterAsyncCommand(
                 acc, replyCallback, (void *)((intptr_t)num_running), cmd);
-            ASSERT_MSG(status == REDIS_OK, acc->errstr);
-            num_running++;
+            if (status == REDIS_OK) {
+                num_running++;
+            } else {
+                printf("error: %s\n", acc->errstr);
+
+                /* Schedule a read from stdin and handle next command. */
+                event_base_once(acc->adapter, -1, EV_TIMEOUT, sendNextCommand,
+                                acc, NULL);
+            }
         }
 
         if (async)

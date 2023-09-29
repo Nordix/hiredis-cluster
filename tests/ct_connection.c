@@ -371,18 +371,13 @@ void test_async_password_ok(void) {
     event_base_free(base);
 }
 
-// Connecting to a password protected cluster using
-// the async API, providing wrong password.
+/* Connect to a password protected cluster using the wrong password.
+   An eventloop is not attached since it is not needed is this case. */
 void test_async_password_wrong(void) {
     redisClusterAsyncContext *acc = redisClusterAsyncContextInit();
     assert(acc);
-    redisClusterAsyncSetConnectCallback(acc, callbackExpectOk);
-    redisClusterAsyncSetDisconnectCallback(acc, callbackExpectOk);
     redisClusterSetOptionAddNodes(acc->cc, CLUSTER_NODE_WITH_PASSWORD);
     redisClusterSetOptionPassword(acc->cc, "faultypass");
-
-    struct event_base *base = event_base_new();
-    redisClusterLibeventAttach(acc, base);
 
     int ret;
     ret = redisClusterConnect2(acc->cc);
@@ -401,14 +396,11 @@ void test_async_password_wrong(void) {
     assert(acc->err == REDIS_ERR_OTHER);
     assert(strcmp(acc->errstr, "slotmap not available") == 0);
 
-    event_base_dispatch(base);
-
     redisClusterAsyncFree(acc);
-    event_base_free(base);
 }
 
-// Connecting to a password protected cluster using
-// the async API, not providing a password.
+/* Connect to a password protected cluster without providing a password.
+   An eventloop is not attached since it is not needed is this case. */
 void test_async_password_missing(void) {
     redisClusterAsyncContext *acc = redisClusterAsyncContextInit();
     assert(acc);
@@ -416,9 +408,6 @@ void test_async_password_missing(void) {
     redisClusterAsyncSetDisconnectCallback(acc, callbackExpectOk);
     redisClusterSetOptionAddNodes(acc->cc, CLUSTER_NODE_WITH_PASSWORD);
     // Password not configured
-
-    struct event_base *base = event_base_new();
-    redisClusterLibeventAttach(acc, base);
 
     int ret;
     ret = redisClusterConnect2(acc->cc);
@@ -434,10 +423,7 @@ void test_async_password_missing(void) {
     assert(acc->err == REDIS_ERR_OTHER);
     assert(strcmp(acc->errstr, "slotmap not available") == 0);
 
-    event_base_dispatch(base);
-
     redisClusterAsyncFree(acc);
-    event_base_free(base);
 }
 
 // Connect to a cluster and authenticate using username and password

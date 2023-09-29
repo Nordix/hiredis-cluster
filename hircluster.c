@@ -2230,14 +2230,22 @@ retry:
 
     node = node_get_by_table(cc, (uint32_t)command->slot_num);
     if (node == NULL) {
-        goto error;
+        /* Update the slotmap since the slot is not served. */
+        if (redisClusterUpdateSlotmap(cc) != REDIS_OK) {
+            goto error;
+        }
+        node = node_get_by_table(cc, (uint32_t)command->slot_num);
+        if (node == NULL) {
+            /* Return error since the slot is still not served. */
+            goto error;
+        }
     }
 
     c = ctx_get_by_node(cc, node);
     if (c == NULL || c->err) {
         /* Failed to connect. Maybe there was a failover and this node is gone.
          * Update slotmap to find out. */
-        if (cluster_update_route(cc) != REDIS_OK) {
+        if (redisClusterUpdateSlotmap(cc) != REDIS_OK) {
             goto error;
         }
 
@@ -4135,6 +4143,9 @@ int redisClusterAsyncFormattedCommand(redisClusterAsyncContext *acc,
 
     node = node_get_by_table(cc, (uint32_t)slot_num);
     if (node == NULL) {
+        /* Initiate a slotmap update since the slot is not served. */
+        throttledUpdateSlotMapAsync(acc, NULL);
+
         /* node_get_by_table() has set the error on cc. */
         __redisClusterAsyncSetError(acc, cc->err, cc->errstr);
         goto error;
