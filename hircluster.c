@@ -3621,18 +3621,6 @@ static void unlinkAsyncContextAndNode(void *data) {
     }
 }
 
-/* Reply callback function for AUTH */
-void authReplyCallback(redisAsyncContext *ac, void *r, void *privdata) {
-    redisReply *reply = (redisReply *)r;
-    redisClusterAsyncContext *acc = (redisClusterAsyncContext *)privdata;
-
-    if (reply == NULL || reply->type == REDIS_REPLY_ERROR) {
-        __redisClusterAsyncSetError(
-            acc, REDIS_ERR_OTHER, (reply ? reply->str : "failed to send AUTH"));
-        redisAsyncDisconnect(ac);
-    }
-}
-
 redisAsyncContext *actx_get_by_node(redisClusterAsyncContext *acc,
                                     redisClusterNode *node) {
     redisAsyncContext *ac;
@@ -3694,11 +3682,11 @@ redisAsyncContext *actx_get_by_node(redisClusterAsyncContext *acc,
     // Authenticate when needed
     if (acc->cc->password != NULL) {
         if (acc->cc->username != NULL) {
-            ret = redisAsyncCommand(ac, authReplyCallback, acc, "AUTH %s %s",
+            ret = redisAsyncCommand(ac, NULL, NULL, "AUTH %s %s",
                                     acc->cc->username, acc->cc->password);
         } else {
-            ret = redisAsyncCommand(ac, authReplyCallback, acc, "AUTH %s",
-                                    acc->cc->password);
+            ret =
+                redisAsyncCommand(ac, NULL, NULL, "AUTH %s", acc->cc->password);
         }
 
         if (ret != REDIS_OK) {

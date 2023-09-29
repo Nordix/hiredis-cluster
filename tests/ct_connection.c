@@ -401,9 +401,6 @@ void test_async_password_wrong(void) {
     assert(acc->err == REDIS_ERR_OTHER);
     assert(strcmp(acc->errstr, "slotmap not available") == 0);
 
-    /* Since the owner of the slot is unknown the redisClusterAsyncCommand will
-       initite a slotmap update. This update will also get a WRONGPASS error. */
-
     event_base_dispatch(base);
 
     redisClusterAsyncFree(acc);
@@ -437,12 +434,7 @@ void test_async_password_missing(void) {
     assert(acc->err == REDIS_ERR_OTHER);
     assert(strcmp(acc->errstr, "slotmap not available") == 0);
 
-    /* Since the owner of the slot is unknown the redisClusterAsyncCommand will
-       initite a slotmap update. This update will register a new socket fd in the
-       event system, which will block libevents API `event_base_dispatch()` until
-       the socket is closed. Use alternative API to run the event loop once only
-       to avoid this problem. */
-    event_base_loop(base, EVLOOP_ONCE);
+    event_base_dispatch(base);
 
     redisClusterAsyncFree(acc);
     event_base_free(base);
