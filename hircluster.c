@@ -1515,7 +1515,13 @@ void redisClusterFree(redisClusterContext *cc) {
     }
 
     if (cc->nodes != NULL) {
-        dictRelease(cc->nodes);
+        /* Clear cc->nodes before releasing the dict since the release procedure
+           might access cc->nodes. When a node and its hiredis context are freed
+           all pending callbacks are executed. Clearing cc->nodes prevents a pending
+           slotmap update command callback to trigger additional slotmap updates. */
+        dict *nodes = cc->nodes;
+        cc->nodes = NULL;
+        dictRelease(nodes);
     }
 
     if (cc->requests != NULL) {
