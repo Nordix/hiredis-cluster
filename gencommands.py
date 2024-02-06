@@ -7,7 +7,7 @@
 # describing the commands. This is done manually when commands have been added
 # to Redis.
 #
-# Usage: ./gencommands.py path/to/redis > cmddef.h
+# Usage: ./gencommands.py path/to/redis/src/commands/*.json > cmddef.h
 
 import glob
 import json
@@ -105,18 +105,24 @@ def generate_c_code(commands):
 # MAIN
 
 if len(sys.argv) < 2 or sys.argv[1] == "--help":
-    print("Usage: %s REDIS-DIR > cmddef.h" % sys.argv[0])
+    print("Usage: %s path/to/redis/src/commands/*.json > cmddef.h" % sys.argv[0])
     exit(1)
 
-redisdir = sys.argv[1]
-jsondir = os.path.join(redisdir, "src", "commands")
-if not os.path.isdir(jsondir):
-    print("The path %s doesn't point to a Redis source directory." % redisdir)
-    exit(1)
+# Fine all JSON files
+filenames = []
+for filename in sys.argv[1:]:
+    if os.path.isdir(filename):
+        # A redis repo root dir (accepted for backward compatibility)
+        jsondir = os.path.join(filename, "src", "commands")
+        if not os.path.isdir(jsondir):
+            print("The directory %s is not a Redis source directory." % filename)
+            exit(1)
+
+        filenames += glob.glob(os.path.join(jsondir, "*.json"))
+    else:
+        filenames.append(filename)
 
 # Collect all command info
-filenames = glob.glob(os.path.join(jsondir, "*.json"))
-filenames.sort()
 commands = collect_commands_from_files(filenames)
 
 # Print C code
