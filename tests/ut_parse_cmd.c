@@ -13,6 +13,11 @@
 /* Helper for the macro ASSERT_KEYS below. */
 void check_keys(char **keys, int numkeys, struct cmd *command, char *file,
                 int line) {
+    if (command->result != CMD_PARSE_OK) {
+        fprintf(stderr, "%s:%d: Command parsing failed: %s\n", file, line,
+                command->errstr);
+        assert(0);
+    }
     int actual_numkeys = (int)hiarray_n(command->keys);
     if (actual_numkeys != numkeys) {
         fprintf(stderr, "%s:%d: Expected %d keys but got %d\n", file, line,
@@ -155,6 +160,42 @@ void test_redis_parse_cmd_xread_ok(void) {
     command_destroy(c);
 }
 
+void test_redis_parse_cmd_restore_ok(void) {
+    /* The ordering of RESTORE and RESTORE-ASKING in the lookup-table was wrong
+     * in a previous version, leading to the command not being found. */
+    struct cmd *c = command_get();
+    int len = redisFormatCommand(&c->cmd, "restore k 0 xxx");
+    ASSERT_MSG(len >= 0, "Format command error");
+    c->clen = len;
+    redis_parse_cmd(c);
+    ASSERT_KEYS(c, "k");
+    command_destroy(c);
+}
+
+void test_redis_parse_cmd_restore_asking_ok(void) {
+    /* The ordering of RESTORE and RESTORE-ASKING in the lookup-table was wrong
+     * in a previous version, leading to the command not being found. */
+    struct cmd *c = command_get();
+    int len = redisFormatCommand(&c->cmd, "restore-asking k 0 xxx");
+    ASSERT_MSG(len >= 0, "Format command error");
+    c->clen = len;
+    redis_parse_cmd(c);
+    ASSERT_KEYS(c, "k");
+    command_destroy(c);
+}
+
+void test_redis_parse_cmd_georadius_ro_ok(void) {
+    /* The position of GEORADIUS_RO was wrong in a previous version of the
+     * lookup-table, leading to the command not being found. */
+    struct cmd *c = command_get();
+    int len = redisFormatCommand(&c->cmd, "georadius_ro k 0 0 0 km");
+    ASSERT_MSG(len >= 0, "Format command error");
+    c->clen = len;
+    redis_parse_cmd(c);
+    ASSERT_KEYS(c, "k");
+    command_destroy(c);
+}
+
 int main(void) {
     test_redis_parse_error_nonresp();
     test_redis_parse_cmd_get();
@@ -166,5 +207,8 @@ int main(void) {
     test_redis_parse_cmd_xgroup_destroy_ok();
     test_redis_parse_cmd_xreadgroup_ok();
     test_redis_parse_cmd_xread_ok();
+    test_redis_parse_cmd_restore_ok();
+    test_redis_parse_cmd_restore_asking_ok();
+    test_redis_parse_cmd_georadius_ro_ok();
     return 0;
 }

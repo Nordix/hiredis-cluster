@@ -13,6 +13,7 @@ import glob
 import json
 import os
 import sys
+import re
 
 # Returns a tuple (method, index) where method is one of the following:
 #
@@ -50,32 +51,37 @@ def firstkey(props):
 def extract_command_info(name, props):
     (firstkeymethod, firstkeypos) = firstkey(props)
     container = props.get("container", "")
+    name = name.upper()
     subcommand = None
     if container != "":
         subcommand = name
-        name = container
+        name = container.upper()
     return (name, subcommand, props["arity"], firstkeymethod, firstkeypos);
 
-# Checks that the filename matches the command. We need this because we rely on
-# the alphabetic order.
-def check_filename(filename, cmd):
-    if cmd[1] is None:
-        expect = "%s" % cmd[0]
-    else:
-        expect = "%s-%s" % (cmd[0], cmd[1])
-    expect = expect.lower() + ".json"
-    assert os.path.basename(filename) == expect
-
 def collect_commands_from_files(filenames):
-    commands = []
+    # The keys in the dicts are "command" or "command_subcommand".
+    commands = dict()
+    commands_that_have_subcommands = set()
     for filename in filenames:
         with open(filename, "r") as f:
             try:
                 d = json.load(f)
                 for name, props in d.items():
                     cmd = extract_command_info(name, props)
-                    check_filename(filename, cmd)
-                    commands.append(cmd)
+                    (name, subcmd, _, _, _) = cmd
+
+                    # For commands with subcommands, we want only the
+                    # command-subcommand pairs, not the container command alone
+                    if subcmd is not None:
+                        commands_that_have_subcommands.add(name)
+                        if name in commands:
+                            del commands[name]
+                        name += "_" + subcmd
+                    elif name in commands_that_have_subcommands:
+                        continue
+
+                    commands[name] = cmd
+
             except json.decoder.JSONDecodeError as err:
                 print("Error processing %s: %s" % (filename, err))
                 exit(1)
@@ -85,18 +91,16 @@ def generate_c_code(commands):
     print("/* This file was generated using gencommands.py */")
     print("")
     print("/* clang-format off */")
-    commands_that_have_subcommands = set()
-    for (name, subcmd, arity, firstkeymethod, firstkeypos) in commands:
+    for key in sorted(commands):
+        (name, subcmd, arity, firstkeymethod, firstkeypos) = commands[key]
+        # Make valid C identifier (macro name)
+        key = re.sub(r'\W', '_', key)
         if subcmd is None:
-            if name in commands_that_have_subcommands:
-                continue # only include the command with its subcommands
             print("COMMAND(%s, \"%s\", NULL, %d, %s, %d)" %
-                  (name.replace("-", "_"), name, arity, firstkeymethod, firstkeypos))
+                  (key, name, arity, firstkeymethod, firstkeypos))
         else:
-            commands_that_have_subcommands.add(name)
-            print("COMMAND(%s_%s, \"%s\", \"%s\", %d, %s, %d)" %
-                  (name.replace("-", "_"), subcmd.replace("-", "_"),
-                   name, subcmd, arity, firstkeymethod, firstkeypos))
+            print("COMMAND(%s, \"%s\", \"%s\", %d, %s, %d)" %
+                  (key, name, subcmd, arity, firstkeymethod, firstkeypos))
 
 # MAIN
 
