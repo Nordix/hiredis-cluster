@@ -26,9 +26,35 @@ import re
 #                     number of keys is zero in which case there are no
 #                     keys (example EVAL)
 def firstkey(props):
-    if not "key_specs" in props or len(props["key_specs"]) == 0:
-        # No keys
+    if not "key_specs" in props:
+        # Key specs missing. Best-effort fallback to "arguments" for modules. To
+        # avoid returning UNKNOWN istead of NONE for official Redis commands
+        # without keys, we check for "arity" which is always defined in Redis
+        # but not in the Redis Stack modules which also lack key specs.
+        if "arguments" in props and "arity" not in props:
+            args = props["arguments"]
+            for i in range(1, len(args)):
+                arg = args[i - 1]
+                if not "type" in arg:
+                    return ("NONE", 0)
+                if arg["type"] == "key":
+                    return ("INDEX", i)
+                elif arg["type"] == "string":
+                    if "name" in arg and arg["name"] == "key":
+                        # add-hoc case for RediSearch
+                        return ("INDEX", i)
+                    if "optional" in arg and arg["optional"]:
+                        return ("UNKNOWN", 0)
+                    if "multiple" in arg and arg["multiple"]:
+                        return ("UNKNOWN", 0)
+                else:
+                    # Too complex for this fallback.
+                    return ("UNKNOWN", 0)
         return ("NONE", 0)
+
+    if len(props["key_specs"]) == 0:
+        return ("NONE", 0)
+
     # We detect the first key spec and only if the begin_search is by index.
     # Otherwise we return -1 for unknown (for example if the first key is
     # indicated by a keyword like KEYS or STREAMS).
@@ -56,7 +82,18 @@ def extract_command_info(name, props):
     if container != "":
         subcommand = name
         name = container.upper()
-    return (name, subcommand, props["arity"], firstkeymethod, firstkeypos);
+    else:
+        # Ad-hoc handling of command and subcommand in the same string,
+        # sepatated by a space. This form is used in e.g. RediSearch's JSON file
+        # in commands like "FT.CONFIG GET".
+        tokens = name.split(maxsplit=1)
+        if len(tokens) > 1:
+            name, subcommand = tokens
+            if firstkeypos > 0:
+                firstkeypos += 1
+
+    arity = props["arity"] if "arity" in props else -1
+    return (name, subcommand, arity, firstkeymethod, firstkeypos);
 
 def collect_commands_from_files(filenames):
     # The keys in the dicts are "command" or "command_subcommand".
