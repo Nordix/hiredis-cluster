@@ -124,6 +124,17 @@ as described in the CMake docs; a specific path can be set using a flag like:
 See `examples/using_cmake_separate/build.sh` or
 `examples/using_cmake_externalproject/build.sh` for alternative CMake builds.
 
+### Extend the list of supported commands
+
+The list of commands and the position of the first key in the command line is
+defined in `cmddef.h` which is included in this repo. It has been generated
+using the JSON files describing the syntax of each command in the Redis
+repository, which makes sure hiredis-cluster supports all commands in Redis, at
+least in terms of cluster routing. To add support for custom commands defined in
+Redis modules, you can regenerate `cmddef.h` using the script `gencommands.py`.
+Use the JSON files from Redis and any additional files on the same format as
+arguments to the script. For details, see the comments inside `gencommands.py`.
+
 ### Alternative build using Makefile directly
 
 When a simpler build setup is preferred a provided Makefile can be used directly
