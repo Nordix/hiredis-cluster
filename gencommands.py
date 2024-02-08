@@ -31,7 +31,7 @@ import re
 def firstkey(props):
     if not "key_specs" in props:
         # Key specs missing. Best-effort fallback to "arguments" for modules. To
-        # avoid returning UNKNOWN istead of NONE for official Redis commands
+        # avoid returning UNKNOWN instead of NONE for official Redis commands
         # without keys, we check for "arity" which is always defined in Redis
         # but not in the Redis Stack modules which also lack key specs.
         if "arguments" in props and "arity" not in props:
