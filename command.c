@@ -32,9 +32,11 @@
 #include <errno.h>
 #include <hiredis/alloc.h>
 #ifndef _WIN32
-#include <strings.h>
-#endif
 #include <alloca.h>
+#include <strings.h>
+#else
+#include <malloc.h>
+#endif
 #include <string.h>
 
 #include "command.h"
