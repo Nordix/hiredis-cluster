@@ -8,6 +8,9 @@
 # to Redis.
 #
 # Usage: ./gencommands.py path/to/redis/src/commands/*.json > cmddef.h
+#
+# Additional JSON files can be added to define custom commands. For convenience,
+# files on the output format like cmddef.h can also be used as input files.
 
 import glob
 import json
@@ -95,12 +98,35 @@ def extract_command_info(name, props):
     arity = props["arity"] if "arity" in props else -1
     return (name, subcommand, arity, firstkeymethod, firstkeypos);
 
+# Parses a file with lines like
+# COMMAND(identifier, cmd, subcmd, arity, firstkeymethod, firstkeypos)
+def collect_command_from_cmddef_h(f, commands):
+   for line in f:
+       m = re.match(r'^COMMAND\(\S+, *"(\S+)", NULL, *(-?\d+), *(\w+), *(\d+)\)', line)
+       if m:
+           commands[m.group(1)] = (m.group(1), None, int(m.group(2)), m.group(3), int(m.group(4)))
+           continue
+       m = re.match(r'^COMMAND\(\S+, *"(\S+)", *"(\S+)", *(-?\d+), *(\w+), *(\d)\)', line)
+       if m:
+           key = m.group(1) + "_" + m.group(2)
+           commands[key] = (m.group(1), m.group(2), int(m.group(3)), m.group(4), int(m.group(5)))
+           continue
+       if re.match(r'^(?:/\*.*\*/)?\s*$', line):
+           # Comment or blank line
+           continue
+       else:
+           print("Error processing line: %s" % (line))
+           exit(1)
+
 def collect_commands_from_files(filenames):
     # The keys in the dicts are "command" or "command_subcommand".
     commands = dict()
     commands_that_have_subcommands = set()
     for filename in filenames:
         with open(filename, "r") as f:
+            if filename.endswith(".h"):
+                collect_command_from_cmddef_h(f, commands)
+                continue
             try:
                 d = json.load(f)
                 for name, props in d.items():
@@ -145,7 +171,7 @@ if len(sys.argv) < 2 or sys.argv[1] == "--help":
     print("Usage: %s path/to/redis/src/commands/*.json > cmddef.h" % sys.argv[0])
     exit(1)
 
-# Fine all JSON files
+# Find all JSON files
 filenames = []
 for filename in sys.argv[1:]:
     if os.path.isdir(filename):
