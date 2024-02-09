@@ -1,3 +1,11 @@
+### 0.12.0 - Feb 9, 2024
+
+* Update slotmap when slot is not served by any node (#192)
+* Prevent slotmap updates during redisClusterAsyncFree() (#195)
+* Fix builds when using CMake < v3.15 (#196)
+* Support adding custom commands at compile time (#200)
+* Fix the check for ":0@0" in CLUSTER NODES result (#199)
+
 ### 0.11.0 - Sep 15, 2023
 
 * Add event callback for events like 'slotmap updated'.
