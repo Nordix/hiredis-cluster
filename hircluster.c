@@ -960,8 +960,8 @@ dict *parse_cluster_nodes(redisClusterContext *cc, char *str, int str_len,
                 goto error;
             }
 
-            // the address string is ":0", skip this node.
-            if (sdslen(part[1]) == 2 && strcmp(part[1], ":0") == 0) {
+            // if the address string starts with ":0", skip this node.
+            if (sdslen(part[1]) >= 2 && memcmp(part[1], ":0", 2) == 0) {
                 sdsfreesplitres(part, count_part);
                 count_part = 0;
                 part = NULL;
