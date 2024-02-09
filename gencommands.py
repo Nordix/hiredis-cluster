@@ -9,8 +9,21 @@
 #
 # Usage: ./gencommands.py path/to/redis/src/commands/*.json > cmddef.h
 #
-# Additional JSON files can be added to define custom commands. For convenience,
-# files on the output format like cmddef.h can also be used as input files.
+# Additional JSON files can be added to define custom commands. The JSON file
+# format is not fully documented but hopefully the format can be understood from
+# reading the existing JSON files. Alternatively, you can read the source code
+# of this script to see what it does.
+#
+# The key specifications part is documented here:
+# https://redis.io/docs/reference/key-specs/
+#
+# The discussion where this JSON format was added in Redis is here:
+# https://github.com/redis/redis/issues/9359
+#
+# For convenience, files on the output format like cmddef.h can also be used as
+# input files to this script. It can be used for adding more commands to the
+# existing set of commands, but please do not abuse it. Do not to write commands
+# information directly in this format.
 
 import glob
 import json
