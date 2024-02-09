@@ -42,6 +42,10 @@
 #define strncasecmp _strnicmp
 #endif
 
+#ifndef alloca
+#define alloca _alloca
+#endif
+
 #endif /* _MSC_VER */
 
 #ifdef _WIN32
