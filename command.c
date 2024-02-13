@@ -199,6 +199,15 @@ char *redis_parse_bulk(char *p, char *end, char **str, uint32_t *len) {
     return p;
 }
 
+static inline int push_keypos(struct cmd *r, char *arg, uint32_t arglen) {
+    struct keypos *kpos = hiarray_push(r->keys);
+    if (kpos == NULL)
+        return 0;
+    kpos->start = arg;
+    kpos->end = arg + arglen;
+    return 1;
+}
+
 /*
  * Reference: http://redis.io/topics/protocol
  *
@@ -306,11 +315,8 @@ void redis_parse_cmd(struct cmd *r) {
                 /* Keyword found. Now the first key is the next arg. */
                 if ((p = redis_parse_bulk(p, end, &arg, &arglen)) == NULL)
                     goto error;
-                struct keypos *kpos = hiarray_push(r->keys);
-                if (kpos == NULL)
+                if (!push_keypos(r, arg, arglen))
                     goto oom;
-                kpos->start = arg;
-                kpos->end = arg + arglen;
                 goto done;
             }
         }
@@ -353,11 +359,8 @@ void redis_parse_cmd(struct cmd *r) {
         goto error;
     }
 
-    struct keypos *kpos = hiarray_push(r->keys);
-    if (kpos == NULL)
+    if (!push_keypos(r, arg, arglen))
         goto oom;
-    kpos->start = arg;
-    kpos->end = arg + arglen;
 
     /* Special commands where we want all keys (not only the first key). */
     if (redis_argx(r) || redis_argkvx(r)) {
@@ -370,11 +373,8 @@ void redis_parse_cmd(struct cmd *r) {
                 goto error;
             if (redis_argkvx(r) && i % 2 == 0)
                 continue; /* not a key */
-            struct keypos *kpos = hiarray_push(r->keys);
-            if (kpos == NULL)
+            if (!push_keypos(r, arg, arglen))
                 goto oom;
-            kpos->start = arg;
-            kpos->end = arg + arglen;
         }
     }
 
