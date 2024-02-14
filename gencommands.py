@@ -31,6 +31,15 @@ import os
 import sys
 import re
 
+# Returns True if any of the nested arguments is a key; False otherwise.
+def any_argument_is_key(arguments):
+    for arg in arguments:
+        if arg.get("type") == "key":
+            return True
+        if "arguments" in arg and any_argument_is_key(arg["arguments"]):
+            return True
+    return False
+
 # Returns a tuple (method, index) where method is one of the following:
 #
 #     NONE          = No keys
@@ -43,29 +52,22 @@ import re
 #                     keys (example EVAL)
 def firstkey(props):
     if not "key_specs" in props:
-        # Key specs missing. Best-effort fallback to "arguments" for modules. To
-        # avoid returning UNKNOWN instead of NONE for official Redis commands
-        # without keys, we check for "arity" which is always defined in Redis
-        # but not in the Redis Stack modules which also lack key specs.
-        if "arguments" in props and "arity" not in props:
+        # Key specs missing. Best-effort fallback to "arguments".
+        if "arguments" in props:
             args = props["arguments"]
             for i in range(1, len(args)):
                 arg = args[i - 1]
-                if not "type" in arg:
-                    return ("NONE", 0)
-                if arg["type"] == "key":
+                if arg.get("type") == "key":
                     return ("INDEX", i)
-                elif arg["type"] == "string":
-                    if "name" in arg and arg["name"] == "key":
-                        # add-hoc case for RediSearch
-                        return ("INDEX", i)
-                    if "optional" in arg and arg["optional"]:
-                        return ("UNKNOWN", 0)
-                    if "multiple" in arg and arg["multiple"]:
-                        return ("UNKNOWN", 0)
-                else:
+                elif arg.get("type") == "string" and arg.get("name") == "key":
+                    # add-hoc case for RediSearch
+                    return ("INDEX", i)
+                elif arg.get("optional") or arg.get("multiple") or "arguments" in arg:
                     # Too complex for this fallback.
-                    return ("UNKNOWN", 0)
+                    if any_argument_is_key(args):
+                        return ("UNKNOWN", 0)
+                    else:
+                        return ("NONE", 0)
         return ("NONE", 0)
 
     if len(props["key_specs"]) == 0:
