@@ -77,17 +77,38 @@ def firstkey(props):
     # Otherwise we return -1 for unknown (for example if the first key is
     # indicated by a keyword like KEYS or STREAMS).
     begin_search = props["key_specs"][0]["begin_search"]
-    if not "index" in begin_search:
+    if "index" in begin_search:
+        # Redis source JSON files have this syntax
+        pos = begin_search["index"]["pos"]
+    elif begin_search.get("type") == "index" and "spec" in begin_search:
+        # generate-commands-json.py returns this syntax
+        pos = begin_search["spec"]["index"]
+    else:
         return ("UNKNOWN", 0)
-    pos = begin_search["index"]["pos"]
+
     find_keys = props["key_specs"][0]["find_keys"]
-    if "range" in find_keys:
+    if "range" in find_keys or find_keys.get("type") == "range":
         # The first key is the arg at index pos.
+        # Redis source JSON files have this syntax:
+        #     "find_keys": {
+        #         "range": {...}
+        #     }
+        # generate-commands-json.py returns this syntax:
+        #     "find_keys": {
+        #         "type": "range",
+        #         "spec": {...}
+        #     },
         return ("INDEX", pos)
     elif "keynum" in find_keys:
         # The arg at pos is the number of keys and the next arg is the first key
+        # Redis source JSON files have this syntax
         assert find_keys["keynum"]["keynumidx"] == 0
         assert find_keys["keynum"]["firstkey"] == 1
+        return ("KEYNUM", pos)
+    elif find_keys.get("type") == "keynum":
+        # generate-commands-json.py returns this syntax
+        assert find_keys["spec"]["keynumidx"] == 0
+        assert find_keys["spec"]["firstkey"] == 1
         return ("KEYNUM", pos)
     else:
         return ("UNKNOWN", 0)
@@ -107,7 +128,8 @@ def extract_command_info(name, props):
         tokens = name.split(maxsplit=1)
         if len(tokens) > 1:
             name, subcommand = tokens
-            if firstkeypos > 0:
+            if firstkeypos > 0 and not "key_specs" in props:
+                # Position was inferred from "arguments"
                 firstkeypos += 1
 
     arity = props["arity"] if "arity" in props else -1
