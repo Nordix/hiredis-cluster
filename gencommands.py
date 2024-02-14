@@ -5,14 +5,19 @@
 
 # This script generates cmddef.h from the JSON files in the Redis repo
 # describing the commands. This is done manually when commands have been added
-# to Redis.
+# to Redis or when you want add more commands implemented in modules, etc.
 #
 # Usage: ./gencommands.py path/to/redis/src/commands/*.json > cmddef.h
 #
-# Additional JSON files can be added to define custom commands. The JSON file
-# format is not fully documented but hopefully the format can be understood from
-# reading the existing JSON files. Alternatively, you can read the source code
-# of this script to see what it does.
+# Alternatively, the output of the script utils/generate-commands-json.py (which
+# fetches the command metadata from a running Redis node) or the file
+# commands.json from the redis-doc repo can be used as input to this script:
+# https://github.com/redis/redis-doc/blob/master/commands.json
+#
+# Additional JSON files can be added to extend support for custom commands. The
+# JSON file format is not fully documented but hopefully the format can be
+# understood from reading the existing JSON files. Alternatively, you can read
+# the source code of this script to see what it does.
 #
 # The key specifications part is documented here:
 # https://redis.io/docs/reference/key-specs/
