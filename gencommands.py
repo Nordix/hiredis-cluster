@@ -5,14 +5,19 @@
 
 # This script generates cmddef.h from the JSON files in the Redis repo
 # describing the commands. This is done manually when commands have been added
-# to Redis.
+# to Redis or when you want add more commands implemented in modules, etc.
 #
 # Usage: ./gencommands.py path/to/redis/src/commands/*.json > cmddef.h
 #
-# Additional JSON files can be added to define custom commands. The JSON file
-# format is not fully documented but hopefully the format can be understood from
-# reading the existing JSON files. Alternatively, you can read the source code
-# of this script to see what it does.
+# Alternatively, the output of the script utils/generate-commands-json.py (which
+# fetches the command metadata from a running Redis node) or the file
+# commands.json from the redis-doc repo can be used as input to this script:
+# https://github.com/redis/redis-doc/blob/master/commands.json
+#
+# Additional JSON files can be added to extend support for custom commands. The
+# JSON file format is not fully documented but hopefully the format can be
+# understood from reading the existing JSON files. Alternatively, you can read
+# the source code of this script to see what it does.
 #
 # The key specifications part is documented here:
 # https://redis.io/docs/reference/key-specs/
@@ -31,6 +36,15 @@ import os
 import sys
 import re
 
+# Returns True if any of the nested arguments is a key; False otherwise.
+def any_argument_is_key(arguments):
+    for arg in arguments:
+        if arg.get("type") == "key":
+            return True
+        if "arguments" in arg and any_argument_is_key(arg["arguments"]):
+            return True
+    return False
+
 # Returns a tuple (method, index) where method is one of the following:
 #
 #     NONE          = No keys
@@ -43,29 +57,22 @@ import re
 #                     keys (example EVAL)
 def firstkey(props):
     if not "key_specs" in props:
-        # Key specs missing. Best-effort fallback to "arguments" for modules. To
-        # avoid returning UNKNOWN instead of NONE for official Redis commands
-        # without keys, we check for "arity" which is always defined in Redis
-        # but not in the Redis Stack modules which also lack key specs.
-        if "arguments" in props and "arity" not in props:
+        # Key specs missing. Best-effort fallback to "arguments".
+        if "arguments" in props:
             args = props["arguments"]
             for i in range(1, len(args)):
                 arg = args[i - 1]
-                if not "type" in arg:
-                    return ("NONE", 0)
-                if arg["type"] == "key":
+                if arg.get("type") == "key":
                     return ("INDEX", i)
-                elif arg["type"] == "string":
-                    if "name" in arg and arg["name"] == "key":
-                        # add-hoc case for RediSearch
-                        return ("INDEX", i)
-                    if "optional" in arg and arg["optional"]:
-                        return ("UNKNOWN", 0)
-                    if "multiple" in arg and arg["multiple"]:
-                        return ("UNKNOWN", 0)
-                else:
+                elif arg.get("type") == "string" and arg.get("name") == "key":
+                    # add-hoc case for RediSearch
+                    return ("INDEX", i)
+                elif arg.get("optional") or arg.get("multiple") or "arguments" in arg:
                     # Too complex for this fallback.
-                    return ("UNKNOWN", 0)
+                    if any_argument_is_key(args):
+                        return ("UNKNOWN", 0)
+                    else:
+                        return ("NONE", 0)
         return ("NONE", 0)
 
     if len(props["key_specs"]) == 0:
@@ -75,17 +82,38 @@ def firstkey(props):
     # Otherwise we return -1 for unknown (for example if the first key is
     # indicated by a keyword like KEYS or STREAMS).
     begin_search = props["key_specs"][0]["begin_search"]
-    if not "index" in begin_search:
+    if "index" in begin_search:
+        # Redis source JSON files have this syntax
+        pos = begin_search["index"]["pos"]
+    elif begin_search.get("type") == "index" and "spec" in begin_search:
+        # generate-commands-json.py returns this syntax
+        pos = begin_search["spec"]["index"]
+    else:
         return ("UNKNOWN", 0)
-    pos = begin_search["index"]["pos"]
+
     find_keys = props["key_specs"][0]["find_keys"]
-    if "range" in find_keys:
+    if "range" in find_keys or find_keys.get("type") == "range":
         # The first key is the arg at index pos.
+        # Redis source JSON files have this syntax:
+        #     "find_keys": {
+        #         "range": {...}
+        #     }
+        # generate-commands-json.py returns this syntax:
+        #     "find_keys": {
+        #         "type": "range",
+        #         "spec": {...}
+        #     },
         return ("INDEX", pos)
     elif "keynum" in find_keys:
         # The arg at pos is the number of keys and the next arg is the first key
+        # Redis source JSON files have this syntax
         assert find_keys["keynum"]["keynumidx"] == 0
         assert find_keys["keynum"]["firstkey"] == 1
+        return ("KEYNUM", pos)
+    elif find_keys.get("type") == "keynum":
+        # generate-commands-json.py returns this syntax
+        assert find_keys["spec"]["keynumidx"] == 0
+        assert find_keys["spec"]["firstkey"] == 1
         return ("KEYNUM", pos)
     else:
         return ("UNKNOWN", 0)
@@ -105,7 +133,8 @@ def extract_command_info(name, props):
         tokens = name.split(maxsplit=1)
         if len(tokens) > 1:
             name, subcommand = tokens
-            if firstkeypos > 0:
+            if firstkeypos > 0 and not "key_specs" in props:
+                # Position was inferred from "arguments"
                 firstkeypos += 1
 
     arity = props["arity"] if "arity" in props else -1
