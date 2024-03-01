@@ -4404,7 +4404,7 @@ void redisClusterAsyncDisconnect(redisClusterAsyncContext *acc) {
 
         ac = node->acon;
 
-        if (ac == NULL || ac->err) {
+        if (ac == NULL) {
             continue;
         }
 
