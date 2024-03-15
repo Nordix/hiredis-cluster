@@ -3715,6 +3715,11 @@ redisAsyncContext *actx_get_by_node(redisClusterAsyncContext *acc,
     if (acc->onConnect) {
         redisAsyncSetConnectCallback(ac, acc->onConnect);
     }
+#ifndef HIRCLUSTER_NO_NONCONST_CONNECT_CB
+    else if (acc->onConnectNC) {
+        redisAsyncSetConnectCallbackNC(ac, acc->onConnectNC);
+    }
+#endif
 
     if (acc->onDisconnect) {
         redisAsyncSetDisconnectCallback(ac, acc->onDisconnect);
@@ -3775,12 +3780,26 @@ int redisClusterAsyncConnect2(redisClusterAsyncContext *acc) {
 
 int redisClusterAsyncSetConnectCallback(redisClusterAsyncContext *acc,
                                         redisConnectCallback *fn) {
-    if (acc->onConnect == NULL) {
-        acc->onConnect = fn;
-        return REDIS_OK;
-    }
-    return REDIS_ERR;
+    if (acc->onConnect != NULL)
+        return REDIS_ERR;
+#ifndef HIRCLUSTER_NO_NONCONST_CONNECT_CB
+    if (acc->onConnectNC != NULL)
+        return REDIS_ERR;
+#endif
+    acc->onConnect = fn;
+    return REDIS_OK;
 }
+
+#ifndef HIRCLUSTER_NO_NONCONST_CONNECT_CB
+int redisClusterAsyncSetConnectCallbackNC(redisClusterAsyncContext *acc,
+                                          redisConnectCallbackNC *fn) {
+    if (acc->onConnectNC != NULL || acc->onConnect == NULL) {
+        return REDIS_ERR;
+    }
+    acc->onConnectNC = fn;
+    return REDIS_OK;
+}
+#endif
 
 int redisClusterAsyncSetDisconnectCallback(redisClusterAsyncContext *acc,
                                            redisDisconnectCallback *fn) {

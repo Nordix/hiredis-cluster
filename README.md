@@ -459,6 +459,21 @@ aliased to `redisConnectCallback`:
 void(const redisAsyncContext *ac, int status);
 ```
 
+If `hiredis` >= v1.1.0 is used you can alternatively set the following
+connect callback which will be passed a non-const `redisAsyncContext*` on
+invocation (e.g. allowing to set a push callback).
+
+```c
+int redisClusterAsyncSetConnectCallbackNC(redisClusterAsyncContext *acc,
+                                          redisConnectCallbackNC *fn);
+```
+
+The callback function should have the following prototype,
+aliased to `redisConnectCallbackNC`:
+```c
+void(redisAsyncContext *ac, int status);
+```
+
 On a connection attempt, the `status` argument is set to `REDIS_OK`
 when the connection was successful.
 The file description of the connection socket can be retrieved
