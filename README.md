@@ -459,9 +459,9 @@ aliased to `redisConnectCallback`:
 void(const redisAsyncContext *ac, int status);
 ```
 
-If `hiredis` >= v1.1.0 is used you can alternatively set the following
-connect callback which will be passed a non-const `redisAsyncContext*` on
-invocation (e.g. allowing to set a push callback).
+Alternatively, if `hiredis` >= v1.1.0 is used, you set a connect callback
+that will be passed a non-const `redisAsyncContext*` on invocation (e.g.
+to be able to set a push callback on it).
 
 ```c
 int redisClusterAsyncSetConnectCallbackNC(redisClusterAsyncContext *acc,
