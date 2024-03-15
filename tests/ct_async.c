@@ -31,8 +31,8 @@ void connectCallback(const redisAsyncContext *ac, int status) {
 void connectCallbackNC(redisAsyncContext *ac, int status) {
     UNUSED(ac);
     UNUSED(status);
-    /* The testcase expects a failure during registration of
-       this non-async connect callback. */
+    /* The testcase expects a failure during registration of this
+       non-const connect callback and it should never be called. */
     assert(0);
 }
 #endif
