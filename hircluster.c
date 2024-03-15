@@ -3793,7 +3793,7 @@ int redisClusterAsyncSetConnectCallback(redisClusterAsyncContext *acc,
 #ifndef HIRCLUSTER_NO_NONCONST_CONNECT_CB
 int redisClusterAsyncSetConnectCallbackNC(redisClusterAsyncContext *acc,
                                           redisConnectCallbackNC *fn) {
-    if (acc->onConnectNC != NULL || acc->onConnect == NULL) {
+    if (acc->onConnectNC != NULL || acc->onConnect != NULL) {
         return REDIS_ERR;
     }
     acc->onConnectNC = fn;
