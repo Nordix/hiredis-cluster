@@ -1,3 +1,10 @@
+### 0.13.0 - Mar 18, 2024
+
+* Add non-const connect callback (#205)
+* Invoke all callbacks during redisClusterAsyncDisconnect() (#204)
+* Better support for JSON files describing commands metadata (#202)
+* Fix a compilation warning in command.c relating to kpos shadowing (#201)
+
 ### 0.12.0 - Feb 9, 2024
 
 * Update slotmap when slot is not served by any node (#192)
