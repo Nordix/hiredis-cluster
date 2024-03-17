@@ -69,7 +69,7 @@
 
 /* The non-const connect callback API is not available when:
  *  - using hiredis prior v.1.1.0; or
- *  - built on Windows since hiredis_cluster.def needs to be updated. */
+ *  - built on Windows since hiredis_cluster.def can't have conditional definitions. */
 #if !(HIREDIS_MAJOR >= 1 && HIREDIS_MINOR >= 1) || _WIN32
 #define HIRCLUSTER_NO_NONCONST_CONNECT_CB
 #endif
