@@ -49,7 +49,7 @@ void eventCallback(const redisClusterContext *cc, int event, void *privdata) {
 }
 
 /* Message callback for 'SET' commands. Issues a 'GET' command and a reply is
-   expected as a call to 'getCallback()' */
+   expected as a call to 'getCallback1()' */
 void setCallback(redisClusterAsyncContext *acc, void *r, void *privdata) {
     (void)privdata;
     redisReply *reply = (redisReply *)r;
@@ -63,7 +63,8 @@ void setCallback(redisClusterAsyncContext *acc, void *r, void *privdata) {
 
 /* Message callback for the first 'GET' command. Modifies the key to
    trigger Redis to send a key invalidation message and then sends another
-   'GET' command. */
+   'GET' command. The invalidation message is received via the registered
+   push callback. */
 void getCallback1(redisClusterAsyncContext *acc, void *r, void *privdata) {
     (void)privdata;
     redisReply *reply = (redisReply *)r;
