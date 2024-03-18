@@ -17,6 +17,11 @@ target_link_libraries(example_async
   hiredis_cluster::hiredis_cluster
   ${EVENT_LIBRARY})
 
+add_executable(clientside_caching_async clientside_caching_async.c)
+target_link_libraries(clientside_caching_async
+  hiredis_cluster::hiredis_cluster
+  ${EVENT_LIBRARY})
+
 # Executable: tls
 if(ENABLE_SSL)
   find_package(hiredis_ssl REQUIRED)
