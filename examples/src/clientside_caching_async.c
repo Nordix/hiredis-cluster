@@ -2,6 +2,7 @@
  * Simple example how to enable client tracking to implement client side caching.
  * Tracking can be enabled via a registered connect callback and invalidation
  * messages are received via the registered push callback.
+ * The disconnect callback should also be used as an indication of invalidation.
  */
 #include <hiredis_cluster/adapters/libevent.h>
 #include <hiredis_cluster/hircluster.h>
@@ -14,54 +15,69 @@
 #define CLUSTER_NODE "127.0.0.1:7000"
 #define KEY "key:1"
 
-/* Helper to modify keys using a separate client. */
-void modifyKey(const char *key, const char *value) {
-    printf("Modify key: '%s'\n", key);
-    redisClusterContext *cc = redisClusterContextInit();
-    int status = redisClusterSetOptionAddNodes(cc, CLUSTER_NODE);
-    assert(status == REDIS_OK);
-    status = redisClusterConnect2(cc);
-    assert(status == REDIS_OK);
+void pushCallback(redisAsyncContext *ac, void *r);
+void setCallback(redisClusterAsyncContext *acc, void *r, void *privdata);
+void getCallback1(redisClusterAsyncContext *acc, void *r, void *privdata);
+void getCallback2(redisClusterAsyncContext *acc, void *r, void *privdata);
+void modifyKey(const char *key, const char *value);
 
-    redisReply *reply = redisClusterCommand(cc, "SET %s %s", key, value);
-    assert(reply != NULL);
-    freeReplyObject(reply);
-
-    redisClusterFree(cc);
+/* The connect callback enables RESP3 and client tracking.
+   The non-const connect callback is used since we want to
+   set the push callback in the hiredis context. */
+void connectCallbackNC(redisAsyncContext *ac, int status) {
+    assert(status == REDIS_OK);
+    redisAsyncSetPushCallback(ac, pushCallback);
+    redisAsyncCommand(ac, NULL, NULL, "HELLO 3");
+    redisAsyncCommand(ac, NULL, NULL, "CLIENT TRACKING ON");
+    printf("Connected to %s:%d\n", ac->c.tcp.host, ac->c.tcp.port);
 }
 
-/* Message callback for 'set' commands. */
+/* The event callback issues a 'SET' command when the client is ready to accept
+   commands. A reply is expected via a call to 'setCallback()' */
+void eventCallback(const redisClusterContext *cc, int event, void *privdata) {
+    (void)cc;
+    redisClusterAsyncContext *acc = (redisClusterAsyncContext *)privdata;
+
+    /* We send our commands when the client is ready to accept commands. */
+    if (event == HIRCLUSTER_EVENT_READY) {
+        printf("Client is ready to accept commands\n");
+
+        int status =
+            redisClusterAsyncCommand(acc, setCallback, NULL, "SET %s 1", KEY);
+        assert(status == REDIS_OK);
+    }
+}
+
+/* Message callback for 'SET' commands. Issues a 'GET' command and a reply is
+   expected as a call to 'getCallback()' */
 void setCallback(redisClusterAsyncContext *acc, void *r, void *privdata) {
     (void)privdata;
     redisReply *reply = (redisReply *)r;
     assert(reply != NULL);
+    printf("Callback for 'SET', reply: %s\n", reply->str);
 
-    printf("Callback for 'set', reply: %s\n", reply->str);
+    int status =
+        redisClusterAsyncCommand(acc, getCallback1, NULL, "GET %s", KEY);
+    assert(status == REDIS_OK);
 }
 
-/* Message callback for 'get' commands. */
-void getCallback(redisClusterAsyncContext *acc, void *r, void *privdata) {
+/* Message callback for the first 'GET' command. Modifies the key to
+   trigger Redis to send a key invalidation message and then sends another
+   'GET' command. */
+void getCallback1(redisClusterAsyncContext *acc, void *r, void *privdata) {
     (void)privdata;
     redisReply *reply = (redisReply *)r;
     assert(reply != NULL);
 
-    printf("Callback for 'get', reply: %s\n", reply->str);
-
-    /* Exit the eventloop after a couple of sent commands. */
-    static int cmdsSent = 0;
-    if (cmdsSent > 4) {
-        redisClusterAsyncDisconnect(acc);
-        return;
-    }
+    printf("Callback for first 'GET', reply: %s\n", reply->str);
 
     /* Modify the key from another client which will invalidate a cached value.
        Redis will send an invalidation message via a push message. */
     modifyKey(KEY, "99");
 
     int status =
-        redisClusterAsyncCommand(acc, getCallback, NULL, "GET %s", KEY);
+        redisClusterAsyncCommand(acc, getCallback2, NULL, "GET %s", KEY);
     assert(status == REDIS_OK);
-    cmdsSent++;
 }
 
 /* Push message callback handling invalidation messages. */
@@ -85,38 +101,40 @@ void pushCallback(redisAsyncContext *ac, void *r) {
     }
 }
 
-/* Connect callback that enables RESP3 and client tracking.
-   The non-const connect callback is used since we want to
-   set the push callback in the hiredis context. */
-void connectCallbackNC(redisAsyncContext *ac, int status) {
-    assert(status == REDIS_OK);
-    redisAsyncSetPushCallback(ac, pushCallback);
-    redisAsyncCommand(ac, NULL, NULL, "HELLO 3");
-    redisAsyncCommand(ac, NULL, NULL, "CLIENT TRACKING ON");
-    printf("Connected to %s:%d\n", ac->c.tcp.host, ac->c.tcp.port);
+/* Message callback for 'GET' commands. Exits program. */
+void getCallback2(redisClusterAsyncContext *acc, void *r, void *privdata) {
+    (void)privdata;
+    redisReply *reply = (redisReply *)r;
+    assert(reply != NULL);
+
+    printf("Callback for second 'GET', reply: %s\n", reply->str);
+
+    /* Exit the eventloop after a couple of sent commands. */
+    redisClusterAsyncDisconnect(acc);
 }
 
+/* A disconnect callback should invalidate all cached keys. */
 void disconnectCallback(const redisAsyncContext *ac, int status) {
     assert(status == REDIS_OK);
     printf("Disconnected from %s:%d\n", ac->c.tcp.host, ac->c.tcp.port);
+
+    printf("Invalidate all\n");
 }
 
-void eventCallback(const redisClusterContext *cc, int event, void *privdata) {
-    (void)cc;
-    redisClusterAsyncContext *acc = (redisClusterAsyncContext *)privdata;
+/* Helper to modify keys using a separate client. */
+void modifyKey(const char *key, const char *value) {
+    printf("Modify key: '%s'\n", key);
+    redisClusterContext *cc = redisClusterContextInit();
+    int status = redisClusterSetOptionAddNodes(cc, CLUSTER_NODE);
+    assert(status == REDIS_OK);
+    status = redisClusterConnect2(cc);
+    assert(status == REDIS_OK);
 
-    /* We send our commands when the client is ready to accept commands. */
-    if (event == HIRCLUSTER_EVENT_READY) {
-        printf("Client is ready to accept commands\n");
-        int status;
+    redisReply *reply = redisClusterCommand(cc, "SET %s %s", key, value);
+    assert(reply != NULL);
+    freeReplyObject(reply);
 
-        status =
-            redisClusterAsyncCommand(acc, setCallback, NULL, "SET %s 1", KEY);
-        assert(status == REDIS_OK);
-        status =
-            redisClusterAsyncCommand(acc, getCallback, NULL, "GET %s", KEY);
-        assert(status == REDIS_OK);
-    }
+    redisClusterFree(cc);
 }
 
 int main(int argc, char **argv) {
