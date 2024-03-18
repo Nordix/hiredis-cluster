@@ -67,6 +67,13 @@
 #define HIRCLUSTER_EVENT_READY 2
 #define HIRCLUSTER_EVENT_FREE_CONTEXT 3
 
+/* The non-const connect callback API is not available when:
+ *  - using hiredis prior v.1.1.0; or
+ *  - built on Windows since hiredis_cluster.def can't have conditional definitions. */
+#if !(HIREDIS_MAJOR >= 1 && HIREDIS_MINOR >= 1) || _WIN32
+#define HIRCLUSTER_NO_NONCONST_CONNECT_CB
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -159,6 +166,9 @@ typedef struct redisClusterAsyncContext {
 
     /* Called when the first write event was received. */
     redisConnectCallback *onConnect;
+#ifndef HIRCLUSTER_NO_NONCONST_CONNECT_CB
+    redisConnectCallbackNC *onConnectNC;
+#endif
 
 } redisClusterAsyncContext;
 
@@ -286,6 +296,10 @@ void redisClusterAsyncFree(redisClusterAsyncContext *acc);
 
 int redisClusterAsyncSetConnectCallback(redisClusterAsyncContext *acc,
                                         redisConnectCallback *fn);
+#ifndef HIRCLUSTER_NO_NONCONST_CONNECT_CB
+int redisClusterAsyncSetConnectCallbackNC(redisClusterAsyncContext *acc,
+                                          redisConnectCallbackNC *fn);
+#endif
 int redisClusterAsyncSetDisconnectCallback(redisClusterAsyncContext *acc,
                                            redisDisconnectCallback *fn);
 

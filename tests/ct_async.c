@@ -27,6 +27,16 @@ void connectCallback(const redisAsyncContext *ac, int status) {
     printf("Connected to %s:%d\n", ac->c.tcp.host, ac->c.tcp.port);
 }
 
+#ifndef HIRCLUSTER_NO_NONCONST_CONNECT_CB
+void connectCallbackNC(redisAsyncContext *ac, int status) {
+    UNUSED(ac);
+    UNUSED(status);
+    /* The testcase expects a failure during registration of this
+       non-const connect callback and it should never be called. */
+    assert(0);
+}
+#endif
+
 void disconnectCallback(const redisAsyncContext *ac, int status) {
     ASSERT_MSG(status == REDIS_OK, ac->errstr);
     printf("Disconnected from %s:%d\n", ac->c.tcp.host, ac->c.tcp.port);
@@ -66,6 +76,14 @@ int main(void) {
     int status;
     status = redisClusterAsyncSetConnectCallback(acc, connectCallback);
     assert(status == REDIS_OK);
+    status = redisClusterAsyncSetConnectCallback(acc, connectCallback);
+    assert(status == REDIS_ERR); /* Re-registration not accepted */
+
+#ifndef HIRCLUSTER_NO_NONCONST_CONNECT_CB
+    status = redisClusterAsyncSetConnectCallbackNC(acc, connectCallbackNC);
+    assert(status == REDIS_ERR); /* Re-registration not accepted */
+#endif
+
     status = redisClusterAsyncSetDisconnectCallback(acc, disconnectCallback);
     assert(status == REDIS_OK);
     status = redisClusterSetEventCallback(acc->cc, eventCallback, acc);
