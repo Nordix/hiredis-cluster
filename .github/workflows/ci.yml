@@ -9,7 +9,7 @@ jobs:
     steps:
     - uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
     - name: Run clang-format style check (.c and .h)
-      uses: jidicula/clang-format-action@c6b458a845552fe71b70b00b851a3ef88b1be279 # v4.6.2
+      uses: jidicula/clang-format-action@f62da5e3d3a2d88ff364771d9d938773a618ab5e # v4.11.0
 
   ubuntu:
     name: ${{ matrix.cmake-build-type }}-build [${{ matrix.compiler }}, cmake-${{ matrix.cmake-version }} sanitizer="${{ matrix.sanitizer }}"]
