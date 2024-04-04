@@ -7,9 +7,9 @@ jobs:
     name: Run static checkers
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
     - name: Run clang-format style check (.c and .h)
-      uses: jidicula/clang-format-action@v4.6.2
+      uses: jidicula/clang-format-action@c6b458a845552fe71b70b00b851a3ef88b1be279 # v4.6.2
 
   ubuntu:
     name: ${{ matrix.cmake-build-type }}-build [${{ matrix.compiler }}, cmake-${{ matrix.cmake-version }} sanitizer="${{ matrix.sanitizer }}"]
@@ -41,7 +41,7 @@ jobs:
 
     steps:
     - name: Prepare
-      uses: awalsh128/cache-apt-pkgs-action@latest
+      uses: awalsh128/cache-apt-pkgs-action@a6c3917cc929dd0345bfb2d3feaf9101823370ad # v1.4.2
       with:
         packages: libevent-dev libuv1-dev libev-dev libglib2.0-dev ${{ matrix.compiler }}
         version: 1.0
@@ -53,10 +53,10 @@ jobs:
         cmake -S hiredis-${VERSION} -B hiredis-build -DENABLE_SSL=ON
         sudo make -C hiredis-build install
     - name: Setup cmake
-      uses: jwlawson/actions-setup-cmake@v2
+      uses: jwlawson/actions-setup-cmake@959f1116cf9f1ae42fff8ec1a4aaae6d4a0e348b # v2.0.1
       with:
         cmake-version: ${{ matrix.cmake-version }}
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
     - name: Create build folder
       run: cmake -E make_directory build
     - name: Generate makefiles
@@ -74,7 +74,7 @@ jobs:
       working-directory: build
       run: make start
     - name: Wait for clusters to start..
-      uses: kibertoad/wait-action@1.0.1
+      uses: kibertoad/wait-action@99f6f101c5be7b88bb9b41c0d3b810722491b8e5 # 1.0.1
       with:
         time: '20s'
     - name: Run tests
@@ -102,7 +102,7 @@ jobs:
       - name: Prepare
         run: |
           brew install cmake ninja openssl
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
       - name: Build
         run: |
           mkdir build && cd build
@@ -113,8 +113,8 @@ jobs:
     name: Windows
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: ilammy/msvc-dev-cmd@v1
+      - uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+      - uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756 # v1.13.0
       - name: Prepare
         run: |
           choco install -y ninja
@@ -129,9 +129,9 @@ jobs:
     name: Windows (MinGW64)
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
       - name: Set up MinGW
-        uses: msys2/setup-msys2@v2
+        uses: msys2/setup-msys2@cc11e9188b693c2b100158c3322424c4cc1dadea # v2.22.0
         with:
           msystem: mingw64
           install: |

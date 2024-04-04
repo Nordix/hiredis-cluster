@@ -11,7 +11,7 @@ jobs:
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
       with:
         fetch-depth: 1
 
@@ -26,7 +26,7 @@ jobs:
         COVERITY_TOKEN: ${{ secrets.COVERITY_TOKEN }}
 
     - name: Prepare
-      uses: awalsh128/cache-apt-pkgs-action@latest
+      uses: awalsh128/cache-apt-pkgs-action@a6c3917cc929dd0345bfb2d3feaf9101823370ad # v1.4.2
       with:
         packages: libevent-dev cmake
         version: 1.0
