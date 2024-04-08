@@ -2,6 +2,9 @@ name: Redis compatibility testing
 
 on: [push, pull_request]
 
+permissions:
+  contents: read
+
 jobs:
   redis-comp:
     name: Redis ${{ matrix.redis-version }}
