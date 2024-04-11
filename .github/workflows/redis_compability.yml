@@ -1,4 +1,4 @@
-name: Redis compatibility testing
+name: DB compatibility testing
 
 on: [push, pull_request]
 
@@ -6,6 +6,48 @@ permissions:
   contents: read
 
 jobs:
+  valkey:
+    name: Valkey ${{ matrix.valkey-version }}
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - valkey-version: 7.2.5
+    steps:
+      - name: Prepare
+        uses: awalsh128/cache-apt-pkgs-action@a6c3917cc929dd0345bfb2d3feaf9101823370ad # v1.4.2
+        with:
+          packages: libevent-dev
+          version: 1.0
+      - uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+      - name: Create build folder
+        run: cmake -E make_directory build
+      - name: Generate makefiles
+        shell: bash
+        working-directory: build
+        run: cmake $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=Release -DENABLE_IPV6_TESTS=ON -DTEST_WITH_VALKEY_VERSION=${{ matrix.valkey-version }} ..
+      - name: Build
+        shell: bash
+        working-directory: build
+        run: VERBOSE=1 make
+      - name: Setup clusters
+        shell: bash
+        working-directory: build
+        run: make start
+      - name: Wait for clusters to start..
+        uses: kibertoad/wait-action@99f6f101c5be7b88bb9b41c0d3b810722491b8e5 # 1.0.1
+        with:
+          time: '40s'
+      - name: Run tests
+        shell: bash
+        working-directory: build
+        run: make CTEST_OUTPUT_ON_FAILURE=1 test
+      - name: Teardown clusters
+        working-directory: build
+        shell: bash
+        run: make stop
+
   redis-comp:
     name: Redis ${{ matrix.redis-version }}
     runs-on: ubuntu-20.04
