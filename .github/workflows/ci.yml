@@ -121,7 +121,7 @@ jobs:
       - name: Prepare
         run: |
           choco install -y ninja
-          vcpkg install --triplet x64-windows libevent
+          vcpkg install --triplet x64-windows pkgconf libevent
       - name: Build
         run: |
           mkdir build && cd build
