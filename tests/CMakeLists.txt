@@ -28,15 +28,23 @@ else()
   set(NO_IPV6 "true") # Ignore command
 endif()
 
+if(TEST_WITH_VALKEY_VERSION)
+  set(CLUSTER_SCRIPT "${CMAKE_SOURCE_DIR}/tests/scripts/valkey-cluster")
+  set(CLUSTER_VERSION "VALKEY_VERSION=${TEST_WITH_VALKEY_VERSION}")
+else()
+  set(CLUSTER_SCRIPT "${CMAKE_SOURCE_DIR}/tests/scripts/redis-cluster")
+  set(CLUSTER_VERSION "REDIS_VERSION=${TEST_WITH_REDIS_VERSION}")
+endif()
+
 add_custom_target(start
-  COMMAND REDIS_VERSION=${TEST_WITH_REDIS_VERSION} PORT=7000 ${CMAKE_SOURCE_DIR}/tests/scripts/redis-cluster start
-  COMMAND REDIS_VERSION=${TEST_WITH_REDIS_VERSION} PORT=7100 ADDITIONAL_OPTIONS='--requirepass secretword --masterauth secretword' ADDITIONAL_CLI_OPTIONS='-a secretword' ${CMAKE_SOURCE_DIR}/tests/scripts/redis-cluster start
-  COMMAND ${NO_IPV6} REDIS_VERSION=${TEST_WITH_REDIS_VERSION} PORT=7200 CLUSTER_HOST=::1 ADDITIONAL_OPTIONS='--bind ::1' ADDITIONAL_CLI_OPTIONS='-h ::1' ${CMAKE_SOURCE_DIR}/tests/scripts/redis-cluster start
-  )
+  COMMAND PORT=7000 ${CLUSTER_VERSION} ${CLUSTER_SCRIPT} start
+  COMMAND PORT=7100 ${CLUSTER_VERSION} ADDITIONAL_OPTIONS='--requirepass secretword --masterauth secretword' ADDITIONAL_CLI_OPTIONS='-a secretword' ${CLUSTER_SCRIPT} start
+  COMMAND ${NO_IPV6} PORT=7200 ${CLUSTER_VERSION} CLUSTER_HOST=::1 ADDITIONAL_OPTIONS='--bind ::1' ADDITIONAL_CLI_OPTIONS='-h ::1' ${CLUSTER_SCRIPT} start
+)
 add_custom_target(stop
-  COMMAND PORT=7000 ${CMAKE_SOURCE_DIR}/tests/scripts/redis-cluster stop
-  COMMAND PORT=7100 ${CMAKE_SOURCE_DIR}/tests/scripts/redis-cluster stop
-  COMMAND ${NO_IPV6} PORT=7200 ${CMAKE_SOURCE_DIR}/tests/scripts/redis-cluster stop
+  COMMAND PORT=7000 ${CLUSTER_SCRIPT} stop
+  COMMAND PORT=7100 ${CLUSTER_SCRIPT} stop
+  COMMAND ${NO_IPV6} PORT=7200 ${CLUSTER_SCRIPT} stop
 )
 
 # Find dependencies
