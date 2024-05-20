@@ -5,7 +5,7 @@ include(ExternalProject)
 ExternalProject_Add(hiredis
   PREFIX hiredis
   GIT_REPOSITORY  https://github.com/redis/hiredis
-  GIT_TAG         v1.0.2
+  GIT_TAG         v1.2.0
   CMAKE_ARGS
     "-DCMAKE_C_FLAGS:STRING=-std=c99"
     "-DENABLE_SSL:BOOL=ON"
