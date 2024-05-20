@@ -8,7 +8,7 @@ script_dir=$(realpath "${0%/*}")
 repo_dir=$(git rev-parse --show-toplevel)
 
 # Download hiredis
-hiredis_version=1.0.2
+hiredis_version=1.2.0
 curl -L https://github.com/redis/hiredis/archive/v${hiredis_version}.tar.gz | tar -xz -C ${script_dir}
 
 # Build and install downloaded hiredis using GNU Make
