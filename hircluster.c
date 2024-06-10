@@ -3906,6 +3906,10 @@ static int updateSlotMapAsync(redisClusterAsyncContext *acc,
         /* Don't allow concurrent slot map updates. */
         return REDIS_ERR;
     }
+    if (acc->cc->flags & HIRCLUSTER_FLAG_SHUTDOWN) {
+        /* No slot map updates during a client shutdown. */
+        return REDIS_ERR;
+    }
 
     if (ac == NULL) {
         if (acc->cc->nodes == NULL) {
