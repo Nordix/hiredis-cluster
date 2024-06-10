@@ -1951,6 +1951,9 @@ int redisClusterConnect2(redisClusterContext *cc) {
     if (cc == NULL) {
         return REDIS_ERR;
     }
+    /* Clear a previously set shutdown flag since we allow a
+       reconnection of an async context using this API (legacy). */
+    cc->flags &= ~HIRCLUSTER_FLAG_SHUTDOWN;
 
     return _redisClusterConnect2(cc);
 }
@@ -4116,6 +4119,12 @@ int redisClusterAsyncFormattedCommand(redisClusterAsyncContext *acc,
 
     cc = acc->cc;
 
+    /* Don't accept new commands when the client is about to be shutdown. */
+    if (cc->flags & HIRCLUSTER_FLAG_SHUTDOWN) {
+        __redisClusterAsyncSetError(acc, REDIS_ERR_OTHER, "client closing");
+        return REDIS_ERR;
+    }
+
     if (cc->err) {
         cc->err = 0;
         memset(cc->errstr, '\0', strlen(cc->errstr));
@@ -4221,19 +4230,23 @@ int redisClusterAsyncFormattedCommandToNode(redisClusterAsyncContext *acc,
                                             redisClusterCallbackFn *fn,
                                             void *privdata, char *cmd,
                                             int len) {
-    redisClusterContext *cc;
+    redisClusterContext *cc = acc->cc;
     redisAsyncContext *ac;
     int status;
     cluster_async_data *cad = NULL;
     struct cmd *command = NULL;
+
+    /* Don't accept new commands when the client is about to be shutdown. */
+    if (cc->flags & HIRCLUSTER_FLAG_SHUTDOWN) {
+        __redisClusterAsyncSetError(acc, REDIS_ERR_OTHER, "client closing");
+        return REDIS_ERR;
+    }
 
     ac = actx_get_by_node(acc, node);
     if (ac == NULL) {
         /* Specific error already set */
         return REDIS_ERR;
     }
-
-    cc = acc->cc;
 
     if (cc->err) {
         cc->err = 0;
@@ -4410,6 +4423,7 @@ void redisClusterAsyncDisconnect(redisClusterAsyncContext *acc) {
     }
 
     cc = acc->cc;
+    cc->flags |= HIRCLUSTER_FLAG_SHUTDOWN;
 
     if (cc->nodes == NULL) {
         return;
@@ -4439,6 +4453,7 @@ void redisClusterAsyncFree(redisClusterAsyncContext *acc) {
     }
 
     cc = acc->cc;
+    cc->flags |= HIRCLUSTER_FLAG_SHUTDOWN;
 
     redisClusterFree(cc);
 
