@@ -1,7 +1,8 @@
 #!/bin/bash
 #
-# Verify that a client disconnects from known nodes when requested
-# and will not accept new commands thereafter.
+# Verify that a client disconnects from known nodes without following
+# redirects, this to avoid reconnecting to already disconnected nodes.
+# The client will not accept new commands thereafter.
 #
 # Usage: $0 /path/to/clusterclient-binary
 
@@ -23,6 +24,9 @@ EXPECT CONNECT
 EXPECT ["SET", "foo", "initial"]
 SEND +OK
 
+EXPECT ["SET", "foo", "redirect"]
+SEND -MOVED 12182 127.0.0.1:7402
+
 EXPECT CLOSE
 EOF
 server1=$!
@@ -34,8 +38,12 @@ wait $syncpid1;
 timeout 4s "$clientprog" --connection-events 127.0.0.1:7401 > "$testname.out" <<'EOF'
 SET foo initial
 
-# Request a client disconnect.
+# Send a command that is expected to be redirected just before
+# requesting a client disconnect.
+!async
+SET foo redirect
 !disconnect
+!sync
 
 # Commands are not accepted after a disconnect.
 SET foo not-accepted
@@ -57,6 +65,7 @@ fi
 
 expected="Event: connect to 127.0.0.1:7401
 OK
+MOVED 12182 127.0.0.1:7402
 Event: disconnect from 127.0.0.1:7401
 error: client closing"
 

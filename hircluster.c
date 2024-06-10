@@ -3998,7 +3998,8 @@ static void redisClusterAsyncCallback(redisAsyncContext *ac, void *r,
         goto done;
     }
 
-    if (cad->retry_count == NO_RETRY) /* Skip retry handling */
+    /* Skip retry handling when not expected, or during a client shutdown. */
+    if (cad->retry_count == NO_RETRY || cc->flags & HIRCLUSTER_FLAG_SHUTDOWN)
         goto done;
 
     error_type = cluster_reply_error_type(reply);
