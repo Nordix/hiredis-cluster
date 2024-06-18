@@ -61,6 +61,9 @@
 /* Flag to enable routing table updates using the command 'cluster slots'.
  * Default is the 'cluster nodes' command. */
 #define HIRCLUSTER_FLAG_ROUTE_USE_SLOTS 0x4000
+/* Flag specific to the async API which means that the user requested a
+ * client shutdown by a disconnect or free. */
+#define HIRCLUSTER_FLAG_SHUTDOWN 0x8000
 
 /* Events, for redisClusterSetEventCallback() */
 #define HIRCLUSTER_EVENT_SLOTMAP_UPDATED 1
