@@ -3034,6 +3034,17 @@ void *redisClustervCommand(redisClusterContext *cc, const char *format,
     return reply;
 }
 
+void *redisClusterCommand(redisClusterContext *cc, const char *format, ...) {
+    va_list ap;
+    redisReply *reply = NULL;
+
+    va_start(ap, format);
+    reply = redisClustervCommand(cc, format, ap);
+    va_end(ap);
+
+    return reply;
+}
+
 void *redisClustervCommandToNode(redisClusterContext *cc,
                                  redisClusterNode *node, const char *format,
                                  va_list ap) {
@@ -3084,17 +3095,6 @@ void *redisClustervCommandToNode(redisClusterContext *cc,
             cc->errstr[0] = '\0';
         }
     }
-
-    return reply;
-}
-
-void *redisClusterCommand(redisClusterContext *cc, const char *format, ...) {
-    va_list ap;
-    redisReply *reply = NULL;
-
-    va_start(ap, format);
-    reply = redisClustervCommand(cc, format, ap);
-    va_end(ap);
 
     return reply;
 }
@@ -3245,6 +3245,22 @@ int redisClustervAppendCommand(redisClusterContext *cc, const char *format,
     return ret;
 }
 
+int redisClusterAppendCommand(redisClusterContext *cc, const char *format,
+                              ...) {
+    int ret;
+    va_list ap;
+
+    if (cc == NULL || format == NULL) {
+        return REDIS_ERR;
+    }
+
+    va_start(ap, format);
+    ret = redisClustervAppendCommand(cc, format, ap);
+    va_end(ap);
+
+    return ret;
+}
+
 int redisClustervAppendCommandToNode(redisClusterContext *cc,
                                      redisClusterNode *node, const char *format,
                                      va_list ap) {
@@ -3306,22 +3322,6 @@ oom:
     command_destroy(command);
     __redisClusterSetError(cc, REDIS_ERR_OOM, "Out of memory");
     return REDIS_ERR;
-}
-
-int redisClusterAppendCommand(redisClusterContext *cc, const char *format,
-                              ...) {
-    int ret;
-    va_list ap;
-
-    if (cc == NULL || format == NULL) {
-        return REDIS_ERR;
-    }
-
-    va_start(ap, format);
-    ret = redisClustervAppendCommand(cc, format, ap);
-    va_end(ap);
-
-    return ret;
 }
 
 int redisClusterAppendCommandToNode(redisClusterContext *cc,
