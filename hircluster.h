@@ -245,6 +245,9 @@ void *redisClusterCommandToNode(redisClusterContext *cc, redisClusterNode *node,
 /* Variadic using va_list */
 void *redisClustervCommand(redisClusterContext *cc, const char *format,
                            va_list ap);
+void *redisClustervCommandToNode(redisClusterContext *cc,
+                                 redisClusterNode *node, const char *format,
+                                 va_list ap);
 /* Using argc and argv */
 void *redisClusterCommandArgv(redisClusterContext *cc, int argc,
                               const char **argv, const size_t *argvlen);
@@ -265,6 +268,9 @@ int redisClusterAppendCommandToNode(redisClusterContext *cc,
 /* Variadic using va_list */
 int redisClustervAppendCommand(redisClusterContext *cc, const char *format,
                                va_list ap);
+int redisClustervAppendCommandToNode(redisClusterContext *cc,
+                                     redisClusterNode *node, const char *format,
+                                     va_list ap);
 /* Using argc and argv */
 int redisClusterAppendCommandArgv(redisClusterContext *cc, int argc,
                                   const char **argv, const size_t *argvlen);
