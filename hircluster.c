@@ -1951,6 +1951,9 @@ int redisClusterConnect2(redisClusterContext *cc) {
     if (cc == NULL) {
         return REDIS_ERR;
     }
+    /* Clear a previously set shutdown flag since we allow a
+     * reconnection of an async context using this API (legacy). */
+    cc->flags &= ~HIRCLUSTER_FLAG_SHUTDOWN;
 
     return _redisClusterConnect2(cc);
 }
@@ -3925,6 +3928,10 @@ static int updateSlotMapAsync(redisClusterAsyncContext *acc,
         /* Don't allow concurrent slot map updates. */
         return REDIS_ERR;
     }
+    if (acc->cc->flags & HIRCLUSTER_FLAG_SHUTDOWN) {
+        /* No slot map updates during a client shutdown. */
+        return REDIS_ERR;
+    }
 
     if (ac == NULL) {
         if (acc->cc->nodes == NULL) {
@@ -4017,7 +4024,8 @@ static void redisClusterAsyncCallback(redisAsyncContext *ac, void *r,
         goto done;
     }
 
-    if (cad->retry_count == NO_RETRY) /* Skip retry handling */
+    /* Skip retry handling when not expected, or during a client shutdown. */
+    if (cad->retry_count == NO_RETRY || cc->flags & HIRCLUSTER_FLAG_SHUTDOWN)
         goto done;
 
     error_type = cluster_reply_error_type(reply);
@@ -4138,6 +4146,12 @@ int redisClusterAsyncFormattedCommand(redisClusterAsyncContext *acc,
 
     cc = acc->cc;
 
+    /* Don't accept new commands when the client is about to be shutdown. */
+    if (cc->flags & HIRCLUSTER_FLAG_SHUTDOWN) {
+        __redisClusterAsyncSetError(acc, REDIS_ERR_OTHER, "client closing");
+        return REDIS_ERR;
+    }
+
     if (cc->err) {
         cc->err = 0;
         memset(cc->errstr, '\0', strlen(cc->errstr));
@@ -4243,19 +4257,23 @@ int redisClusterAsyncFormattedCommandToNode(redisClusterAsyncContext *acc,
                                             redisClusterCallbackFn *fn,
                                             void *privdata, char *cmd,
                                             int len) {
-    redisClusterContext *cc;
+    redisClusterContext *cc = acc->cc;
     redisAsyncContext *ac;
     int status;
     cluster_async_data *cad = NULL;
     struct cmd *command = NULL;
+
+    /* Don't accept new commands when the client is about to be shutdown. */
+    if (cc->flags & HIRCLUSTER_FLAG_SHUTDOWN) {
+        __redisClusterAsyncSetError(acc, REDIS_ERR_OTHER, "disconnecting");
+        return REDIS_ERR;
+    }
 
     ac = actx_get_by_node(acc, node);
     if (ac == NULL) {
         /* Specific error already set */
         return REDIS_ERR;
     }
-
-    cc = acc->cc;
 
     if (cc->err) {
         cc->err = 0;
@@ -4432,6 +4450,7 @@ void redisClusterAsyncDisconnect(redisClusterAsyncContext *acc) {
     }
 
     cc = acc->cc;
+    cc->flags |= HIRCLUSTER_FLAG_SHUTDOWN;
 
     if (cc->nodes == NULL) {
         return;
@@ -4461,6 +4480,7 @@ void redisClusterAsyncFree(redisClusterAsyncContext *acc) {
     }
 
     cc = acc->cc;
+    cc->flags |= HIRCLUSTER_FLAG_SHUTDOWN;
 
     redisClusterFree(cc);
 

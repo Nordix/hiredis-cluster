@@ -274,3 +274,11 @@ add_test(NAME slots-not-served-test-async
          COMMAND "${CMAKE_SOURCE_DIR}/tests/scripts/slots-not-served-test-async.sh"
                  "$<TARGET_FILE:clusterclient_async>"
          WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/tests/scripts/")
+add_test(NAME client-disconnect-test-async
+         COMMAND "${CMAKE_SOURCE_DIR}/tests/scripts/client-disconnect-test.sh"
+                 "$<TARGET_FILE:clusterclient_async>"
+         WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/tests/scripts/")
+add_test(NAME client-disconnect-without-slotmap-update-test-async
+         COMMAND "${CMAKE_SOURCE_DIR}/tests/scripts/client-disconnect-without-slotmap-update-test.sh"
+                 "$<TARGET_FILE:clusterclient_async>"
+         WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/tests/scripts/")
