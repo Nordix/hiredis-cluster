@@ -4265,7 +4265,7 @@ int redisClusterAsyncFormattedCommandToNode(redisClusterAsyncContext *acc,
 
     /* Don't accept new commands when the client is about to be shutdown. */
     if (cc->flags & HIRCLUSTER_FLAG_SHUTDOWN) {
-        __redisClusterAsyncSetError(acc, REDIS_ERR_OTHER, "client closing");
+        __redisClusterAsyncSetError(acc, REDIS_ERR_OTHER, "disconnecting");
         return REDIS_ERR;
     }
 
