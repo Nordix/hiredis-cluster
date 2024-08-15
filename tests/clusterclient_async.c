@@ -52,7 +52,7 @@ int num_running = 0;
 int resend_failed_cmd = 0;
 int send_to_all = 0;
 
-void sendNextCommand(int, short, void *);
+void sendNextCommand(evutil_socket_t, short, void *);
 
 void printReply(const redisReply *reply) {
     switch (reply->type) {
@@ -100,7 +100,7 @@ void replyCallback(redisClusterAsyncContext *acc, void *r, void *privdata) {
     }
 }
 
-void sendNextCommand(int fd, short kind, void *arg) {
+void sendNextCommand(evutil_socket_t fd, short kind, void *arg) {
     UNUSED(fd);
     UNUSED(kind);
     redisClusterAsyncContext *acc = arg;

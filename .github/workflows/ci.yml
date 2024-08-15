@@ -10,7 +10,7 @@ jobs:
     name: Run static checkers
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4.1.6
+    - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
     - name: Run clang-format style check (.c and .h)
       uses: jidicula/clang-format-action@c74383674bf5f7c69f60ce562019c1c94bc1421a # v4.13.0
 
@@ -43,9 +43,9 @@ jobs:
             sanitizer: ""
 
     steps:
-    - uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4.1.6
+    - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
     - name: Prepare build tools
-      uses: aminya/setup-cpp@290824452986e378826155f3379d31bce8753d76 # v0.37.0
+      uses: aminya/setup-cpp@55af62e5b45632550c628d026efc13773c921143 # v0.38.1
       with:
         compiler: ${{ matrix.compiler }}
         cmake: ${{ matrix.cmake-version }}
@@ -107,7 +107,7 @@ jobs:
       - name: Prepare
         run: |
           brew install cmake ninja openssl
-      - uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4.1.6
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
       - name: Build
         run: |
           mkdir build && cd build
@@ -118,7 +118,7 @@ jobs:
     name: Windows
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4.1.6
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
       - uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756 # v1.13.0
       - name: Prepare
         run: |
@@ -134,9 +134,9 @@ jobs:
     name: Windows (MinGW64)
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4.1.6
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
       - name: Set up MinGW
-        uses: msys2/setup-msys2@d0e80f58dffbc64f6a3a1f43527d469b4fc7b6c8 # v2.23.0
+        uses: msys2/setup-msys2@ddf331adaebd714795f1042345e6ca57bd66cea8 # v2.24.1
         with:
           msystem: mingw64
           install: |

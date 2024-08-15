@@ -3048,10 +3048,10 @@ void *redisClusterCommand(redisClusterContext *cc, const char *format, ...) {
     return reply;
 }
 
-void *redisClusterCommandToNode(redisClusterContext *cc, redisClusterNode *node,
-                                const char *format, ...) {
+void *redisClustervCommandToNode(redisClusterContext *cc,
+                                 redisClusterNode *node, const char *format,
+                                 va_list ap) {
     redisContext *c;
-    va_list ap;
     int ret;
     void *reply;
     int updating_slotmap = 0;
@@ -3069,9 +3069,7 @@ void *redisClusterCommandToNode(redisClusterContext *cc, redisClusterNode *node,
         memset(cc->errstr, '\0', sizeof(cc->errstr));
     }
 
-    va_start(ap, format);
     ret = redisvAppendCommand(c, format, ap);
-    va_end(ap);
 
     if (ret != REDIS_OK) {
         __redisClusterSetError(cc, c->err, c->errstr);
@@ -3100,6 +3098,18 @@ void *redisClusterCommandToNode(redisClusterContext *cc, redisClusterNode *node,
             cc->errstr[0] = '\0';
         }
     }
+
+    return reply;
+}
+
+void *redisClusterCommandToNode(redisClusterContext *cc, redisClusterNode *node,
+                                const char *format, ...) {
+    va_list ap;
+    redisReply *reply = NULL;
+
+    va_start(ap, format);
+    reply = redisClustervCommandToNode(cc, node, format, ap);
+    va_end(ap);
 
     return reply;
 }
@@ -3240,7 +3250,6 @@ int redisClustervAppendCommand(redisClusterContext *cc, const char *format,
 
 int redisClusterAppendCommand(redisClusterContext *cc, const char *format,
                               ...) {
-
     int ret;
     va_list ap;
 
@@ -3255,11 +3264,10 @@ int redisClusterAppendCommand(redisClusterContext *cc, const char *format,
     return ret;
 }
 
-int redisClusterAppendCommandToNode(redisClusterContext *cc,
-                                    redisClusterNode *node, const char *format,
-                                    ...) {
+int redisClustervAppendCommandToNode(redisClusterContext *cc,
+                                     redisClusterNode *node, const char *format,
+                                     va_list ap) {
     redisContext *c;
-    va_list ap;
     struct cmd *command = NULL;
     char *cmd = NULL;
     int len;
@@ -3280,10 +3288,7 @@ int redisClusterAppendCommandToNode(redisClusterContext *cc,
         return REDIS_ERR;
     }
 
-    /* Allocate cmd and encode the variadic command */
-    va_start(ap, format);
     len = redisvFormatCommand(&cmd, format, ap);
-    va_end(ap);
 
     if (len == -1) {
         goto oom;
@@ -3320,6 +3325,23 @@ oom:
     command_destroy(command);
     __redisClusterSetError(cc, REDIS_ERR_OOM, "Out of memory");
     return REDIS_ERR;
+}
+
+int redisClusterAppendCommandToNode(redisClusterContext *cc,
+                                    redisClusterNode *node, const char *format,
+                                    ...) {
+    int ret;
+    va_list ap;
+
+    if (cc == NULL || node == NULL || format == NULL) {
+        return REDIS_ERR;
+    }
+
+    va_start(ap, format);
+    ret = redisClustervAppendCommandToNode(cc, node, format, ap);
+    va_end(ap);
+
+    return ret;
 }
 
 int redisClusterAppendCommandArgv(redisClusterContext *cc, int argc,
