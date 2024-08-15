@@ -1952,7 +1952,7 @@ int redisClusterConnect2(redisClusterContext *cc) {
         return REDIS_ERR;
     }
     /* Clear a previously set shutdown flag since we allow a
-       reconnection of an async context using this API (legacy). */
+     * reconnection of an async context using this API (legacy). */
     cc->flags &= ~HIRCLUSTER_FLAG_SHUTDOWN;
 
     return _redisClusterConnect2(cc);
