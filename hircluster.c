@@ -4232,6 +4232,7 @@ int redisClusterAsyncFormattedCommand(redisClusterAsyncContext *acc,
     status = redisAsyncFormattedCommand(ac, redisClusterAsyncCallback, cad, cmd,
                                         len);
     if (status != REDIS_OK) {
+        __redisClusterAsyncSetError(acc, ac->err, ac->errstr);
         goto error;
     }
 
@@ -4312,9 +4313,10 @@ int redisClusterAsyncFormattedCommandToNode(redisClusterAsyncContext *acc,
 
     status = redisAsyncFormattedCommand(ac, redisClusterAsyncCallback, cad, cmd,
                                         len);
-    if (status != REDIS_OK)
+    if (status != REDIS_OK) {
+        __redisClusterAsyncSetError(acc, ac->err, ac->errstr);
         goto error;
-
+    }
     return REDIS_OK;
 
 oom:
