@@ -4138,7 +4138,7 @@ int redisClusterAsyncFormattedCommand(redisClusterAsyncContext *acc,
     redisAsyncContext *ac;
     struct cmd *command = NULL;
     hilist *commands = NULL;
-    cluster_async_data *cad;
+    cluster_async_data *cad = NULL;
 
     if (acc == NULL) {
         return REDIS_ERR;
@@ -4225,6 +4225,7 @@ int redisClusterAsyncFormattedCommand(redisClusterAsyncContext *acc,
 
     cad->acc = acc;
     cad->command = command;
+    command = NULL; /* Memory ownership moved. */
     cad->callback = fn;
     cad->privdata = privdata;
 
@@ -4245,6 +4246,7 @@ oom:
     // passthrough
 
 error:
+    cluster_async_data_free(cad);
     command_destroy(command);
     if (commands != NULL) {
         listRelease(commands);
@@ -4303,6 +4305,7 @@ int redisClusterAsyncFormattedCommandToNode(redisClusterAsyncContext *acc,
 
     cad->acc = acc;
     cad->command = command;
+    command = NULL; /* Memory ownership moved. */
     cad->callback = fn;
     cad->privdata = privdata;
     cad->retry_count = NO_RETRY;
@@ -4319,6 +4322,7 @@ oom:
     // passthrough
 
 error:
+    cluster_async_data_free(cad);
     command_destroy(command);
     return REDIS_ERR;
 }
