@@ -1,3 +1,9 @@
+### 0.14.0 - Aug 21, 2024
+
+* Fix possible leak when failing to send a async cluster command (#234)
+* Don't initiate new connections during a client shutdown (async API) (#225)
+* Add redisClustervCommandToNode and redisClustervAppendCommandToNode to API (#231)
+
 ### 0.13.0 - Mar 18, 2024
 
 * Add non-const connect callback (#205)
