@@ -45,7 +45,7 @@ jobs:
     steps:
     - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
     - name: Prepare build tools
-      uses: aminya/setup-cpp@bfbfe9ca0b2c69a076f6513393d61fc478fb54f8 # v0.41.0
+      uses: aminya/setup-cpp@5f4f319fe8905945207f66b0a8e62e64d90ab225 # v0.43.0
       with:
         compiler: ${{ matrix.compiler }}
         cmake: ${{ matrix.cmake-version }}
