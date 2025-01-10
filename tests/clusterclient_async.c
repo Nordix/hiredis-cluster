@@ -51,6 +51,8 @@ char cmd_history[HISTORY_DEPTH][CMD_SIZE];
 int num_running = 0;
 int resend_failed_cmd = 0;
 int send_to_all = 0;
+int show_events = 0;
+int async_initial_update = 0;
 
 void sendNextCommand(evutil_socket_t, short, void *);
 
@@ -184,7 +186,17 @@ void sendNextCommand(evutil_socket_t fd, short kind, void *arg) {
 
 void eventCallback(const redisClusterContext *cc, int event, void *privdata) {
     (void)cc;
-    (void)privdata;
+
+    if (event == HIRCLUSTER_EVENT_READY) {
+        /* Schedule a read from stdin and send next command. */
+        redisClusterAsyncContext *acc = (redisClusterAsyncContext *)privdata;
+        event_base_once(acc->adapter, -1, EV_TIMEOUT, sendNextCommand, acc,
+                        NULL);
+    }
+
+    if (!show_events)
+        return;
+
     char *e = NULL;
     switch (event) {
     case HIRCLUSTER_EVENT_SLOTMAP_UPDATED:
@@ -219,7 +231,6 @@ void disconnectCallback(const redisAsyncContext *ac, int status) {
 
 int main(int argc, char **argv) {
     int use_cluster_slots = 1; // Get topology via CLUSTER SLOTS
-    int show_events = 0;
     int show_connection_events = 0;
 
     int optind;
@@ -230,6 +241,8 @@ int main(int argc, char **argv) {
             show_events = 1;
         } else if (strcmp(argv[optind], "--connection-events") == 0) {
             show_connection_events = 1;
+        } else if (strcmp(argv[optind], "--async-initial-update") == 0) {
+            async_initial_update = 1;
         } else {
             fprintf(stderr, "Unknown argument: '%s'\n", argv[optind]);
         }
@@ -249,28 +262,30 @@ int main(int argc, char **argv) {
     redisClusterSetOptionTimeout(acc->cc, timeout);
     redisClusterSetOptionConnectTimeout(acc->cc, timeout);
     redisClusterSetOptionMaxRetry(acc->cc, 1);
+    redisClusterSetEventCallback(acc->cc, eventCallback, acc);
     if (use_cluster_slots) {
         redisClusterSetOptionRouteUseSlots(acc->cc);
-    }
-    if (show_events) {
-        redisClusterSetEventCallback(acc->cc, eventCallback, NULL);
     }
     if (show_connection_events) {
         redisClusterAsyncSetConnectCallback(acc, connectCallback);
         redisClusterAsyncSetDisconnectCallback(acc, disconnectCallback);
     }
 
-    if (redisClusterConnect2(acc->cc) != REDIS_OK) {
-        printf("Connect error: %s\n", acc->cc->errstr);
-        exit(2);
-    }
-
     struct event_base *base = event_base_new();
     int status = redisClusterLibeventAttach(acc, base);
     assert(status == REDIS_OK);
 
-    /* Schedule a read from stdin and send next command */
-    event_base_once(acc->adapter, -1, EV_TIMEOUT, sendNextCommand, acc, NULL);
+    if (async_initial_update) {
+        if (redisClusterAsyncConnect2(acc) != REDIS_OK) {
+            printf("Connect error: %s\n", acc->errstr);
+            exit(2);
+        }
+    } else {
+        if (redisClusterConnect2(acc->cc) != REDIS_OK) {
+            printf("Connect error: %s\n", acc->cc->errstr);
+            exit(2);
+        }
+    }
 
     event_base_dispatch(base);
 
