@@ -291,8 +291,6 @@ int redisClusterUpdateSlotmap(redisClusterContext *cc);
 
 /* Internal functions */
 redisContext *ctx_get_by_node(redisClusterContext *cc, redisClusterNode *node);
-struct dict *parse_cluster_slots(redisClusterContext *cc, redisReply *reply,
-                                 int flags);
 
 /*
  * Asynchronous API

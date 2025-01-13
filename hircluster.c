@@ -437,37 +437,9 @@ error:
  * Return a new node with the "cluster slots" command reply.
  */
 static redisClusterNode *node_get_with_slots(redisClusterContext *cc,
-                                             redisReply *host_elem,
-                                             redisReply *port_elem,
+                                             char *host, int port,
                                              uint8_t role) {
-    redisClusterNode *node = NULL;
-
-    if (host_elem == NULL || port_elem == NULL) {
-        return NULL;
-    }
-
-    if (host_elem->type != REDIS_REPLY_STRING || host_elem->len <= 0) {
-        __redisClusterSetError(cc, REDIS_ERR_OTHER,
-                               "Command(cluster slots) reply error: "
-                               "node ip is not string.");
-        goto error;
-    }
-
-    if (port_elem->type != REDIS_REPLY_INTEGER || port_elem->integer <= 0) {
-        __redisClusterSetError(cc, REDIS_ERR_OTHER,
-                               "Command(cluster slots) reply error: "
-                               "node port is not integer.");
-        goto error;
-    }
-
-    if (!hi_valid_port((int)port_elem->integer)) {
-        __redisClusterSetError(cc, REDIS_ERR_OTHER,
-                               "Command(cluster slots) reply error: "
-                               "node port is not valid.");
-        goto error;
-    }
-
-    node = createRedisClusterNode();
+    redisClusterNode *node = createRedisClusterNode();
     if (node == NULL) {
         goto oom;
     }
@@ -481,29 +453,26 @@ static redisClusterNode *node_get_with_slots(redisClusterContext *cc,
         node->slots->free = listClusterSlotDestructor;
     }
 
-    node->addr = sdsnewlen(host_elem->str, host_elem->len);
+    node->addr = sdsnew(host);
     if (node->addr == NULL) {
         goto oom;
     }
-    node->addr = sdscatfmt(node->addr, ":%i", port_elem->integer);
+    node->addr = sdscatfmt(node->addr, ":%i", port);
     if (node->addr == NULL) {
         goto oom;
     }
-    node->host = sdsnewlen(host_elem->str, host_elem->len);
+    node->host = sdsnew(host);
     if (node->host == NULL) {
         goto oom;
     }
     node->name = NULL;
-    node->port = (int)port_elem->integer;
+    node->port = port;
     node->role = role;
 
     return node;
 
 oom:
     __redisClusterSetError(cc, REDIS_ERR_OOM, "Out of memory");
-    // passthrough
-
-error:
     if (node != NULL) {
         sdsfree(node->addr);
         sdsfree(node->host);
@@ -748,8 +717,8 @@ oom:
 /**
  * Parse the "cluster slots" command reply to nodes dict.
  */
-dict *parse_cluster_slots(redisClusterContext *cc, redisReply *reply,
-                          int flags) {
+static dict *parse_cluster_slots(redisClusterContext *cc, redisContext *c,
+                                 redisReply *reply) {
     int ret;
     cluster_slot *slot = NULL;
     dict *nodes = NULL;
@@ -838,21 +807,30 @@ dict *parse_cluster_slots(redisClusterContext *cc, redisReply *reply,
 
                 if (elem_ip == NULL || elem_port == NULL ||
                     elem_ip->type != REDIS_REPLY_STRING ||
-                    elem_port->type != REDIS_REPLY_INTEGER) {
+                    elem_port->type != REDIS_REPLY_INTEGER ||
+                    !hi_valid_port((int)elem_port->integer)) {
                     __redisClusterSetError(
                         cc, REDIS_ERR_OTHER,
                         "Command(cluster slots) reply error: "
-                        "master ip or port is not correct.");
+                        "node ip or port is not correct.");
                     goto error;
                 }
 
+                /* Get the received ip/host. According to the docs an empty string can
+                 * be treated as it means the same address we sent this command to. */
+                char *host = (elem_ip->len > 0) ? elem_ip->str : c->tcp.host;
+                if (host == NULL) {
+                    goto oom;
+                }
+                int port = elem_port->integer;
+
                 // this is master.
                 if (idx == 2) {
-                    sds address = sdsnewlen(elem_ip->str, elem_ip->len);
+                    sds address = sdsnew(host);
                     if (address == NULL) {
                         goto oom;
                     }
-                    address = sdscatfmt(address, ":%i", elem_port->integer);
+                    address = sdscatfmt(address, ":%i", port);
                     if (address == NULL) {
                         goto oom;
                     }
@@ -872,8 +850,8 @@ dict *parse_cluster_slots(redisClusterContext *cc, redisReply *reply,
                         break;
                     }
 
-                    master = node_get_with_slots(cc, elem_ip, elem_port,
-                                                 REDIS_ROLE_MASTER);
+                    master =
+                        node_get_with_slots(cc, host, port, REDIS_ROLE_MASTER);
                     if (master == NULL) {
                         goto error;
                     }
@@ -897,9 +875,9 @@ dict *parse_cluster_slots(redisClusterContext *cc, redisReply *reply,
                     }
 
                     slot = NULL;
-                } else if (flags & HIRCLUSTER_FLAG_ADD_SLAVE) {
-                    slave = node_get_with_slots(cc, elem_ip, elem_port,
-                                                REDIS_ROLE_SLAVE);
+                } else if (cc->flags & HIRCLUSTER_FLAG_ADD_SLAVE) {
+                    slave =
+                        node_get_with_slots(cc, host, port, REDIS_ROLE_SLAVE);
                     if (slave == NULL) {
                         goto error;
                     }
@@ -1258,7 +1236,7 @@ static int handleClusterSlotsReply(redisClusterContext *cc, redisContext *c) {
         return REDIS_ERR;
     }
 
-    dict *nodes = parse_cluster_slots(cc, reply, cc->flags);
+    dict *nodes = parse_cluster_slots(cc, c, reply);
     freeReplyObject(reply);
     return updateNodesAndSlotmap(cc, nodes);
 }
@@ -3873,7 +3851,7 @@ void clusterSlotsReplyCallback(redisAsyncContext *ac, void *r, void *privdata) {
     }
 
     redisClusterContext *cc = acc->cc;
-    dict *nodes = parse_cluster_slots(cc, reply, cc->flags);
+    dict *nodes = parse_cluster_slots(cc, &ac->c, reply);
     if (updateNodesAndSlotmap(cc, nodes) != REDIS_OK) {
         /* Ignore failures for now */
     }
