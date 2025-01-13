@@ -6,7 +6,6 @@
 	dictInitIterator
 	dictNext
         hiarray_get
-	parse_cluster_nodes
 	parse_cluster_slots
 	redisClusterAppendCommand
 	redisClusterAppendCommandArgv
