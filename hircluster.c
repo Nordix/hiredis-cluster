@@ -3852,7 +3852,8 @@ void clusterSlotsReplyCallback(redisAsyncContext *ac, void *r, void *privdata) {
     redisClusterContext *cc = acc->cc;
     dict *nodes = parse_cluster_slots(cc, &ac->c, reply);
     if (updateNodesAndSlotmap(cc, nodes) != REDIS_OK) {
-        /* Ignore failures for now */
+        /* Retry using available nodes */
+        updateSlotMapAsync(acc, NULL);
     }
 }
 
@@ -3871,7 +3872,8 @@ void clusterNodesReplyCallback(redisAsyncContext *ac, void *r, void *privdata) {
     redisClusterContext *cc = acc->cc;
     dict *nodes = parse_cluster_nodes(cc, &ac->c, reply);
     if (updateNodesAndSlotmap(cc, nodes) != REDIS_OK) {
-        /* Ignore failures for now */
+        /* Retry using available nodes */
+        updateSlotMapAsync(acc, NULL);
     }
 }
 
