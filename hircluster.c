@@ -516,8 +516,8 @@ error:
  * Return a new node with the "cluster nodes" command reply.
  */
 static redisClusterNode *node_get_with_nodes(redisClusterContext *cc,
-                                             sds *node_infos, int info_count,
-                                             uint8_t role) {
+                                             redisContext *c, sds *node_infos,
+                                             int info_count, uint8_t role) {
     char *p = NULL;
     redisClusterNode *node = NULL;
 
@@ -530,12 +530,12 @@ static redisClusterNode *node_get_with_nodes(redisClusterContext *cc,
         goto oom;
     }
 
+    node->role = role;
     if (role == REDIS_ROLE_MASTER) {
         node->slots = listCreate();
         if (node->slots == NULL) {
             goto oom;
         }
-
         node->slots->free = listClusterSlotDestructor;
     }
 
@@ -548,27 +548,50 @@ static redisClusterNode *node_get_with_nodes(redisClusterContext *cc,
     if ((p = strchr(node_infos[1], PORT_CPORT_SEPARATOR)) != NULL) {
         sdsrange(node_infos[1], 0, p - node_infos[1] - 1 /* skip @ */);
     }
-    node->addr = node_infos[1];
-    node_infos[1] = NULL; /* Ownership moved */
 
-    node->role = role;
-
-    /* Get the ip part */
-    if ((p = strrchr(node->addr, IP_PORT_SEPARATOR)) == NULL) {
+    /* Find the port separator. */
+    if ((p = strrchr(node_infos[1], IP_PORT_SEPARATOR)) == NULL) {
         __redisClusterSetError(
             cc, REDIS_ERR_OTHER,
             "server address is incorrect, port separator missing.");
         goto error;
     }
-    node->host = sdsnewlen(node->addr, p - node->addr);
-    if (node->host == NULL) {
-        goto oom;
+
+    /* Get the port (skip the found port separator). */
+    int port = hi_atoi(p + 1, strlen(p + 1));
+    if (port < 1 || port > UINT16_MAX) {
+        __redisClusterSetError(cc, REDIS_ERR_OTHER, "Invalid port");
+        goto error;
     }
-    p++; // remove found separator character
+    node->port = port;
 
-    /* Get the port part */
-    node->port = hi_atoi(p, strlen(p));
+    /* Check that we received an ip/host address, i.e. the field does not
+     * start with the found port separator. */
+    if (node_infos[1] != p) {
+        node->addr = node_infos[1];
+        node_infos[1] = NULL; /* Ownership moved */
 
+        node->host = sdsnewlen(node->addr, p - node->addr);
+        if (node->host == NULL) {
+            goto oom;
+        }
+    } else {
+        /* We received an ip/host that is an empty string. According to the docs
+         * we can treat this as it means the same address we sent this command to. */
+        node->host = sdsnew(c->tcp.host);
+        if (node->host == NULL) {
+            goto oom;
+        }
+        /* Create a new addr field using correct host:port */
+        node->addr = sdsnew(node->host);
+        if (node->addr == NULL) {
+            goto oom;
+        }
+        node->addr = sdscatfmt(node->addr, ":%i", node->port);
+        if (node->addr == NULL) {
+            goto oom;
+        }
+    }
     return node;
 
 oom:
@@ -918,8 +941,8 @@ error:
 /**
  * Parse the "cluster nodes" command reply to nodes dict.
  */
-dict *parse_cluster_nodes(redisClusterContext *cc, char *str, int str_len,
-                          int flags) {
+static dict *parse_cluster_nodes(redisClusterContext *cc, redisContext *c,
+                                 redisReply *reply) {
     int ret;
     dict *nodes = NULL;
     dict *nodes_name = NULL;
@@ -939,8 +962,8 @@ dict *parse_cluster_nodes(redisClusterContext *cc, char *str, int str_len,
         goto oom;
     }
 
-    start = str;
-    end = start + str_len;
+    start = reply->str;
+    end = start + reply->len;
 
     line_start = start;
 
@@ -983,7 +1006,7 @@ dict *parse_cluster_nodes(redisClusterContext *cc, char *str, int str_len,
 
             // add master node
             if (role_len >= 6 && memcmp(role, "master", 6) == 0) {
-                master = node_get_with_nodes(cc, part, count_part,
+                master = node_get_with_nodes(cc, c, part, count_part,
                                              REDIS_ROLE_MASTER);
                 if (master == NULL) {
                     goto error;
@@ -1006,7 +1029,7 @@ dict *parse_cluster_nodes(redisClusterContext *cc, char *str, int str_len,
                     goto error;
                 }
 
-                if (flags & HIRCLUSTER_FLAG_ADD_SLAVE) {
+                if (cc->flags & HIRCLUSTER_FLAG_ADD_SLAVE) {
                     ret = cluster_master_slave_mapping_with_name(
                         cc, &nodes_name, master, master->name);
                     if (ret != REDIS_OK) {
@@ -1035,7 +1058,7 @@ dict *parse_cluster_nodes(redisClusterContext *cc, char *str, int str_len,
                         ;
                     } else {
                         // add open slot for master
-                        if (flags & HIRCLUSTER_FLAG_ADD_OPENSLOT &&
+                        if (cc->flags & HIRCLUSTER_FLAG_ADD_OPENSLOT &&
                             count_slot_start_end == 3 &&
                             sdslen(slot_start_end[0]) > 1 &&
                             sdslen(slot_start_end[1]) == 1 &&
@@ -1134,10 +1157,10 @@ dict *parse_cluster_nodes(redisClusterContext *cc, char *str, int str_len,
 
             }
             // add slave node
-            else if ((flags & HIRCLUSTER_FLAG_ADD_SLAVE) &&
+            else if ((cc->flags & HIRCLUSTER_FLAG_ADD_SLAVE) &&
                      (role_len >= 5 && memcmp(role, "slave", 5) == 0)) {
-                slave =
-                    node_get_with_nodes(cc, part, count_part, REDIS_ROLE_SLAVE);
+                slave = node_get_with_nodes(cc, c, part, count_part,
+                                            REDIS_ROLE_SLAVE);
                 if (slave == NULL) {
                     goto error;
                 }
@@ -1266,7 +1289,7 @@ static int handleClusterNodesReply(redisClusterContext *cc, redisContext *c) {
         return REDIS_ERR;
     }
 
-    dict *nodes = parse_cluster_nodes(cc, reply->str, reply->len, cc->flags);
+    dict *nodes = parse_cluster_nodes(cc, c, reply);
     freeReplyObject(reply);
     return updateNodesAndSlotmap(cc, nodes);
 }
@@ -3857,7 +3880,6 @@ void clusterSlotsReplyCallback(redisAsyncContext *ac, void *r, void *privdata) {
 
 /* Reply callback function for CLUSTER NODES */
 void clusterNodesReplyCallback(redisAsyncContext *ac, void *r, void *privdata) {
-    UNUSED(ac);
     redisReply *reply = (redisReply *)r;
     redisClusterAsyncContext *acc = (redisClusterAsyncContext *)privdata;
     acc->lastSlotmapUpdateAttempt = hi_usec_now();
@@ -3869,7 +3891,7 @@ void clusterNodesReplyCallback(redisAsyncContext *ac, void *r, void *privdata) {
     }
 
     redisClusterContext *cc = acc->cc;
-    dict *nodes = parse_cluster_nodes(cc, reply->str, reply->len, cc->flags);
+    dict *nodes = parse_cluster_nodes(cc, &ac->c, reply);
     if (updateNodesAndSlotmap(cc, nodes) != REDIS_OK) {
         /* Ignore failures for now */
     }
