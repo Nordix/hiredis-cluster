@@ -45,12 +45,12 @@ jobs:
     steps:
     - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
     - name: Prepare build tools
-      uses: aminya/setup-cpp@d485b24c1283deafc12b4b8ae90ff09c0d1eb972 # v0.44.0
+      uses: aminya/setup-cpp@1fd813945e55021261b381c59275db442da4082f # v0.45.0
       with:
         compiler: ${{ matrix.compiler }}
         cmake: ${{ matrix.cmake-version }}
     - name: Install cached APT packages
-      uses: awalsh128/cache-apt-pkgs-action@a6c3917cc929dd0345bfb2d3feaf9101823370ad # v1.4.2
+      uses: awalsh128/cache-apt-pkgs-action@5902b33ae29014e6ca012c5d8025d4346556bd40 # v1.4.3
       with:
         packages: libevent-dev libuv1-dev libev-dev libglib2.0-dev
         version: 1.0
