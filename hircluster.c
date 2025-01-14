@@ -546,8 +546,7 @@ static redisClusterNode *node_get_with_nodes(redisClusterContext *cc,
         }
     } else {
         /* We received an ip/host that is an empty string. According to the docs
-         * we can treat this as it means the same address we sent this command to.
-         * Get the host address from the used hiredis context. */
+         * we can treat this as it means the same address we sent this command to. */
         node->host = sdsnew(c->tcp.host);
         if (node->host == NULL) {
             goto oom;
