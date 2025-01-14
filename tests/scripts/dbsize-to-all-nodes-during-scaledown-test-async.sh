@@ -81,26 +81,14 @@ if [ $clientexit -ne 0 ]; then
     exit $clientexit
 fi
 
-# Check the output from clusterclient, which depends on timing.
-# Client sends the second 'DBSIZE' to node #2 just after node #2 closes its socket.
-expected1="10
+# Check the output from clusterclient.
+expected="10
 20
-error: Server closed the connection
+error: Connection refused
 11
 12"
 
-# Client sends the second 'DBSIZE' to node #2 just before node #2 closes its socket.
-expected2="10
-20
-error: Connection reset by peer
-11
-12"
-
-# The reply "11" from node #1 can come before or after the socket error from node #2.
-# Therefore, we sort before comparing.
-diff -u <(echo "$expected1" | sort) <(sort "$testname.out") || \
-    diff -u <(echo "$expected2" | sort) <(sort "$testname.out") || \
-    exit 99
+echo "$expected" | diff -u - "$testname.out" || exit 99
 
 # Clean up
 rm "$testname.out"

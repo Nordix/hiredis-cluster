@@ -97,8 +97,9 @@ void replyCallback(redisClusterAsyncContext *acc, void *r, void *privdata) {
 
     if (--num_running == 0) {
         /* Schedule a read from stdin and send next command */
+        struct timeval timeout = {0, 10};
         event_base_once(acc->adapter, -1, EV_TIMEOUT, sendNextCommand, acc,
-                        NULL);
+                        &timeout);
     }
 }
 
@@ -169,8 +170,9 @@ void sendNextCommand(evutil_socket_t fd, short kind, void *arg) {
                 printf("error: %s\n", acc->errstr);
 
                 /* Schedule a read from stdin and handle next command. */
+                struct timeval timeout = {0, 10};
                 event_base_once(acc->adapter, -1, EV_TIMEOUT, sendNextCommand,
-                                acc, NULL);
+                                acc, &timeout);
             }
         }
 
@@ -190,8 +192,9 @@ void eventCallback(const redisClusterContext *cc, int event, void *privdata) {
     if (event == HIRCLUSTER_EVENT_READY) {
         /* Schedule a read from stdin and send next command. */
         redisClusterAsyncContext *acc = (redisClusterAsyncContext *)privdata;
+        struct timeval timeout = {0, 10};
         event_base_once(acc->adapter, -1, EV_TIMEOUT, sendNextCommand, acc,
-                        NULL);
+                        &timeout);
     }
 
     if (!show_events)
