@@ -804,8 +804,11 @@ static dict *parse_cluster_slots(redisClusterContext *cc, redisContext *c,
                 elem_ip = elem_nodes->element[0];
                 elem_port = elem_nodes->element[1];
 
+                /* Validate ip and port elements. Accept a NULL value ip (NIL type)
+                 * since we will handle the unknown endpoint special. */
                 if (elem_ip == NULL || elem_port == NULL ||
-                    elem_ip->type != REDIS_REPLY_STRING ||
+                    (elem_ip->type != REDIS_REPLY_STRING &&
+                     elem_ip->type != REDIS_REPLY_NIL) ||
                     elem_port->type != REDIS_REPLY_INTEGER ||
                     !hi_valid_port((int)elem_port->integer)) {
                     __redisClusterSetError(
@@ -815,8 +818,11 @@ static dict *parse_cluster_slots(redisClusterContext *cc, redisContext *c,
                     goto error;
                 }
 
-                /* Get the received ip/host. According to the docs an empty string can
-                 * be treated as it means the same address we sent this command to. */
+                /* Get the received ip/host. According to the docs an unknown
+                 * endpoint or an empty string can be treated as it means
+                 * the same address as we sent this command to.
+                 * An unknown endpoint has the type REDIS_REPLY_NIL and its
+                 * length is initiated to zero. */
                 char *host = (elem_ip->len > 0) ? elem_ip->str : c->tcp.host;
                 if (host == NULL) {
                     goto oom;

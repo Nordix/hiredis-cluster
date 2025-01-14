@@ -4,6 +4,7 @@
 #
 # The first attempt to get the slotmap will receive a reply without any
 # slot information and this should result in a retry.
+# The following slotmap updates tests the handling of an nil/empty IP address.
 #
 # The client is configured to use the CLUSTER SLOTS command.
 #
@@ -18,16 +19,22 @@ syncpid=$!
 
 # Start simulated server.
 timeout 5s ./simulated-redis.pl -p 7400 -d --sigcont $syncpid <<'EOF' &
-# The initial slotmap is not covering any slots, expect a retry.
+# The initial slotmap is not covering any slots, expect a retry since it's not accepted.
 EXPECT CONNECT
 EXPECT ["CLUSTER", "SLOTS"]
 SEND []
 
-# The node has now been delegated slots.
+# The node has now been delegated a few slots and should be accepted.
+# Respond with an unknown endpoint (nil) to test that current connection IP is used instead.
+EXPECT ["CLUSTER", "SLOTS"]
+SEND *1\r\n*3\r\n:0\r\n:10\r\n*3\r\n$-1\r\n:7400\r\n$40\r\nf5378fa2ad1fbd569f01ba2fe29fa8feb36cdfb8\r\n
+
+# The node has now been delegated all slots.
+# Use empty address to test that current connection IP is used instead.
 EXPECT ["CLUSTER", "SLOTS"]
 SEND [[0, 16383, ["", 7400, "f5378fa2ad1fbd569f01ba2fe29fa8feb36cdfb8"]]]
 
-EXPECT ["SET", "foo", "bar"]
+EXPECT ["SET", "foo", "bar3"]
 SEND +OK
 EXPECT CLOSE
 EOF
@@ -38,7 +45,19 @@ wait $syncpid;
 
 # Run client which will fetch the initial slotmap asynchronously.
 timeout 3s "$clientprog" --events --async-initial-update 127.0.0.1:7400 > "$testname.out" <<'EOF'
-SET foo bar
+# Slot not yet handled, will trigger a slotmap update which will be throttled.
+SET foo bar1
+
+# Wait to avoid slotmap update throttling.
+!sleep
+
+# A command will fail direcly, but a slotmap update is scheduled.
+SET foo bar2
+
+# Allow slotmap update to finish.
+!sleep
+
+SET foo bar3
 EOF
 clientexit=$?
 
@@ -59,6 +78,9 @@ fi
 # Check the output from the client.
 expected="Event: slotmap-updated
 Event: ready
+error: slot not served by any node
+error: slot not served by any node
+Event: slotmap-updated
 OK
 Event: free-context"
 
