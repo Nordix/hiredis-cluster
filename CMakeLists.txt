@@ -50,12 +50,17 @@ SET(hiredis_cluster_sources
     hiarray.c
     hircluster.c
     hiutil.c)
+SET(hiredis_cluster_ssl_sources
+    hircluster_ssl.c)
 
 if(WIN32 OR MINGW)
     add_compile_definitions(_CRT_SECURE_NO_WARNINGS WIN32_LEAN_AND_MEAN)
     set(hiredis_cluster_sources
         ${hiredis_cluster_sources}
         hiredis_cluster.def)
+    set(hiredis_cluster_ssl_sources
+        ${hiredis_cluster_ssl_sources}
+        hiredis_cluster_ssl.def)
 endif()
 
 add_library(hiredis_cluster
@@ -165,7 +170,8 @@ if(ENABLE_SSL)
   endif()
 
   add_library(hiredis_cluster_ssl
-    SHARED hircluster_ssl.c)
+    SHARED
+    ${hiredis_cluster_ssl_sources})
   set_target_properties(hiredis_cluster_ssl
     PROPERTIES VERSION "${HIREDIS_CLUSTER_SONAME}")
   target_link_libraries(hiredis_cluster_ssl
