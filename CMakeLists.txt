@@ -53,9 +53,6 @@ SET(hiredis_cluster_sources
 
 if(WIN32 OR MINGW)
     add_compile_definitions(_CRT_SECURE_NO_WARNINGS WIN32_LEAN_AND_MEAN)
-    set(hiredis_cluster_sources
-        ${hiredis_cluster_sources}
-        hiredis_cluster.def)
 endif()
 
 add_library(hiredis_cluster
@@ -73,6 +70,7 @@ endif()
 
 set_target_properties(hiredis_cluster
     PROPERTIES
+    WINDOWS_EXPORT_ALL_SYMBOLS TRUE
     VERSION "${HIREDIS_CLUSTER_SONAME}")
 
 if(DOWNLOAD_HIREDIS)
@@ -167,7 +165,9 @@ if(ENABLE_SSL)
   add_library(hiredis_cluster_ssl
     SHARED hircluster_ssl.c)
   set_target_properties(hiredis_cluster_ssl
-    PROPERTIES VERSION "${HIREDIS_CLUSTER_SONAME}")
+    PROPERTIES
+    WINDOWS_EXPORT_ALL_SYMBOLS TRUE
+    VERSION "${HIREDIS_CLUSTER_SONAME}")
   target_link_libraries(hiredis_cluster_ssl
     PRIVATE hiredis_cluster
     PUBLIC hiredis::hiredis_ssl)
