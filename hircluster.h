@@ -71,9 +71,9 @@
 #define HIRCLUSTER_EVENT_FREE_CONTEXT 3
 
 /* The non-const connect callback API is not available when:
- *  - using hiredis prior v.1.1.0; or
- *  - built on Windows since hiredis_cluster.def can't have conditional definitions. */
-#if !(HIREDIS_MAJOR >= 1 && HIREDIS_MINOR >= 1) || _WIN32
+ *  - using hiredis prior v.1.1.0;
+ */
+#if !(HIREDIS_MAJOR >= 1 && HIREDIS_MINOR >= 1)
 #define HIRCLUSTER_NO_NONCONST_CONNECT_CB
 #endif
 

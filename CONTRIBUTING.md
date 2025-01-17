@@ -50,10 +50,6 @@ tests using printouts, try `make CTEST_OUTPUT_ON_FAILURE=1 test` or call `ctest`
 directly with your prefered args, such as `-V` (check the manpage for ctest), in
 your CMake build directory.
 
-If you have problems with the linker not finding certain functions in the
-Windows builds, try adding those functions to the file `hiredis_cluster.def`.
-All functions called from the tests need to be in this file.
-
 ## Submitting changes
 
 * Run the formatter before committing when contributing to this project (`make format`).
