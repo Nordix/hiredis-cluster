@@ -16,25 +16,17 @@ jobs:
 
   ubuntu:
     name: ${{ matrix.cmake-build-type }}-build [${{ matrix.compiler }}, cmake-${{ matrix.cmake-version }} sanitizer="${{ matrix.sanitizer }}"]
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
-        compiler: [gcc-13, clang-18]
+        compiler: [gcc-14, clang-19]
         cmake-version: [3.29.3]
         cmake-build-type: [Release, RelWithDebInfo]
         sanitizer: ["", thread, undefined, leak, address]
         include:
-          - compiler: gcc-7
+          - compiler: gcc-9
             cmake-version: 3.14.5
-            cmake-build-type: Release
-            sanitizer: ""
-          - compiler: gcc-8
-            cmake-version: 3.15.4
-            cmake-build-type: Release
-            sanitizer: ""
-          - compiler: clang-7
-            cmake-version: 3.17.3
             cmake-build-type: Release
             sanitizer: ""
           - compiler: clang-9

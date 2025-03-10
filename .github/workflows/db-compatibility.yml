@@ -8,12 +8,13 @@ permissions:
 jobs:
   valkey:
     name: Valkey ${{ matrix.valkey-version }}
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         include:
-          - valkey-version: 7.2.5
+          - valkey-version: '8.0.2'
+          - valkey-version: '7.2.5'
     steps:
       - name: Prepare
         uses: awalsh128/cache-apt-pkgs-action@5902b33ae29014e6ca012c5d8025d4346556bd40 # v1.4.3
@@ -50,16 +51,14 @@ jobs:
 
   redis-comp:
     name: Redis ${{ matrix.redis-version }}
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         include:
-          - redis-version: 7.2.4
-          - redis-version: 7.0.15
-          - redis-version: 6.2.14
-          - redis-version: 6.0.20
-          - redis-version: 5.0.14
+          - redis-version: '7.2.4'
+          - redis-version: '7.0.15'
+          - redis-version: '6.2.14'
     steps:
       - name: Prepare
         uses: awalsh128/cache-apt-pkgs-action@5902b33ae29014e6ca012c5d8025d4346556bd40 # v1.4.3
