@@ -42,7 +42,7 @@ jobs:
         compiler: ${{ matrix.compiler }}
         cmake: ${{ matrix.cmake-version }}
     - name: Install cached APT packages
-      uses: awalsh128/cache-apt-pkgs-action@5902b33ae29014e6ca012c5d8025d4346556bd40 # v1.4.3
+      uses: awalsh128/cache-apt-pkgs-action@7ca5f46d061ad9aa95863cd9b214dd48edef361d # v1.5.0
       with:
         packages: libevent-dev libuv1-dev libev-dev libglib2.0-dev
         version: 1.0
