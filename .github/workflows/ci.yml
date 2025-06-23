@@ -20,8 +20,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        compiler: [gcc-14, clang-19]
-        cmake-version: [3.29.3]
+        compiler: [gcc-14, clang-20]
+        cmake-version: [3.31.8]
         cmake-build-type: [Release, RelWithDebInfo]
         sanitizer: ["", thread, undefined, leak, address]
         include:
