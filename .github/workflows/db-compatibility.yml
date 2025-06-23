@@ -13,8 +13,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - valkey-version: '8.0.2'
-          - valkey-version: '7.2.5'
+          - valkey-version: '8.1.2'
+          - valkey-version: '8.0.3'
+          - valkey-version: '7.2.9'
     steps:
       - name: Prepare
         uses: awalsh128/cache-apt-pkgs-action@7ca5f46d061ad9aa95863cd9b214dd48edef361d # v1.5.0
