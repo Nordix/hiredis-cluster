@@ -18,7 +18,7 @@ jobs:
           - valkey-version: '7.2.9'
     steps:
       - name: Prepare
-        uses: awalsh128/cache-apt-pkgs-action@7ca5f46d061ad9aa95863cd9b214dd48edef361d # v1.5.0
+        uses: awalsh128/cache-apt-pkgs-action@4c82c3ccdc1344ee11e9775dbdbdf43aa8a5614e # v1.5.1
         with:
           packages: libevent-dev
           version: 1.0
@@ -62,7 +62,7 @@ jobs:
           - redis-version: '6.2.14'
     steps:
       - name: Prepare
-        uses: awalsh128/cache-apt-pkgs-action@7ca5f46d061ad9aa95863cd9b214dd48edef361d # v1.5.0
+        uses: awalsh128/cache-apt-pkgs-action@4c82c3ccdc1344ee11e9775dbdbdf43aa8a5614e # v1.5.1
         with:
           packages: libevent-dev
           version: 1.0
