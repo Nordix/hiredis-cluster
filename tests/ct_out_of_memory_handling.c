@@ -222,7 +222,7 @@ void test_alloc_failure_handling(void) {
         redisReply *reply;
         const char *cmd = "SET key value";
 
-        redisClusterNode *node = redisClusterGetNodeByKey(cc, "key");
+        redisClusterNode *node = redisClusterGetNodeByKey(cc, "key", strlen("key"));
         assert(node);
 
         // OOM failing commands
@@ -323,7 +323,7 @@ void test_alloc_failure_handling(void) {
         redisReply *reply;
         const char *cmd = "SET foo one";
 
-        redisClusterNode *node = redisClusterGetNodeByKey(cc, "foo");
+        redisClusterNode *node = redisClusterGetNodeByKey(cc, "foo", strlen("foo"));
         assert(node);
 
         // OOM failing appends
@@ -371,8 +371,8 @@ void test_alloc_failure_handling(void) {
         prepare_allocation_test(cc, 1000);
 
         /* Get the source information for the migration. */
-        unsigned int slot = redisClusterGetSlotByKey("foo");
-        redisClusterNode *srcNode = redisClusterGetNodeByKey(cc, "foo");
+        unsigned int slot = redisClusterGetSlotByKey("foo", strlen("foo"));
+        redisClusterNode *srcNode = redisClusterGetNodeByKey(cc, "foo", strlen("foo"));
         int srcPort = srcNode->port;
 
         /* Get a destination node to migrate the slot to. */
@@ -429,7 +429,7 @@ void test_alloc_failure_handling(void) {
          * allowing a high number of allocations. */
         prepare_allocation_test(cc, 1000);
         /* Fetch the nodes again, in case the slotmap has been reloaded. */
-        srcNode = redisClusterGetNodeByKey(cc, "foo");
+        srcNode = redisClusterGetNodeByKey(cc, "foo", strlen("foo"));
         dstNode = getNodeByPort(cc, dstPort);
         reply = redisClusterCommandToNode(
             cc, srcNode, "CLUSTER SETSLOT %d NODE %s", slot, replyDstId->str);

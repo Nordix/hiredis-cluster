@@ -4534,11 +4534,11 @@ redisClusterNode *redisClusterNodeNext(redisClusterNodeIterator *iter) {
 }
 
 /* Get hash slot for given key string, which can include hash tags */
-unsigned int redisClusterGetSlotByKey(char *key) {
-    return keyHashSlot(key, strlen(key));
+unsigned int redisClusterGetSlotByKey(char *key, int len) {
+    return keyHashSlot(key, len);
 }
 
 /* Get node that handles given key string, which can include hash tags */
-redisClusterNode *redisClusterGetNodeByKey(redisClusterContext *cc, char *key) {
-    return node_get_by_table(cc, keyHashSlot(key, strlen(key)));
+redisClusterNode *redisClusterGetNodeByKey(redisClusterContext *cc, char *key, int len) {
+    return node_get_by_table(cc, keyHashSlot(key, len));
 }

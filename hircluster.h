@@ -356,8 +356,8 @@ void redisClusterInitNodeIterator(redisClusterNodeIterator *iter,
 redisClusterNode *redisClusterNodeNext(redisClusterNodeIterator *iter);
 
 /* Helper functions */
-unsigned int redisClusterGetSlotByKey(char *key);
-redisClusterNode *redisClusterGetNodeByKey(redisClusterContext *cc, char *key);
+unsigned int redisClusterGetSlotByKey(char *key, int len);
+redisClusterNode *redisClusterGetNodeByKey(redisClusterContext *cc, char *key, int len);
 
 /* Old names of renamed functions and types, kept for backward compatibility. */
 #ifndef HIRCLUSTER_NO_OLD_NAMES
