@@ -73,7 +73,8 @@ void test_streams(redisClusterContext *cc) {
     char *id;
 
     /* Get the node that handles given stream */
-    redisClusterNode *node = redisClusterGetNodeByKey(cc, "mystream", strlen("mystream"));
+    redisClusterNode *node =
+        redisClusterGetNodeByKey(cc, "mystream", strlen("mystream"));
     assert(node);
 
     /* Preparation: remove old stream/key */
@@ -82,7 +83,8 @@ void test_streams(redisClusterContext *cc) {
     freeReplyObject(reply);
 
     /* Query wrong node */
-    redisClusterNode *wrongNode = redisClusterGetNodeByKey(cc, "otherstream", strlen("otherstream"));
+    redisClusterNode *wrongNode =
+        redisClusterGetNodeByKey(cc, "otherstream", strlen("otherstream"));
     assert(node != wrongNode);
     reply = redisClusterCommandToNode(cc, wrongNode, "XLEN mystream");
     CHECK_REPLY_ERROR(cc, reply, "MOVED");
@@ -485,7 +487,8 @@ void test_async_transaction(void) {
     status = redisClusterLibeventAttach(acc, base);
     assert(status == REDIS_OK);
 
-    redisClusterNode *node = redisClusterGetNodeByKey(acc->cc, "foo", strlen("foo"));
+    redisClusterNode *node =
+        redisClusterGetNodeByKey(acc->cc, "foo", strlen("foo"));
     assert(node);
 
     ExpectedResult r1 = {.type = REDIS_REPLY_STATUS, .str = "OK"};

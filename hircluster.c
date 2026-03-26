@@ -4539,6 +4539,7 @@ unsigned int redisClusterGetSlotByKey(char *key, int len) {
 }
 
 /* Get node that handles given key string, which can include hash tags */
-redisClusterNode *redisClusterGetNodeByKey(redisClusterContext *cc, char *key, int len) {
+redisClusterNode *redisClusterGetNodeByKey(redisClusterContext *cc, char *key,
+                                           int len) {
     return node_get_by_table(cc, keyHashSlot(key, len));
 }

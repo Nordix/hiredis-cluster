@@ -222,7 +222,8 @@ void test_alloc_failure_handling(void) {
         redisReply *reply;
         const char *cmd = "SET key value";
 
-        redisClusterNode *node = redisClusterGetNodeByKey(cc, "key", strlen("key"));
+        redisClusterNode *node =
+            redisClusterGetNodeByKey(cc, "key", strlen("key"));
         assert(node);
 
         // OOM failing commands
@@ -323,7 +324,8 @@ void test_alloc_failure_handling(void) {
         redisReply *reply;
         const char *cmd = "SET foo one";
 
-        redisClusterNode *node = redisClusterGetNodeByKey(cc, "foo", strlen("foo"));
+        redisClusterNode *node =
+            redisClusterGetNodeByKey(cc, "foo", strlen("foo"));
         assert(node);
 
         // OOM failing appends
@@ -372,7 +374,8 @@ void test_alloc_failure_handling(void) {
 
         /* Get the source information for the migration. */
         unsigned int slot = redisClusterGetSlotByKey("foo", strlen("foo"));
-        redisClusterNode *srcNode = redisClusterGetNodeByKey(cc, "foo", strlen("foo"));
+        redisClusterNode *srcNode =
+            redisClusterGetNodeByKey(cc, "foo", strlen("foo"));
         int srcPort = srcNode->port;
 
         /* Get a destination node to migrate the slot to. */
