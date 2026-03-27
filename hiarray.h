@@ -43,8 +43,7 @@ struct hiarray {
     uint32_t nalloc; /* # allocated element */
 };
 
-#define null_hiarray                                                           \
-    { 0, NULL, 0, 0 }
+#define null_hiarray {0, NULL, 0, 0}
 
 static inline void hiarray_null(struct hiarray *a) {
     a->nelem = 0;

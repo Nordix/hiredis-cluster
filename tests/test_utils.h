@@ -22,11 +22,10 @@
         ASSERT_MSG((strcmp(_reply->str, _str) == 0), _ctx->errstr);            \
     }
 
-#define CHECK_REPLY_OK(_ctx, _reply)                                           \
-    { CHECK_REPLY_STATUS(_ctx, _reply, "OK") }
+#define CHECK_REPLY_OK(_ctx, _reply) {CHECK_REPLY_STATUS(_ctx, _reply, "OK")}
 
 #define CHECK_REPLY_QUEUED(_ctx, _reply)                                       \
-    { CHECK_REPLY_STATUS(_ctx, _reply, "QUEUED") }
+    {CHECK_REPLY_STATUS(_ctx, _reply, "QUEUED")}
 
 #define CHECK_REPLY_INT(_ctx, _reply, _value)                                  \
     {                                                                          \
