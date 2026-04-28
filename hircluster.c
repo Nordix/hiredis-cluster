@@ -3548,7 +3548,7 @@ error:
 }
 
 /**
- * Resets cluster state after pipeline. 
+ * Resets cluster state after pipeline.
  * Resets Redis node connections if pipeline commands were not called beforehand.
  */
 void redisClusterReset(redisClusterContext *cc) {
@@ -4063,6 +4063,10 @@ static void redisClusterAsyncCallback(redisAsyncContext *ac, void *r,
                 cc->table[slot] = node;
             }
             ac_retry = actx_get_by_node(acc, node);
+            if (ac_retry == NULL) {
+                /* Specific error already set */
+                goto done;
+            }
 
             break;
         case CLUSTER_ERR_ASK:
