@@ -1,3 +1,14 @@
+### 0.15.0 - Apr 30, 2026
+
+* Change redisClusterGetSlotByKey and redisClusterGetNodeByKey to accept
+  a length parameter, to correctly handle embedded nulls (#290)
+* Added NULL check for CLUSTER_ERR_MOVED case switch scenario (#293)
+* Retry when an async slotmap update fails (#252)
+* Handle empty/NIL addresses in CLUSTER SLOTS and CLUSTER NODES responses (#252)
+* Fix hiredis_cluster_ssl build on Windows (#253)
+* Enable non-const connect callback API on Windows (#253)
+* Use latest hiredis v1.3.0 as default (#273)
+
 ### 0.14.0 - Aug 21, 2024
 
 * Fix possible leak when failing to send a async cluster command (#234)
