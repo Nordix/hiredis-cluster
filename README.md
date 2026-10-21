@@ -1,5 +1,15 @@
 # Hiredis-cluster
 
+> [!IMPORTANT]
+> Hiredis-cluster is in maintenance mode. New projects should use
+> [libvalkey](https://github.com/valkey-io/libvalkey), the continuation of this
+> project, and existing users are encouraged to migrate.
+> Libvalkey supports any server using the RESP protocol, including Redis, and
+> provides both the standalone and the cluster client in one library, so
+> `hiredis` is no longer needed as a separate dependency.
+> See the [migration guide](https://github.com/valkey-io/libvalkey/blob/main/docs/migration-guide.md)
+> for the changes needed.
+
 Hiredis-cluster is a C client library for cluster deployments of the
 [Redis](http://redis.io/) database.
 
